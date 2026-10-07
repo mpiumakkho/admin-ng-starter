@@ -1,0 +1,54 @@
+<ui-page-header [title]="'Settings' | translate" [subtitle]="'How new accounts and sign-ins work.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]" />
+
+<form [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <ui-card>
+    @if (!canManage()) {
+      <ui-alert class="settings-note" tone="info">{{ 'Your role can view the settings but not change them.' | translate }}</ui-alert>
+    }
+
+    <section class="form-section">
+      <div class="form-section-intro">
+        <h2>{{ 'New users' | translate }}</h2>
+        <p>{{ 'What people start with when an admin adds or invites them.' | translate }}</p>
+      </div>
+      <div class="field-stack">
+        <ui-form-field [label]="'Default role' | translate" for="defaultRoleId" required [errors]="errorMessages()" [hint]="'Picked in advance on the Add user form.' | translate">
+          <select uiInput id="defaultRoleId" formControlName="defaultRoleId">
+            @for (role of store.roles(); track role.id) {
+              <option [value]="role.id">{{ role.name }}</option>
+            }
+          </select>
+        </ui-form-field>
+        <ui-form-field [label]="'Allowed email domains' | translate" for="allowedDomains" [errors]="errorMessages()" [hint]="'Separate domains with commas. Leave empty to allow any email.' | translate">
+          <input uiInput id="allowedDomains" formControlName="allowedDomains" placeholder="example.com, example.co.th" autocomplete="off" />
+        </ui-form-field>
+        <ui-form-field [label]="'Invitations expire after' | translate" [hint]="'Expired invitations show on the overview, ready to send again.' | translate">
+          <ui-segmented [options]="expiryOptions()" formControlName="inviteExpiryDays" [ariaLabel]="'Invitations expire after' | translate" />
+        </ui-form-field>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="form-section-intro">
+        <h2>{{ 'Sign-in' | translate }}</h2>
+        <p>{{ 'Keeps accounts safe on shared or unattended computers.' | translate }}</p>
+      </div>
+      <div class="field-stack">
+        <ui-form-field [label]="'Sign out when idle' | translate" for="sessionTimeoutMinutes" [hint]="'Signs people out after this long without a click, key press or scroll.' | translate">
+          <select uiInput id="sessionTimeoutMinutes" formControlName="sessionTimeoutMinutes" class="timeout-select">
+            @for (option of timeoutOptions(); track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </ui-form-field>
+      </div>
+    </section>
+
+    @if (canManage()) {
+      <div uiCardFooter>
+        <button uiButton variant="secondary" type="button" [disabled]="!form.dirty" (click)="discard()">{{ 'Discard' | translate }}</button>
+        <button uiButton type="submit" [disabled]="!form.dirty" [loading]="saving()"><ng-icon [svg]="icons.save" /> {{ 'Save changes' | translate }}</button>
+      </div>
+    }
+  </ui-card>
+</form>
