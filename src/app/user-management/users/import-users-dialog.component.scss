@@ -1,0 +1,116 @@
+:host {
+  display: contents;
+}
+
+.file-bar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .75rem;
+  padding: .5rem .75rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface-muted);
+}
+
+.file-icon {
+  color: var(--ui-success-text);
+  font-size: 1.125rem;
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-heading);
+  font-size: .8125rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: .75rem;
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
+.summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+
+  &.ok {
+    color: var(--ui-success-text);
+  }
+
+  &.problem {
+    color: var(--ui-danger-text);
+  }
+}
+
+ui-alert {
+  margin-bottom: .75rem;
+}
+
+// The rows scroll inside the dialog, under a header that stays put
+.preview {
+  max-height: min(320px, 45vh);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+}
+
+.muted {
+  color: var(--ui-muted);
+}
+
+// Names and emails stay on one line; the check column wraps
+.preview td:not(:last-child) {
+  white-space: nowrap;
+}
+
+.has-problem td {
+  background: color-mix(in srgb, var(--ui-danger-soft) 60%, transparent);
+}
+
+.problem-text {
+  display: flex;
+  flex-direction: column;
+  color: var(--ui-danger-text);
+  font-size: .75rem;
+}
+
+.ok-text {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  color: var(--ui-success-text);
+  font-size: .75rem;
+}
+
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  margin-top: 1rem;
+}
+
+.status-label {
+  color: var(--ui-text);
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
+.note {
+  margin: .5rem 0 0;
+  color: var(--ui-muted);
+  font-size: .75rem;
+}
+
+.template {
+  margin-top: .75rem;
+}

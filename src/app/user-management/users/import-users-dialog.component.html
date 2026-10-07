@@ -1,0 +1,83 @@
+<ui-dialog [(open)]="open" (openChange)="!$event && chooseAgain()" size="lg" [title]="'Import users' | translate"
+  [description]="'Add many people at once from a spreadsheet saved as CSV.' | translate" [closeLabel]="'Close' | translate">
+  @if (result(); as checked) {
+    <div class="file-bar">
+      <ng-icon [svg]="icons.file" class="file-icon" />
+      <span class="file-name">{{ fileName() }}</span>
+      <button uiButton variant="ghost" size="sm" type="button" (click)="chooseAgain()">{{ 'Choose another file' | translate }}</button>
+    </div>
+
+    @if (checked.missingColumns.length) {
+      <ui-alert tone="danger">{{ 'importMissingColumns' | translate: { columns: checked.missingColumns.join(', ') } }}</ui-alert>
+    } @else if (!checked.rows.length) {
+      <ui-alert tone="warning">{{ 'The file has no rows under its header.' | translate }}</ui-alert>
+    } @else {
+      <div class="summary">
+        <span class="summary-item ok"><ng-icon [svg]="icons.ok" /> {{ 'importReady' | translate: { count: ready().length } }}</span>
+        @if (withProblems()) {
+          <span class="summary-item problem"><ng-icon [svg]="icons.problem" /> {{ 'importProblems' | translate: { count: withProblems() } }}</span>
+        }
+      </div>
+      @if (tooMany()) {
+        <ui-alert tone="warning">{{ 'Only the first 500 rows are read. Split larger files.' | translate }}</ui-alert>
+      }
+
+      <div class="ui-table-scroll preview">
+        <table uiTable dense>
+          <thead>
+            <tr>
+              <th class="ui-cell-shrink">{{ 'Line' | translate }}</th>
+              <th>{{ 'Name' | translate }}</th>
+              <th>{{ 'Email' | translate }}</th>
+              <th>{{ 'Role' | translate }}</th>
+              <th>{{ 'Check' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of checked.rows; track row.line) {
+              <tr [class.has-problem]="row.problems.length">
+                <td class="ui-cell-shrink muted">{{ row.line }}</td>
+                <td>{{ row.draft.firstName }} {{ row.draft.lastName }}</td>
+                <td class="muted">{{ row.draft.email }}</td>
+                <td>{{ roleName(row.draft.roleId) }}</td>
+                <td>
+                  @if (row.problems.length) {
+                    <span class="problem-text">
+                      @for (problem of row.problems; track problem) {
+                        <span>{{ problem | translate }}</span>
+                      }
+                    </span>
+                  } @else {
+                    <span class="ok-text"><ng-icon [svg]="icons.ok" /> {{ 'Ready' | translate }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="status-row">
+        <span class="status-label">{{ 'New users' | translate }}</span>
+        <ui-segmented size="sm" [options]="statusOptions()" [value]="status()" (valueChange)="$event && status.set($event)" [ariaLabel]="'Status' | translate" />
+      </div>
+      @if (withProblems()) {
+        <p class="note">{{ 'Rows with problems are left out. Fix them in the file and import it again.' | translate }}</p>
+      }
+    }
+  } @else {
+    <ui-file-dropzone accept=".csv,text/csv" [title]="'Click to choose a CSV file or drag it here' | translate"
+      [hint]="'Columns: First name, Last name, Email, Phone, Department, Role. The first three are needed.' | translate"
+      (fileSelected)="pick($event)" />
+    <button uiButton variant="ghost" size="sm" type="button" class="template" (click)="downloadTemplate()">
+      <ng-icon [svg]="icons.template" /> {{ 'Download a template' | translate }}
+    </button>
+  }
+
+  <div uiDialogFooter>
+    <button uiButton variant="secondary" type="button" (click)="close()">{{ 'Cancel' | translate }}</button>
+    <button uiButton type="button" [disabled]="!ready().length" [loading]="importing()" (click)="import()">
+      {{ 'importButton' | translate: { count: ready().length } }}
+    </button>
+  </div>
+</ui-dialog>
