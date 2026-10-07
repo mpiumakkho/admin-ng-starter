@@ -1,0 +1,81 @@
+@if (notFound()) {
+  <ui-card>
+    <ui-empty-state [icon]="icons.missing" [title]="'User not found' | translate" [description]="'They may have been deleted.' | translate">
+      <a uiButton variant="secondary" routerLink="/users">{{ 'Back to users' | translate }}</a>
+    </ui-empty-state>
+  </ui-card>
+} @else {
+  <ui-page-header
+    [title]="isSelf() ? ('Edit profile' | translate) : isEdit() ? ('Edit user' | translate) : ('Add user' | translate)"
+    [subtitle]="isEdit() ? title() : ('Create an account and choose what they can do.' | translate)"
+    [icon]="isEdit() ? icons.edit : icons.add"
+    [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="canListUsers() ? [{ label: 'Users' | translate, link: '/users' }] : []" />
+
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <ui-card>
+      <section class="form-section">
+        <div class="form-section-intro">
+          <h2>{{ 'Profile' | translate }}</h2>
+          <p>{{ 'Name, photo, contact details and team.' | translate }}</p>
+        </div>
+        <div class="field-grid">
+          <ui-form-field class="span-2" [label]="'Photo' | translate">
+            <ui-file-dropzone
+              compact
+              accept="image/*"
+              [preview]="form.controls.avatar.value"
+              [title]="'Click to upload or drag and drop' | translate"
+              [hint]="'PNG or JPG. It is cropped to a square.' | translate"
+              [removeLabel]="'Remove photo' | translate"
+              (fileSelected)="pickAvatar($event)"
+              (removed)="removeAvatar()" />
+          </ui-form-field>
+          <ui-form-field [label]="'First name' | translate" for="firstName" required [errors]="errorMessages()">
+            <input uiInput id="firstName" formControlName="firstName" autocomplete="given-name" />
+          </ui-form-field>
+          <ui-form-field [label]="'Last name' | translate" for="lastName" required [errors]="errorMessages()">
+            <input uiInput id="lastName" formControlName="lastName" autocomplete="family-name" />
+          </ui-form-field>
+          <ui-form-field class="span-2" [label]="'Email' | translate" for="email" required [errors]="errorMessages()" [hint]="'Used to sign in.' | translate">
+            <input uiInput id="email" type="email" formControlName="email" autocomplete="email" placeholder="name@example.com" />
+          </ui-form-field>
+          <ui-form-field [label]="'Phone' | translate" for="phone" [optionalLabel]="'(optional)' | translate" [errors]="errorMessages()">
+            <input uiInput id="phone" type="tel" formControlName="phone" autocomplete="tel" placeholder="0812345678" />
+          </ui-form-field>
+          <ui-form-field [label]="'Department' | translate" for="department" required [errors]="errorMessages()">
+            <select uiInput id="department" formControlName="department">
+              @for (department of departments; track department) {
+                <option [value]="department">{{ department | translate }}</option>
+              }
+            </select>
+          </ui-form-field>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <div class="form-section-intro">
+          <h2>{{ 'Role and status' | translate }}</h2>
+          <p>{{ 'Decides what they can see and change.' | translate }}</p>
+        </div>
+        <div class="field-stack">
+          @if (profileOnly()) {
+            <ui-alert tone="info">{{ 'You can change your name, phone and photo. Ask an administrator to change anything else.' | translate }}</ui-alert>
+          } @else if (isSelf()) {
+            <ui-alert tone="info">{{ 'You cannot change your own role or status. Ask another administrator.' | translate }}</ui-alert>
+          }
+          <ui-form-field [label]="'Role' | translate" [hint]="someRolesLocked() ? ('Roles with permissions you do not have yourself cannot be picked.' | translate) : ''">
+            <ui-choice-cards class="role-choices" [choices]="roleChoices()" formControlName="roleId" [ariaLabel]="'Role' | translate" />
+          </ui-form-field>
+          <ui-form-field [label]="'Status' | translate" [hint]="'Invited users get an email to set their password. Suspended users cannot sign in.' | translate">
+            <ui-segmented [options]="statusOptions()" formControlName="status" [ariaLabel]="'Status' | translate" />
+          </ui-form-field>
+        </div>
+      </section>
+
+      <div uiCardFooter>
+        <a uiButton variant="secondary" [routerLink]="isEdit() ? ['/users', id()] : '/users'">{{ 'Cancel' | translate }}</a>
+        <button uiButton type="submit" [loading]="saving()"><ng-icon [svg]="icons.save" /> {{ isEdit() ? ('Save changes' | translate) : ('Add user' | translate) }}</button>
+      </div>
+    </ui-card>
+  </form>
+}

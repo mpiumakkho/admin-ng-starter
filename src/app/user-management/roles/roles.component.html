@@ -1,0 +1,116 @@
+<ui-page-header [title]="'Roles & permissions' | translate" [subtitle]="'Decide what each group of people can see and change.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
+  @if (canManage()) {
+    <button uiButton type="button" (click)="openCreate()"><ng-icon [svg]="icons.add" /> {{ 'New role' | translate }}</button>
+  }
+</ui-page-header>
+
+<div class="roles-layout">
+  <!-- Role list -->
+  <nav class="role-list" [attr.aria-label]="'Roles' | translate">
+    @for (item of store.roles(); track item.id) {
+      <button type="button" class="role-item" [class.active]="item.id === selected()?.id" [attr.aria-current]="item.id === selected()?.id ? 'true' : null" (click)="select(item)">
+        <span class="role-dot" [class]="'role-dot tone-' + item.tone"></span>
+        <span class="role-text">
+          <span class="role-name">
+            {{ item.name }}
+            @if (item.system) {
+              <ng-icon [svg]="icons.locked" [title]="'Built-in role' | translate" />
+            }
+          </span>
+          <span class="role-description">{{ item.description }}</span>
+        </span>
+        <span class="role-count"><ng-icon [svg]="icons.users" /> {{ store.roleCounts().get(item.id) ?? 0 }}</span>
+      </button>
+    }
+  </nav>
+
+  <!-- Editor -->
+  @if (selected(); as current) {
+    <ui-card #editor class="editor" [title]="(roleEditable() ? 'Edit role' : 'Role') | translate" [description]="'userCount' | translate: { count: userCount() }">
+      @if (current.system) {
+        <ui-badge uiCardActions tone="neutral"><ng-icon [svg]="icons.locked" /> {{ 'Built-in role' | translate }}</ui-badge>
+      }
+
+      @if (!canManage()) {
+        <ui-alert class="editor-note" tone="info">{{ 'Your role can view roles but not change them.' | translate }}</ui-alert>
+      } @else if (!roleEditable()) {
+        <ui-alert class="editor-note" tone="info">{{ 'This role has permissions you do not have, so you cannot change it.' | translate }}</ui-alert>
+      } @else if (isOwnRole()) {
+        <ui-alert class="editor-note" tone="info">{{ 'This is your own role, so you cannot change its permissions. Another administrator can.' | translate }}</ui-alert>
+      } @else if (someLocked()) {
+        <ui-alert class="editor-note" tone="neutral">{{ 'Permissions you do not have yourself cannot be changed.' | translate }}</ui-alert>
+      }
+
+      <div class="editor-fields">
+        <ui-form-field [label]="'Name' | translate" for="roleName" required>
+          <input uiInput id="roleName" [ngModel]="name()" (ngModelChange)="name.set($event)" maxlength="40" [readonly]="!roleEditable()" />
+        </ui-form-field>
+        <ui-form-field [label]="'Description' | translate" for="roleDescription">
+          <input uiInput id="roleDescription" [ngModel]="description()" (ngModelChange)="description.set($event)" maxlength="120" [readonly]="!roleEditable()" />
+        </ui-form-field>
+        <div class="tone-field">
+          <span class="field-title">{{ 'Color' | translate }}</span>
+          <div class="tone-swatches" role="radiogroup" [attr.aria-label]="'Color' | translate">
+            @for (option of tones; track option) {
+              <button type="button" role="radio" class="swatch" [class]="'swatch tone-' + option" [class.selected]="tone() === option" [attr.aria-checked]="tone() === option" [attr.aria-label]="toneNames[option] | translate" [disabled]="!roleEditable()" (click)="tone.set(option)"></button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="matrix">
+        @for (group of groups; track group.key) {
+          <section class="matrix-group">
+            <header class="matrix-head">
+              <ui-checkbox [checked]="groupState(group) === 'all'" [indeterminate]="groupState(group) === 'some'" [disabled]="!groupEditable(group)" (changed)="toggleGroup(group)">
+                <span class="matrix-title">{{ group.label | translate }}</span>
+              </ui-checkbox>
+            </header>
+            <div class="matrix-items">
+              @for (permission of group.permissions; track permission.key) {
+                <ui-checkbox [checked]="has(permission.key)" [disabled]="!editable(permission.key)" (changed)="toggle(permission.key, $event)">
+                  {{ permission.label | translate }}
+                  <code class="permission-key">{{ permission.key }}</code>
+                </ui-checkbox>
+              }
+            </div>
+          </section>
+        }
+      </div>
+
+      @if (roleEditable()) {
+        <div uiCardFooter class="editor-footer">
+          <button uiButton variant="danger-soft" type="button" class="delete" [disabled]="current.system || userCount() > 0 || isDefaultRole()"
+            [title]="(current.system ? 'Built-in roles cannot be deleted.' : userCount() > 0 ? 'This role still has users. Move them to another role first.' : isDefaultRole() ? 'New users get this role by default. Pick another default in the settings first.' : '') | translate" (click)="remove()">
+            <ng-icon [svg]="icons.remove" /> {{ 'Delete role' | translate }}
+          </button>
+          <button uiButton variant="secondary" type="button" [disabled]="!dirty()" (click)="discard()">{{ 'Discard' | translate }}</button>
+          <button uiButton type="button" [disabled]="!dirty() || !name().trim()" [loading]="saving()" (click)="save()"><ng-icon [svg]="icons.save" /> {{ 'Save changes' | translate }}</button>
+        </div>
+      }
+    </ui-card>
+  }
+</div>
+
+<ui-dialog [(open)]="creating" [title]="'New role' | translate" [description]="'Start from scratch or copy another role\'s permissions.' | translate" [closeLabel]="'Close' | translate">
+  <form class="dialog-form" id="newRoleForm" (ngSubmit)="create()">
+    <ui-form-field [label]="'Name' | translate" for="newRoleName" required>
+      <input uiInput id="newRoleName" name="name" [ngModel]="newName()" (ngModelChange)="newName.set($event)" maxlength="40" required />
+    </ui-form-field>
+    <ui-form-field [label]="'Description' | translate" for="newRoleDescription" [optionalLabel]="'(optional)' | translate">
+      <input uiInput id="newRoleDescription" name="description" [ngModel]="newDescription()" (ngModelChange)="newDescription.set($event)" maxlength="120" />
+    </ui-form-field>
+    <ui-form-field [label]="'Copy permissions from' | translate" for="copyFrom">
+      <select uiInput id="copyFrom" name="copyFrom" [ngModel]="copyFrom()" (ngModelChange)="copyFrom.set($event)">
+        <option value="">{{ 'None (view users only)' | translate }}</option>
+        @for (item of copyableRoles(); track item.id) {
+          <option [value]="item.id">{{ item.name }}</option>
+        }
+      </select>
+    </ui-form-field>
+  </form>
+  <div uiDialogFooter>
+    <button uiButton variant="secondary" type="button" (click)="creating.set(false)">{{ 'Cancel' | translate }}</button>
+    <button uiButton type="submit" form="newRoleForm" [disabled]="!newName().trim()">{{ 'Create role' | translate }}</button>
+  </div>
+</ui-dialog>

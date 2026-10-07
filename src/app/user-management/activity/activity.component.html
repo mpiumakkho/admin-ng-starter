@@ -1,0 +1,107 @@
+<ui-page-header [title]="'Activity log' | translate" [subtitle]="subject() ? ('activityOf' | translate: { name: subjectName() }) : ('Every change made in the admin, newest first.' | translate)" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
+  @if (session.can('activity.export')) {
+    <button uiButton variant="secondary" type="button" (click)="exportCsv()"><ng-icon [svg]="icons.export" /> {{ 'Export' | translate }}</button>
+  }
+</ui-page-header>
+
+<ui-card flush fit>
+  <div class="toolbar">
+    @if (subject()) {
+      <!-- One person's activity, as opened from their profile; the cross shows everyone's again -->
+      <span class="subject-chip" [title]="'activityOf' | translate: { name: subjectName() }">
+        <ui-avatar [name]="subjectName()" [src]="subjectUser()?.avatar" size="xs" />
+        <span class="subject-name">{{ subjectName() }}</span>
+        <button type="button" class="subject-clear" (click)="clearSubject()" [attr.aria-label]="'Show everyone\'s activity' | translate">
+          <ng-icon [svg]="icons.clear" />
+        </button>
+      </span>
+    }
+    <ui-search-input class="toolbar-search" size="sm" [value]="table.query()" (valueChange)="table.search($event)" [placeholder]="'Search name, item or IP' | translate" [clearLabel]="'Clear search' | translate" />
+    <select uiInput class="ui-input-sm toolbar-select" [value]="period()" (change)="setPeriod($any($event.target).value)" [attr.aria-label]="'Time range' | translate">
+      <option value="all">{{ 'Any time' | translate }}</option>
+      <option value="today">{{ 'Today' | translate }}</option>
+      <option value="7d">{{ 'Last 7 days' | translate }}</option>
+      <option value="30d">{{ 'Last 30 days' | translate }}</option>
+    </select>
+    <select uiInput class="ui-input-sm toolbar-select" [value]="actor()" (change)="setActor($any($event.target).value)" [attr.aria-label]="'Done by' | translate">
+      <option value="all">{{ 'Anyone' | translate }}</option>
+      @for (person of actors(); track person.id) {
+        <option [value]="person.id">{{ person.name }}</option>
+      }
+    </select>
+    <ui-filter-chips class="toolbar-chips" [options]="kindOptions()" [value]="kind()" (valueChange)="setKind($event)" [ariaLabel]="'Type' | translate" />
+  </div>
+
+  @if (table.total()) {
+    <div class="ui-table-scroll" [uiTableMinRows]="pageSizes[0]" [uiTableScrollReset]="table">
+      <table uiTable dense class="log">
+        <thead>
+          <tr>
+            <th><ui-sort-header [table]="table" key="time">{{ 'Time' | translate }}</ui-sort-header></th>
+            <th><ui-sort-header [table]="table" key="actor">{{ 'Done by' | translate }}</ui-sort-header></th>
+            <th><ui-sort-header [table]="table" key="action">{{ 'Action' | translate }}</ui-sort-header></th>
+            <th class="hide-md">{{ 'Details' | translate }}</th>
+            <th class="hide-lg">{{ 'IP and device' | translate }}</th>
+            <th class="ui-cell-shrink"><span class="ui-sr-only">{{ 'Actions' | translate }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of table.pageRows(); track row.entry.id) {
+            <tr class="ui-row-link" (click)="open(row)">
+              <td class="cell-time">
+                <span class="cell-main">{{ row.entry.at | localDate: 'datetime' }}</span>
+                <span class="cell-sub">{{ row.entry.at | timeAgo }}</span>
+              </td>
+              <td class="cell-actor">
+                <ui-person [name]="row.actorName" [detail]="row.actor?.email ?? ''" [src]="row.actor?.avatar" />
+              </td>
+              <td class="cell-action">
+                <div class="action">
+                  <ui-icon-chip size="sm" [icon]="meta[row.entry.action].icon" [tone]="meta[row.entry.action].tone" />
+                  <div class="action-text">
+                    <span class="cell-main action-label">{{ row.action }}</span>
+                    @if (row.entry.action !== 'auth.sign_in') {
+                      @if (row.target; as target) {
+                        <a class="cell-sub target-link" [routerLink]="target.link" [queryParams]="target.queryParams" (click)="$event.stopPropagation()">{{ target.label ? (target.label | translate) : row.entry.targetLabel }}</a>
+                      } @else {
+                        <span class="cell-sub">{{ row.entry.targetLabel }} ({{ 'deleted' | translate }})</span>
+                      }
+                    }
+                  </div>
+                </div>
+              </td>
+              <td class="hide-md cell-details" [class.is-empty]="!row.summary" [attr.title]="row.summary || null">
+                @if (row.summary) {
+                  {{ row.summary }}
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td class="hide-lg cell-ip">
+                <span class="cell-main mono">{{ row.entry.ip }}</span>
+                <span class="cell-sub device"><ng-icon [svg]="row.mobile ? icons.phone : icons.desktop" /> {{ row.entry.browser }} · {{ row.entry.os }}</span>
+              </td>
+              <td class="ui-cell-shrink cell-open" (click)="$event.stopPropagation()">
+                <button uiButton variant="ghost" size="sm" iconOnly type="button" (click)="open(row)" [attr.aria-label]="'View details' | translate">
+                  <ng-icon [svg]="icons.open" />
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <ui-page-size [table]="table" [sizes]="pageSizes" [label]="'rangeOf' | translate: table.range()" [heading]="'Rows per page' | translate" />
+      <ui-pagination [ariaLabel]="'Pagination' | translate" [page]="table.currentPage()" (pageChange)="table.page.set($event)" [pageCount]="table.pageCount()" [previousLabel]="'Previous page' | translate" [nextLabel]="'Next page' | translate" />
+    </div>
+  } @else {
+    <ui-empty-state [icon]="icons.empty" [title]="'No activity found' | translate" [description]="'Try another search or clear the filters.' | translate">
+      @if (hasFilters()) {
+        <button uiButton variant="secondary" type="button" (click)="clearFilters()">{{ 'Clear filters' | translate }}</button>
+      }
+    </ui-empty-state>
+  }
+</ui-card>
+
+<app-activity-dialog [entry]="selected()?.entry ?? null" (closed)="selected.set(null)" />

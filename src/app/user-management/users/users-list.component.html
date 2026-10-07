@@ -1,0 +1,121 @@
+<ui-page-header [title]="'Users' | translate" [subtitle]="'Everyone who can sign in to the admin.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
+  <button uiButton variant="secondary" type="button" (click)="exportCsv()"><ng-icon [svg]="icons.export" /> {{ 'Export' | translate }}</button>
+  @if (session.can('users.create')) {
+    <button uiButton variant="secondary" type="button" (click)="importing.set(true)"><ng-icon [svg]="icons.import" /> {{ 'Import' | translate }}</button>
+    <a uiButton routerLink="/users/new"><ng-icon [svg]="icons.add" /> {{ 'Add user' | translate }}</a>
+  }
+</ui-page-header>
+
+@if (session.can('users.create')) {
+  <app-import-users-dialog [(open)]="importing" />
+}
+
+<ui-card flush fit>
+  <div class="toolbar">
+    <ui-search-input class="toolbar-search" size="sm" [value]="table.query()" (valueChange)="table.search($event)" [placeholder]="'Search name, email or phone' | translate" [clearLabel]="'Clear search' | translate" />
+    <!-- Each option marks itself selected: a value on the select is set before the role options exist, as with ?role=… on arrival -->
+    <select uiInput class="ui-input-sm toolbar-role" (change)="setRole($any($event.target).value)" [attr.aria-label]="'Role' | translate">
+      <option value="all" [selected]="roleFilter() === 'all'">{{ 'All roles' | translate }}</option>
+      @for (role of store.roles(); track role.id) {
+        <option [value]="role.id" [selected]="roleFilter() === role.id">{{ role.name }}</option>
+      }
+    </select>
+    <ui-filter-chips class="toolbar-chips" [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" [ariaLabel]="'Status' | translate" />
+  </div>
+
+  @if (table.selectedIds().size) {
+    <ui-bulk-bar [label]="'selectedCount' | translate: { count: table.selectedIds().size }" [clearLabel]="'Clear' | translate" (cleared)="table.clearSelection()">
+      @if (canEdit()) {
+        <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="setStatusFor(table.selectedRows(), 'active')"><ng-icon [svg]="icons.activate" /> {{ 'Activate' | translate }}</button>
+        <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="setStatusFor(table.selectedRows(), 'suspended')"><ng-icon [svg]="icons.suspend" /> {{ 'Suspend' | translate }}</button>
+      }
+      @if (canDelete()) {
+        <button uiButton size="sm" variant="danger-soft" type="button" [disabled]="busy()" (click)="remove(table.selectedRows())"><ng-icon [svg]="icons.remove" /> {{ 'Delete' | translate }}</button>
+      }
+    </ui-bulk-bar>
+  }
+
+  @if (table.total()) {
+    <div class="ui-table-scroll" [uiTableMinRows]="pageSizes[0]" [uiTableScrollReset]="table">
+      <table uiTable dense class="users-table">
+        <thead>
+          <tr>
+            @if (canSelect()) {
+              <th class="ui-cell-shrink">
+                <ui-checkbox [checked]="table.allOnPageSelected()" [indeterminate]="table.someOnPageSelected()" [disabled]="!table.pageHasSelectable()" (changed)="table.togglePage()" [ariaLabel]="'Select all on this page' | translate" />
+              </th>
+            }
+            <th><ui-sort-header [table]="table" key="name">{{ 'User' | translate }}</ui-sort-header></th>
+            <th><ui-sort-header [table]="table" key="role">{{ 'Role' | translate }}</ui-sort-header></th>
+            <th class="hide-md"><ui-sort-header [table]="table" key="department">{{ 'Department' | translate }}</ui-sort-header></th>
+            <th>{{ 'Status' | translate }}</th>
+            <th class="hide-lg"><ui-sort-header [table]="table" key="lastActive">{{ 'Last active' | translate }}</ui-sort-header></th>
+            <th class="hide-lg"><ui-sort-header [table]="table" key="created">{{ 'Joined' | translate }}</ui-sort-header></th>
+            <th class="ui-cell-shrink"><span class="ui-sr-only">{{ 'Actions' | translate }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of table.pageRows(); track user.id) {
+            <tr class="ui-row-link" [class.ui-row-selected]="table.isSelected(user)" (click)="open(user)">
+              @if (canSelect()) {
+                <td class="ui-cell-shrink cell-check" (click)="$event.stopPropagation()" [title]="lockReason(user) | translate">
+                  <ui-checkbox [checked]="table.isSelected(user)" [disabled]="!table.isSelectable(user)" (changed)="table.toggle(user)" [ariaLabel]="'selectUser' | translate: { name: fullName(user) }" />
+                </td>
+              }
+              <td class="cell-person">
+                <ui-person [name]="fullName(user)" [detail]="user.email" [src]="user.avatar">
+                  @if (session.isSelf(user)) {
+                    <span class="you">{{ 'You' | translate }}</span>
+                  }
+                </ui-person>
+              </td>
+              <td class="cell-role"><app-role-badge [roleId]="user.roleId" /></td>
+              <td class="hide-md muted">{{ user.department | translate }}</td>
+              <td class="cell-status"><app-status-badge [status]="user.status" /></td>
+              <td class="hide-lg muted">{{ user.lastActiveAt | timeAgo: ('Never' | translate) }}</td>
+              <td class="hide-lg muted">{{ user.createdAt | localDate }}</td>
+              <td class="ui-cell-shrink cell-actions" (click)="$event.stopPropagation()">
+                <button uiButton variant="ghost" size="sm" iconOnly type="button" [uiMenuTrigger]="rowMenu" [attr.aria-label]="'actionsFor' | translate: { name: fullName(user) }">
+                  <ng-icon [svg]="icons.more" />
+                </button>
+                <ng-template #rowMenu>
+                  <ui-menu>
+                    <button uiMenuItem [icon]="icons.view" (triggered)="open(user)">{{ 'View profile' | translate }}</button>
+                    @if (session.canEditProfile(user)) {
+                      <a uiMenuItem [icon]="icons.edit" [routerLink]="['/users', user.id, 'edit']">{{ 'Edit' | translate }}</a>
+                    }
+                    <!-- Status and password reset are for other people; your own password is in the account menu -->
+                    @if (canEdit() && manages(user) && !session.isSelf(user)) {
+                      @if (user.status === 'suspended') {
+                        <button uiMenuItem [icon]="icons.activate" (triggered)="setStatusFor([user], 'active')">{{ 'Activate' | translate }}</button>
+                      } @else {
+                        <button uiMenuItem [icon]="icons.suspend" (triggered)="setStatusFor([user], 'suspended')">{{ 'Suspend' | translate }}</button>
+                      }
+                      <button uiMenuItem [icon]="icons.reset" (triggered)="resetPassword(user)">{{ 'Reset password' | translate }}</button>
+                    }
+                    @if (canDelete() && manages(user) && !session.isSelf(user)) {
+                      <hr uiMenuDivider />
+                      <button uiMenuItem tone="danger" [icon]="icons.remove" (triggered)="remove([user])">{{ 'Delete' | translate }}</button>
+                    }
+                  </ui-menu>
+                </ng-template>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <ui-page-size [table]="table" [sizes]="pageSizes" [label]="'rangeOf' | translate: table.range()" [heading]="'Rows per page' | translate" />
+      <ui-pagination [ariaLabel]="'Pagination' | translate" [page]="table.currentPage()" (pageChange)="table.page.set($event)" [pageCount]="table.pageCount()" [previousLabel]="'Previous page' | translate" [nextLabel]="'Next page' | translate" />
+    </div>
+  } @else {
+    <ui-empty-state [icon]="icons.empty" [title]="'No users found' | translate" [description]="(hasFilters() ? 'Try another search or clear the filters.' : 'Add the first user to get started.') | translate">
+      @if (hasFilters()) {
+        <button uiButton variant="secondary" type="button" (click)="clearFilters()">{{ 'Clear filters' | translate }}</button>
+      } @else if (session.can('users.create')) {
+        <a uiButton routerLink="/users/new">{{ 'Add user' | translate }}</a>
+      }
+    </ui-empty-state>
+  }
+</ui-card>

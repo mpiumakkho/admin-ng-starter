@@ -1,0 +1,92 @@
+<div class="event">
+  <ui-icon-chip [icon]="meta().icon" [tone]="meta().tone" />
+  <div class="event-text">
+    <p class="event-sentence"><app-activity-text [entry]="entry()" /></p>
+    <p class="event-time">{{ entry().at | localDate: 'full' }} · {{ entry().at | timeAgo }}</p>
+  </div>
+</div>
+
+<ui-detail-list [columns]="2">
+  <ui-detail-item [label]="'Done by' | translate">
+    @if (actor(); as user) {
+      <a class="person-link" [routerLink]="['/users', user.id]"><ui-person [name]="actorName()" [detail]="user.email" [src]="user.avatar" size="xs" /></a>
+    } @else {
+      <span class="muted">{{ actorName() }}</span>
+    }
+  </ui-detail-item>
+  <ui-detail-item [label]="'Target' | translate">
+    @if (entry().action === 'auth.sign_in') {
+      <span class="muted">—</span>
+    } @else if (target(); as found) {
+      <a [routerLink]="found.link" [queryParams]="found.queryParams">{{ found.label ? (found.label | translate) : entry().targetLabel }}</a>
+    } @else {
+      {{ entry().targetLabel }} <span class="muted">({{ 'deleted' | translate }})</span>
+    }
+  </ui-detail-item>
+  <ui-detail-item [label]="'Action' | translate">
+    <ui-badge [tone]="meta().tone">{{ action() }}</ui-badge>
+  </ui-detail-item>
+  <ui-detail-item [label]="'Type' | translate">{{ kind() | translate }}</ui-detail-item>
+  <ui-detail-item [label]="'IP address' | translate"><code class="mono">{{ entry().ip }}</code></ui-detail-item>
+  <ui-detail-item [label]="'Device' | translate">
+    <span class="device"><ng-icon [svg]="deviceIcon()" /> {{ entry().browser }} · {{ entry().os }}</span>
+  </ui-detail-item>
+  <ui-detail-item [label]="'Event ID' | translate"><code class="mono">{{ entry().id }}</code></ui-detail-item>
+</ui-detail-list>
+
+<h3 class="changes-title">{{ 'Changes' | translate }}</h3>
+@if (changes().length) {
+  <div class="ui-table-scroll changes-scroll">
+    <table uiTable class="changes">
+      <thead>
+        <tr>
+          <th>{{ 'Field' | translate }}</th>
+          <th>{{ 'Before' | translate }}</th>
+          <th>{{ 'After' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (change of changes(); track change.field) {
+          <tr>
+            <td class="field">{{ change.label }}</td>
+            @switch (change.kind) {
+              @case ('list') {
+                <td>
+                  <div class="chips">
+                    @for (label of change.removed; track label) {
+                      <ui-badge tone="danger">− {{ label }}</ui-badge>
+                    } @empty {
+                      <span class="muted">—</span>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <div class="chips">
+                    @for (label of change.added; track label) {
+                      <ui-badge tone="success">+ {{ label }}</ui-badge>
+                    } @empty {
+                      <span class="muted">—</span>
+                    }
+                  </div>
+                </td>
+              }
+              @case ('tone') {
+                <td><span class="swatch" [style.background]="'var(--ui-' + change.rawFrom + ')'"></span></td>
+                <td><span class="swatch" [style.background]="'var(--ui-' + change.rawTo + ')'"></span></td>
+              }
+              @case ('changed') {
+                <td colspan="2" class="muted">{{ 'Changed' | translate }}</td>
+              }
+              @default {
+                <td class="before">{{ change.from }}</td>
+                <td class="after">{{ change.to }}</td>
+              }
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <p class="no-changes">{{ noChanges() | translate }}</p>
+}

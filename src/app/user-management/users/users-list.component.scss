@@ -1,0 +1,124 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 1.5rem;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.toolbar-search {
+  flex: 0 1 300px;
+}
+
+.toolbar-role {
+  width: auto;
+  min-width: 150px;
+}
+
+.toolbar-chips {
+  margin-inline-start: auto;
+}
+
+.muted {
+  color: var(--ui-muted);
+  white-space: nowrap;
+}
+
+.you {
+  padding: .0625rem .375rem;
+  border-radius: 4px;
+  background: var(--ui-hover);
+  color: var(--ui-muted);
+  font-size: .6875rem;
+  font-weight: 600;
+}
+
+.table-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .625rem 1.5rem;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+// Phones: each user is a card, the name on top and the role and status under it, with the
+// checkbox on the left and the actions on the right, so nothing important needs a sideways scroll
+@media (max-width: 575px) {
+  .toolbar {
+    padding: .75rem 1rem;
+  }
+
+  .toolbar-search,
+  .toolbar-role {
+    flex: 1 1 100%;
+  }
+
+  .toolbar-chips {
+    margin-inline-start: 0;
+  }
+
+  .users-table thead {
+    display: none;
+  }
+
+  .users-table tbody tr {
+    display: grid;
+    grid-template-areas:
+      "check person person actions"
+      "check role   status actions";
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .375rem .5rem;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--ui-border);
+
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  .users-table tbody td {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: 0;
+
+    &.hide-md,
+    &.hide-lg {
+      display: none;
+    }
+  }
+
+  .cell-check { grid-area: check; }
+  .cell-person { grid-area: person; min-width: 0; }
+  .cell-status { grid-area: status; justify-self: start; }
+  .cell-actions { grid-area: actions; }
+
+  // Lined up with the name, past the photo
+  .cell-role {
+    grid-area: role;
+    padding-inline-start: calc(32px + .75rem) !important;
+  }
+
+  .table-footer {
+    padding-inline: 1rem;
+  }
+}
+
+// Less important columns give way on smaller screens
+@media (max-width: 1199px) {
+  .hide-lg {
+    display: none;
+  }
+}
+
+@media (max-width: 991px) {
+  .hide-md {
+    display: none;
+  }
+}

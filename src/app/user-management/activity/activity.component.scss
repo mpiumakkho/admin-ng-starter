@@ -1,0 +1,251 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 1.5rem;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.toolbar-search {
+  flex: 0 1 280px;
+}
+
+// The person the log is narrowed to
+.subject-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  max-width: 240px;
+  height: 32px;
+  padding: 0 .25rem 0 .375rem;
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  border-radius: 999px;
+  background: var(--ui-primary-soft);
+  color: var(--ui-primary-text);
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
+.subject-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-clear {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--ui-primary) 15%, transparent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+}
+
+.toolbar-select {
+  width: auto;
+  min-width: 150px;
+}
+
+.toolbar-chips {
+  margin-inline-start: auto;
+}
+
+.log td {
+  vertical-align: middle;
+}
+
+// Two lines in one cell: the value, then a smaller note under it. Spaced like ui-person in the
+// "Done by" column, so every row is as tall as a users-list row.
+.cell-main,
+.cell-sub {
+  display: block;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.cell-main {
+  color: var(--ui-heading);
+}
+
+.cell-sub {
+  color: var(--ui-muted);
+  font-size: .75rem;
+}
+
+.action {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+}
+
+.action-text {
+  min-width: 0;
+}
+
+.action-label {
+  font-weight: 500;
+}
+
+.target-link {
+  max-width: 200px;
+  overflow: hidden;
+  color: var(--ui-primary);
+  font-weight: 500;
+  text-decoration: none;
+  text-overflow: ellipsis;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.cell-details {
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--ui-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: var(--ui-font-mono);
+  font-size: .8125rem;
+}
+
+.device {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+}
+
+.muted {
+  color: var(--ui-muted);
+}
+
+.table-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .625rem 1.5rem;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+// Less important columns give way on smaller screens
+@media (max-width: 1399px) {
+  .hide-lg {
+    display: none;
+  }
+}
+
+@media (max-width: 1199px) {
+  .hide-md {
+    display: none;
+  }
+}
+
+// Phones: the search takes the row, the two filters share the next one
+@media (max-width: 575px) {
+  .toolbar {
+    padding: .75rem 1rem;
+  }
+
+  .toolbar-search {
+    flex: 1 1 100%;
+  }
+
+  .toolbar-select {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .toolbar-chips {
+    margin-inline-start: 0;
+  }
+}
+
+// On phones each entry becomes a stacked card: what happened, who did it, and when
+@media (max-width: 767px) {
+  .log thead {
+    display: none;
+  }
+
+  .log tbody tr {
+    display: grid;
+    grid-template-areas:
+      "action  open"
+      "actor   open"
+      "details details"
+      "time    time";
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .625rem .75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--ui-border);
+
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  .log tbody td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .log tbody .cell-action { grid-area: action; }
+  .log tbody .cell-actor { grid-area: actor; }
+  .log tbody .cell-time { grid-area: time; }
+  .log tbody .cell-open { grid-area: open; width: auto; }
+
+  // What changed, in full; the IP and device are a tap away in the details
+  .log tbody .cell-details {
+    display: block;
+    grid-area: details;
+    max-width: none;
+    color: var(--ui-muted);
+    font-size: .8125rem;
+    white-space: normal;
+
+    &.is-empty {
+      display: none;
+    }
+  }
+
+  .log tbody .cell-ip {
+    display: none;
+  }
+
+  // The time reads as one line under the person
+  .cell-time .cell-main,
+  .cell-time .cell-sub {
+    display: inline;
+    color: var(--ui-muted);
+    font-size: .75rem;
+  }
+
+  .cell-time .cell-sub::before {
+    content: " · ";
+  }
+}

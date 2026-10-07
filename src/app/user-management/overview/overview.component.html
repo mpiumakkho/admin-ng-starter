@@ -1,0 +1,154 @@
+<ui-page-header [title]="'Overview' | translate" [subtitle]="'How your users and roles are doing.' | translate" [icon]="icons.page">
+  @if (session.can('users.create')) {
+    <a uiButton routerLink="/users/new"><ng-icon [svg]="icons.joined" /> {{ 'Add user' | translate }}</a>
+  }
+</ui-page-header>
+
+<!-- Each number opens the users behind it -->
+<div class="stat-grid">
+  <a routerLink="/users">
+    <ui-stat-card [label]="'Total users' | translate" [value]="total()" [icon]="icons.users" tone="primary">
+      <ui-split-bar [parts]="statusSplit()" />
+    </ui-stat-card>
+  </a>
+  <a routerLink="/users" [queryParams]="{ status: 'active', sort: 'active' }">
+    <ui-stat-card [label]="'Signed in in the last 7 days' | translate" [value]="recentlyActive()" [icon]="icons.active" tone="success" [hint]="'recentShare' | translate: { share: recentShare() }" />
+  </a>
+  <a routerLink="/users" [queryParams]="{ sort: 'joined' }">
+    <ui-stat-card [label]="'Joined in the last 30 days' | translate" [value]="newThisMonth()" [icon]="icons.joined" tone="info" [trend]="newTrend()" trendSuffix="" [hint]="'vs the previous 30 days' | translate" />
+  </a>
+  <a routerLink="/users" [queryParams]="{ status: 'invited' }">
+    <ui-stat-card [label]="'Pending invitations' | translate" [value]="invited()" [icon]="icons.invited" tone="warning" [hint]="'Not signed in yet' | translate" />
+  </a>
+</div>
+
+<div class="overview-grid" [class.no-activity]="!session.can('activity.view')">
+  <ui-card class="span-8 chart-card" [title]="'New users' | translate" [description]="'People who joined each month' | translate">
+    <ui-segmented uiCardActions size="sm" [options]="rangeOptions()" [(value)]="months" [ariaLabel]="'Time range' | translate" />
+    <div class="chart-box">
+      <canvas baseChart type="bar" [data]="signupData()" [options]="signupOptions" role="img" [attr.aria-label]="signupSummary()"></canvas>
+    </div>
+  </ui-card>
+
+  <ui-card class="span-4" [title]="'Users by role' | translate" [description]="'Who can do what' | translate">
+    @if (session.can('roles.view')) {
+      <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/roles">{{ (session.can('roles.manage') ? 'Manage' : 'View all') | translate }} <ng-icon [svg]="icons.arrow" /></a>
+    }
+    <div class="role-body">
+      <div class="role-layout">
+        <div class="donut">
+          @if (total()) {
+            <canvas baseChart type="doughnut" [data]="roleData()" [options]="roleOptions" aria-hidden="true"></canvas>
+          } @else {
+            <div class="donut-empty"></div>
+          }
+          <div class="donut-center">
+            <span class="donut-value">{{ total() }}</span>
+            <span class="donut-label">{{ 'Users' | translate }}</span>
+          </div>
+        </div>
+        <ui-chart-legend class="role-legend" [items]="roleLegend()" layout="list" />
+      </div>
+    </div>
+  </ui-card>
+
+  <!-- Without activity.view the log stays empty, so this card makes way for the next one -->
+  @if (session.can('activity.view')) {
+    <ui-card class="span-7" [title]="'Recent activity' | translate" [description]="'Latest changes made by admins' | translate">
+      <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/activity">{{ 'View all' | translate }} <ng-icon [svg]="icons.arrow" /></a>
+      @if (recentActivity().length) {
+        <ui-timeline>
+          @for (entry of recentActivity(); track entry.id) {
+            <ui-timeline-item [icon]="activityMeta[entry.action].icon" [tone]="activityMeta[entry.action].tone" [time]="entry.at | timeAgo">
+              <button type="button" class="timeline-link" (click)="selectedEntry.set(entry)">
+                <app-activity-text [entry]="entry" />
+              </button>
+            </ui-timeline-item>
+          }
+        </ui-timeline>
+      } @else {
+        <ui-empty-state compact [icon]="icons.history" [title]="'No activity yet' | translate" [description]="'Changes made by admins appear here.' | translate" />
+      }
+    </ui-card>
+  }
+
+  <ui-card class="span-5 lower" [title]="'Needs attention' | translate" [description]="'Things an admin should follow up' | translate" flush>
+    @if (staleInvites().length || suspended()) {
+      <ul class="attention-list">
+        @if (staleInvites().length) {
+          <li class="attention-item">
+            <ui-icon-chip size="sm" [icon]="icons.stale" tone="warning" />
+            <div class="attention-text">
+              <span class="attention-title">{{ 'staleInvites' | translate: { count: staleInvites().length } }}</span>
+              <span class="attention-sub">{{ 'inviteExpiredHint' | translate: { days: store.settings().inviteExpiryDays } }}</span>
+            </div>
+            @if (staleInvites().length > 3) {
+              <a uiButton variant="ghost" size="sm" routerLink="/users" [queryParams]="{ status: 'invited' }">{{ 'View all' | translate }}</a>
+            }
+          </li>
+          @for (item of staleInvites().slice(0, 3); track item.user.id) {
+            <li class="attention-person">
+              <ui-person [name]="fullName(item.user)" [detail]="'invitedAgo' | translate: { time: (item.sentAt | timeAgo) }" [src]="item.user.avatar" />
+              @if (session.can('users.create') && session.canManage(item.user)) {
+                <button uiButton variant="secondary" size="sm" type="button" [loading]="resending() === item.user.id" (click)="resendInvite(item.user)">
+                  {{ 'Send again' | translate }}
+                </button>
+              }
+            </li>
+          }
+        }
+        @if (suspended()) {
+          <li class="attention-item">
+            <ui-icon-chip size="sm" [icon]="icons.suspended" tone="danger" />
+            <div class="attention-text">
+              <span class="attention-title">{{ 'suspendedAccounts' | translate: { count: suspended() } }}</span>
+              <span class="attention-sub">{{ 'Check whether they still need to be suspended.' | translate }}</span>
+            </div>
+            <a uiButton variant="ghost" size="sm" routerLink="/users" [queryParams]="{ status: 'suspended' }">{{ 'See list' | translate }}</a>
+          </li>
+        }
+      </ul>
+    } @else {
+      <ui-empty-state compact [icon]="icons.allClear" [title]="'Nothing needs your attention' | translate" [description]="'Every invitation is recent and no account is suspended.' | translate" />
+    }
+  </ui-card>
+
+  <ui-card class="span-7 lower" [title]="'Users by department' | translate">
+    @if (total()) {
+      <div class="bars">
+        @for (department of departments(); track department.name) {
+          <ui-progress [value]="department.share" [label]="department.name | translate" [valueLabel]="department.count + ' · ' + department.share + '%'" />
+        }
+      </div>
+    } @else {
+      <ui-empty-state compact [icon]="icons.users" [title]="'No users yet' | translate" [description]="'Add the first user to get started.' | translate" />
+    }
+  </ui-card>
+
+  <ui-card class="span-5 lower" [title]="'Recently joined' | translate" [description]="'The newest accounts' | translate" flush>
+    <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/users">{{ 'View all' | translate }} <ng-icon [svg]="icons.arrow" /></a>
+    @if (recentlyJoined().length) {
+      <ul class="person-list">
+        @for (user of recentlyJoined(); track user.id) {
+          <li>
+            <a class="person-link" [routerLink]="['/users', user.id]">
+              <ui-person [name]="fullName(user)" [detail]="user.email" [src]="user.avatar" />
+              <span class="person-meta">
+                <app-role-badge [roleId]="user.roleId" />
+                <span class="joined">{{ user.createdAt | timeAgo }}</span>
+              </span>
+            </a>
+          </li>
+        }
+      </ul>
+    } @else {
+      <ui-empty-state compact [icon]="icons.joined" [title]="'No users yet' | translate" [description]="'Add the first user to get started.' | translate">
+        @if (session.can('users.create')) {
+          <a uiButton size="sm" routerLink="/users/new">{{ 'Add user' | translate }}</a>
+        }
+      </ui-empty-state>
+    }
+  </ui-card>
+</div>
+
+<app-activity-dialog [entry]="selectedEntry()" (closed)="selectedEntry.set(null)" />

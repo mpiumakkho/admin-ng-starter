@@ -1,0 +1,227 @@
+.roles-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 991px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Role list */
+.role-list {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.role-item {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  width: 100%;
+  padding: .875rem 1rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+
+  &:hover {
+    border-color: var(--ui-border-strong);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+
+  &.active {
+    border-color: var(--ui-primary);
+    box-shadow: 0 0 0 1px var(--ui-primary);
+  }
+}
+
+.role-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: .375rem;
+  border-radius: 50%;
+}
+
+.role-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.role-name {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  color: var(--ui-heading);
+  font-size: .875rem;
+  font-weight: 600;
+
+  ng-icon {
+    color: var(--ui-subtle);
+    font-size: .8125rem;
+  }
+}
+
+.role-description {
+  color: var(--ui-muted);
+  font-size: .75rem;
+  line-height: 1.45;
+}
+
+.role-count {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  color: var(--ui-muted);
+  font-size: .75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// Colors shared by the list dots and the swatches
+.tone-primary { background: #6366f1; }
+.tone-info { background: #0ea5e9; }
+.tone-success { background: #10b981; }
+.tone-warning { background: #f59e0b; }
+.tone-danger { background: #ef4444; }
+.tone-neutral { background: #94a3b8; }
+
+/* Editor */
+.editor-note {
+  margin-bottom: 1rem;
+}
+
+.editor-fields {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr auto;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 767px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field-title {
+  display: block;
+  margin-bottom: .375rem;
+  color: var(--ui-text);
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
+.tone-swatches {
+  display: flex;
+  gap: .375rem;
+  height: 40px;
+  align-items: center;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid var(--ui-surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--ui-border);
+  cursor: pointer;
+  transition: box-shadow .15s ease, transform .15s ease;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:disabled:not(.selected) {
+    opacity: .45;
+  }
+
+  &.selected {
+    box-shadow: 0 0 0 2px var(--ui-heading);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+}
+
+.matrix {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.matrix-group {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  overflow: hidden;
+}
+
+.matrix-head {
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface-muted);
+}
+
+.matrix-title {
+  color: var(--ui-heading);
+  font-weight: 600;
+}
+
+.matrix-items {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  padding: 1rem;
+}
+
+.permission-key {
+  margin-inline-start: .375rem;
+  color: var(--ui-subtle);
+  font-family: var(--ui-font-mono);
+  font-size: .6875rem;
+}
+
+// Clear of the fixed navbar when scrolled into view on smaller screens
+.editor {
+  scroll-margin-top: calc(64px + 1rem);
+}
+
+.editor-footer .delete {
+  margin-inline-end: auto;
+}
+
+// Phones: the buttons fill their rows instead of leaving one alone on the right
+@media (max-width: 575px) {
+  .editor-footer > * {
+    flex: 1 1 auto;
+  }
+
+  .editor-footer .delete {
+    margin-inline-end: 0;
+  }
+}
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
