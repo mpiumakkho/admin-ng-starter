@@ -1,0 +1,255 @@
+import { computed, DOCUMENT, effect, inject, Injectable, InjectionToken, signal, untracked } from '@angular/core';
+import { Router } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
+
+import { canManageRole, holdsAll } from '../data/access-rules';
+import { AdminApi } from '../data/admin-api';
+import { AdminStore } from '../data/admin-store';
+import { Permission, Role, User } from '../data/models';
+import { UiToastService } from '../ui';
+
+/** The app's sign-in page, where guards send people who are not signed in. Set by provideUserManagement(). */
+export const SIGN_IN_PATH = new InjectionToken<string>('SIGN_IN_PATH', { factory: () => '/login' });
+
+/** What counts as using the app, for signing out when idle */
+const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+/** How often the idle timer looks at the clock */
+const IDLE_CHECK_MS = 15_000;
+/** How long before signing out when idle the app warns */
+const IDLE_WARNING_MS = 60_000;
+/** When the app was last used in any tab of this browser, so tabs share one idle timer and a reload does not reset it */
+const LAST_ACTIVE_KEY = 'admin-last-active';
+
+/** Navigation state that lets a signed-in user onto the sign-in page while signing out */
+export const SIGNING_OUT = 'signingOut';
+
+/** Why someone was sent back to the sign-in page, as ?expired=… */
+export type SessionEndReason = 'ended' | 'idle';
+
+/**
+ * Who is signed in and what their role lets them do. Pages ask it before showing an action:
+ *
+ *   @if (session.can('users.delete')) { <button …>Delete</button> }
+ *
+ * It only hides what the server would refuse anyway; the server checks every request itself.
+ */
+@Injectable({ providedIn: 'root' })
+export class Session {
+  private readonly api = inject(AdminApi);
+  private readonly store = inject(AdminStore);
+  private readonly router = inject(Router);
+  private readonly signInPath = inject(SIGN_IN_PATH);
+  private readonly document = inject(DOCUMENT);
+  private readonly toast = inject(UiToastService);
+  private readonly translate = inject(TranslateService, { optional: true });
+
+  /** The account the server signed in. Once the data loads, the store's copy takes over, so edits show at once. */
+  private readonly account = signal<User | null>(null);
+
+  readonly user = computed(() => {
+    const account = this.account();
+    return account ? this.store.usersById().get(account.id) ?? account : null;
+  });
+  readonly userId = computed(() => this.account()?.id ?? null);
+  readonly signedIn = computed(() => this.account() !== null);
+  readonly role = computed(() => {
+    const user = this.user();
+    return user ? this.store.rolesById().get(user.roleId) : undefined;
+  });
+  readonly permissions = computed<ReadonlySet<Permission>>(() => new Set(this.role()?.permissions ?? []));
+
+  /** When the signed-in user last used the app in this tab, and when that was last shared with other tabs */
+  private lastActive = Date.now();
+  private lastShared = 0;
+
+  constructor() {
+    // The server said the session ended (signed out elsewhere, or the account was suspended): sign in again
+    effect(() => {
+      if (this.store.sessionEnded() && untracked(this.signedIn)) {
+        untracked(() => this.expire('ended'));
+      }
+    });
+
+    // With a timeout in the settings, sign out after that long without a click, key press or scroll
+    effect(onCleanup => {
+      const minutes = this.store.settings().sessionTimeoutMinutes;
+      const view = this.document.defaultView;
+      if (!this.signedIn() || !minutes || !view) {
+        return;
+      }
+      this.markActive();
+      const touch = () => this.markActive();
+      ACTIVITY_EVENTS.forEach(type => this.document.addEventListener(type, touch, { capture: true, passive: true }));
+      let warned = false;
+      const timer = view.setInterval(() => {
+        const idle = Date.now() - this.lastActiveAnywhere();
+        if (idle >= minutes * 60_000) {
+          untracked(() => this.signOutIdle());
+        } else if (idle >= minutes * 60_000 - IDLE_WARNING_MS) {
+          // A minute's notice, shown once, so someone reading a page can stay signed in
+          if (!warned) {
+            warned = true;
+            const message = 'You will be signed out in a minute. Click anywhere to stay signed in.';
+            this.toast.show(this.translate?.instant(message) ?? message, 'info', IDLE_WARNING_MS);
+          }
+        } else {
+          warned = false;
+        }
+      }, IDLE_CHECK_MS);
+      onCleanup(() => {
+        view.clearInterval(timer);
+        ACTIVITY_EVENTS.forEach(type => this.document.removeEventListener(type, touch, { capture: true }));
+      });
+    });
+  }
+
+  can(permission: Permission): boolean {
+    return this.permissions().has(permission);
+  }
+
+  isSelf(user: Pick<User, 'id'> | null | undefined): boolean {
+    return !!user && user.id === this.userId();
+  }
+
+  /** Whether the signed-in user may give someone this role: it grants nothing they lack */
+  canAssign(role: Pick<Role, 'permissions'> | undefined): boolean {
+    return !!role && holdsAll(this.permissions(), role.permissions);
+  }
+
+  /** Whether the signed-in user may change this person: themselves, or someone whose role they could assign */
+  canManage(user: Pick<User, 'id' | 'roleId'>): boolean {
+    return this.isSelf(user) || canManageRole(this.permissions(), this.store.rolesById().get(user.roleId));
+  }
+
+  /** The first page the signed-in user can open: the overview, or their own profile when nothing else is allowed */
+  homeUrl(): string {
+    if (!this.signedIn()) {
+      return this.signInPath;
+    }
+    if (this.can('users.view')) {
+      return '/overview';
+    }
+    if (this.can('activity.view')) {
+      return '/activity';
+    }
+    if (this.can('roles.view')) {
+      return '/roles';
+    }
+    if (this.can('settings.view')) {
+      return '/settings';
+    }
+    return `/users/${this.userId()}`;
+  }
+
+  /** Picks up a session from before a reload. Runs before the first screen. */
+  async restore(): Promise<void> {
+    try {
+      const user = await this.api.getSession();
+      if (user) {
+        this.account.set(user);
+        await this.store.load();
+        // Kept signed in, but away for longer than the idle timeout allows: start signed out
+        const minutes = this.store.settings().sessionTimeoutMinutes;
+        const last = readNumber(LAST_ACTIVE_KEY);
+        if (minutes && last && Date.now() - last >= minutes * 60_000) {
+          await this.api.signOut().catch(() => undefined);
+          this.end();
+        }
+      }
+    } catch {
+      // The server could not be reached or the session is no longer valid: start signed out
+      this.end();
+    }
+  }
+
+  /** With two-step sign-in on, the first try fails with two_factor_required; try again with the code */
+  async signIn(email: string, password: string, remember: boolean, code?: string): Promise<User> {
+    const user = await this.api.signIn(email, password, remember, code);
+    this.account.set(user);
+    await this.store.load();
+    return user;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await this.api.changePassword(currentPassword, newPassword);
+    // The activity log gains an entry; the password has changed even if this refresh fails
+    if (this.can('activity.view')) {
+      this.api.listActivity().then(entries => this.store.activity.set(entries), () => undefined);
+    }
+  }
+
+  /** Whether the signed-in user can edit this person's profile: their own name, phone and photo always */
+  canEditProfile(user: Pick<User, 'id' | 'roleId'>): boolean {
+    return this.isSelf(user) || (this.can('users.edit') && this.canManage(user));
+  }
+
+  /**
+   * Leaves for the sign-in page, then ends the session. A page with unsaved changes asks first; if the person
+   * stays, they stay signed in. Resolves to whether they signed out.
+   */
+  async signOut(): Promise<boolean> {
+    const left = await this.router.navigateByUrl(this.signInPath, { state: { [SIGNING_OUT]: true } });
+    if (!left) {
+      return false;
+    }
+    try {
+      await this.api.signOut();
+    } finally {
+      this.end();
+    }
+    return true;
+  }
+
+  private end() {
+    this.account.set(null);
+    this.store.clear();
+  }
+
+  private markActive() {
+    this.lastActive = Date.now();
+    // Shared at most every few seconds, not on every key press
+    if (this.lastActive - this.lastShared > 5_000) {
+      this.lastShared = this.lastActive;
+      writeNumber(LAST_ACTIVE_KEY, this.lastActive);
+    }
+  }
+
+  private lastActiveAnywhere(): number {
+    return Math.max(this.lastActive, readNumber(LAST_ACTIVE_KEY) ?? 0);
+  }
+
+  // A session that ends (idle, signed out elsewhere, suspended) starts over at the first page after signing in
+  // again, as a first sign-in does; only a link opened while signed out leads back to that page
+
+  private async signOutIdle() {
+    try {
+      await this.api.signOut();
+    } catch {
+      // Already signed out on the server
+    }
+    this.end();
+    this.router.navigate([this.signInPath], { queryParams: { expired: 'idle' satisfies SessionEndReason } });
+  }
+
+  private expire(reason: SessionEndReason) {
+    this.end();
+    this.router.navigate([this.signInPath], { queryParams: { expired: reason } });
+  }
+}
+
+// Storage can be missing or blocked; the idle timer then only knows about this tab
+function readNumber(key: string): number | null {
+  try {
+    return Number(localStorage.getItem(key)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeNumber(key: string, value: number) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // Not shared with other tabs
+  }
+}
