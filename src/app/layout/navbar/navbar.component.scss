@@ -1,0 +1,535 @@
+/* Navbar */
+
+@import '../../../assets/scss/core';
+
+$icon-button-size: 38px;
+
+.navbar {
+  font-family: $type1;
+  background: transparent;
+  height: $navbar-height;
+
+  /* Logo area, the same width as the sidebar */
+  .navbar-brand-wrapper {
+    width: $sidebar-width-lg;
+    height: $navbar-height;
+    padding: 0 .75rem 0 1.5rem;
+    background: $sidebar-light-bg;
+    border-inline-end: 1px solid $sidebar-light-border-color;
+    border-bottom: 1px solid $border-color;
+    transition: width $action-transition-duration $action-transition-timing-function, background $action-transition-duration $action-transition-timing-function;
+
+    // Below 992px the bar is one strip: menu button and logo on the left, see-through like the rest
+    @media (max-width: 991px) {
+      width: auto;
+      gap: .5rem;
+      padding: 0 0 0 .75rem;
+      background: rgba($white, .82);
+      border-inline-end: 0;
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+    }
+
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      margin-right: 0;
+      padding: 0;
+
+      // The logo keeps its own proportions; only its height is set
+      img {
+        width: auto;
+        max-width: 100%;
+        height: 24px;
+      }
+
+      .logo-dark {
+        display: none;
+      }
+
+      &.brand-logo img {
+        @media screen and (max-width: 991px) {
+          height: 22px;
+        }
+
+        // The narrowest phones keep the mark only
+        @media screen and (max-width: 359px) {
+          display: none;
+        }
+      }
+
+      &.brand-logo-mini {
+        display: none;
+
+        img {
+          width: 28px;
+          height: 28px;
+        }
+
+        @media screen and (max-width: 359px) {
+          display: flex;
+        }
+      }
+    }
+
+    .navbar-toggler {
+      margin-inline-start: auto;
+
+      @media screen and (max-width: 991px) {
+        display: none;
+      }
+    }
+  }
+
+  /* Everything right of the logo: translucent, so content shows softly as it scrolls under */
+  .navbar-menu-wrapper {
+    // Positioned, so the phone search can open over it
+    position: relative;
+    width: calc(100% - #{$sidebar-width-lg});
+    height: $navbar-height;
+    padding: 0 1.5rem;
+    gap: 1rem;
+    background: rgba($white, .82);
+    border-bottom: 1px solid $border-color;
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    color: $navbar-menu-color;
+    transition: width $action-transition-duration $action-transition-timing-function;
+
+    @media (max-width: 991px) {
+      width: auto;
+      flex-grow: 1;
+      padding: 0 .75rem;
+    }
+
+    .navbar-nav-right {
+      margin-inline-start: auto;
+    }
+  }
+
+  /* Square icon buttons */
+  .icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: $icon-button-size;
+    height: $icon-button-size;
+    padding: 0;
+    border: 0;
+    border-radius: $radius;
+    background: transparent;
+    color: $navbar-menu-icon-color;
+    font-size: 1.125rem;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+
+    &:hover,
+    &[aria-expanded="true"] {
+      background: $slate-100;
+      color: $slate-900;
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: $focus-ring;
+    }
+
+    // Set on the icon itself: Bootstrap's nav-link font size would otherwise win
+    ng-icon {
+      font-size: 1.125rem;
+    }
+  }
+
+  .navbar-nav {
+    flex-direction: row;
+    align-items: center;
+    gap: .25rem;
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+
+      .nav-link {
+        color: inherit;
+        font-size: $navbar-font-size;
+      }
+    }
+
+    /* Thin vertical rule between the icon buttons and the language and account */
+    .navbar-divider {
+      width: 1px;
+      height: 24px;
+      margin: 0 .5rem;
+      background: $border-color;
+    }
+  }
+
+  /* Search: on the left with its keyboard shortcut; on phones it opens over the bar */
+  .search-form {
+    position: relative;
+    display: flex;
+    flex: 0 1 420px;
+    align-items: center;
+    min-width: 0;
+
+    .search-icon {
+      position: absolute;
+      inset-inline-start: .75rem;
+      color: $slate-400;
+      font-size: 1rem;
+      pointer-events: none;
+    }
+
+    .form-control {
+      width: 100%;
+      height: 38px;
+      padding: 0 3.75rem 0 2.25rem;
+      border-color: transparent;
+      border-radius: $radius;
+      background: $slate-100;
+      box-shadow: none;
+      font-size: .8125rem;
+      transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+
+      &:hover {
+        border-color: $slate-200;
+      }
+
+      &:focus {
+        border-color: $primary;
+        background: $white;
+        box-shadow: $focus-ring;
+      }
+
+      &::-webkit-search-cancel-button {
+        display: none;
+      }
+    }
+
+    .search-shortcut {
+      position: absolute;
+      inset-inline-end: .5rem;
+      padding: .125rem .375rem;
+      border: 1px solid $slate-200;
+      border-radius: .3125rem;
+      background: $white;
+      box-shadow: none;
+      color: $slate-500;
+      font-family: $type1;
+      font-size: .6875rem;
+      font-weight: $font-weight-medium;
+      pointer-events: none;
+    }
+
+    .search-close {
+      display: none;
+    }
+
+    @media (max-width: 767px) {
+      display: none;
+
+      &.search-open {
+        position: absolute;
+        inset: 0 .75rem;
+        z-index: 2;
+        display: flex;
+        gap: .25rem;
+        // Solid, so the buttons it covers do not show through the see-through bar
+        background: $white;
+
+        .form-control {
+          padding-inline-end: .75rem;
+        }
+
+        .search-shortcut {
+          display: none;
+        }
+
+        .search-close {
+          display: inline-flex;
+          flex-shrink: 0;
+        }
+      }
+    }
+  }
+
+  /* New activity dot */
+  .count-indicator {
+    position: relative;
+
+    .count {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 8px;
+      height: 8px;
+      border: 2px solid $white;
+      border-radius: 50%;
+      background: theme-color(danger);
+      box-sizing: content-box;
+    }
+  }
+
+  /* Account button: photo, name and role; just the photo below 1200px */
+  .pill-button {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    height: $icon-button-size;
+    padding: 0 .625rem 0 .25rem;
+    border: 0;
+    border-radius: $radius;
+    background: transparent;
+    color: $slate-700;
+    font-weight: $font-weight-medium;
+    cursor: pointer;
+    transition: background-color .15s ease;
+
+    &:hover,
+    &[aria-expanded="true"] {
+      background: $slate-100;
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: $focus-ring;
+    }
+
+    @media (max-width: 1199px) {
+      padding-inline-end: .25rem;
+    }
+
+    .user-text {
+      flex-direction: column;
+      align-items: flex-start;
+      max-width: 180px;
+      line-height: 1.25;
+      text-align: start;
+    }
+
+    .user-name,
+    .user-role {
+      max-width: 100%;
+      // Taller clipping box, same height: a role named in Thai keeps the marks above its letters
+      margin-block: -.25em;
+      padding-block: .25em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .user-name {
+      color: $slate-900;
+      font-size: .8125rem;
+      font-weight: $font-weight-semibold;
+    }
+
+    .user-role {
+      color: $slate-500;
+      font-size: .6875rem;
+      font-weight: $font-weight-medium;
+    }
+  }
+}
+
+/* Menus. They open in an overlay outside the bar, so they use the --ui colors, which follow the theme. */
+.activity-menu.ui-menu {
+  width: min(340px, calc(100vw - 1.5rem));
+
+  // Off the screen edge when the phone screen pushes it sideways
+  @media (max-width: 575px) {
+    margin-inline: .75rem;
+  }
+}
+
+.activity-item.ui-menu-item {
+  align-items: flex-start;
+  white-space: normal;
+
+  ui-avatar {
+    margin-top: 2px;
+  }
+}
+
+.activity-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: .125rem;
+  min-width: 0;
+  color: var(--ui-text);
+  font-size: .8125rem;
+  line-height: 1.45;
+}
+
+.activity-item-time {
+  color: var(--ui-subtle);
+  font-size: .75rem;
+}
+
+.activity-empty {
+  margin: 0;
+  padding: .5rem .75rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+.account-menu.ui-menu {
+  width: 260px;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem .625rem;
+}
+
+.account-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.account-name {
+  color: var(--ui-heading);
+  font-weight: 600;
+}
+
+.account-role {
+  align-self: flex-start;
+  margin-top: .375rem;
+}
+
+.account-email {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sidebar narrowed to its icons */
+:host-context(.sidebar-icon-only) {
+  @media(min-width: 992px) {
+    .navbar {
+      .navbar-brand-wrapper {
+        width: $sidebar-width-icon;
+        padding: 0;
+        justify-content: center;
+
+        .brand-logo,
+        .brand-logo-mini {
+          display: none;
+        }
+
+        .navbar-toggler {
+          margin: 0;
+        }
+      }
+      .navbar-menu-wrapper {
+        width: calc(100% - #{$sidebar-width-icon});
+      }
+    }
+  }
+}
+
+/* Dark theme */
+:host-context(.theme-dark) {
+  .navbar {
+    .navbar-brand-wrapper {
+      background: $sidebar-dark-bg;
+      border-color: $sidebar-dark-border-color;
+
+      @media (max-width: 991px) {
+        background: rgba($dark-content-bg, .78);
+        border-bottom-color: $dark-border-color;
+      }
+
+      .logo-light {
+        display: none;
+      }
+
+      .logo-dark {
+        display: block;
+      }
+    }
+
+    .navbar-menu-wrapper {
+      background: rgba($dark-content-bg, .78);
+      border-bottom-color: $dark-border-color;
+      color: $dark-body-color;
+    }
+
+    .icon-button {
+      color: $slate-400;
+
+      &:hover,
+      &[aria-expanded="true"] {
+        background: $slate-800;
+        color: $white;
+      }
+    }
+
+    .navbar-nav .navbar-divider {
+      background: $dark-border-color;
+    }
+
+    .search-form {
+      .search-icon {
+        color: $slate-500;
+      }
+
+      .form-control {
+        background: $slate-800;
+        border-color: transparent;
+        color: $dark-body-color;
+
+        &::placeholder {
+          color: $slate-500;
+        }
+
+        &:hover {
+          border-color: $slate-700;
+        }
+
+        &:focus {
+          background: $slate-900;
+          border-color: $primary-on-dark;
+          box-shadow: 0 0 0 3px rgba($primary-on-dark, .2);
+        }
+      }
+
+      .search-shortcut {
+        background: $slate-900;
+        border-color: $slate-700;
+        color: $slate-400;
+      }
+
+      &.search-open {
+        background: $dark-content-bg;
+      }
+    }
+
+    .count-indicator .count {
+      border-color: $dark-content-bg;
+    }
+
+    .pill-button {
+      color: $dark-body-color;
+
+      .user-name {
+        color: $white;
+      }
+
+      .user-role {
+        color: $slate-400;
+      }
+
+      &:hover,
+      &[aria-expanded="true"] {
+        background: $slate-800;
+      }
+    }
+  }
+}

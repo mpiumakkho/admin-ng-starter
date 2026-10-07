@@ -1,0 +1,124 @@
+<nav class="navbar default-layout-navbar col-lg-12 col-12 p-0 fixed-top d-flex flex-row">
+  <div class="navbar-brand-wrapper d-flex align-items-center">
+    <!-- Below 992px: the menu button first, then the logo, as most apps place them -->
+    <button class="menu-toggle icon-button d-lg-none" type="button" (click)="sidebar.toggle()" aria-controls="sidebar" [attr.aria-expanded]="sidebar.open()" [attr.aria-label]="(sidebar.open() ? 'Close menu' : 'Open menu') | translate">
+      <ng-icon [name]="sidebar.open() ? 'lucideX' : 'lucideMenu'" />
+    </button>
+    <a class="navbar-brand brand-logo" routerLink="/">
+      <img src="assets/images/logo.svg" alt="logo" class="logo-dark" />
+      <img src="assets/images/logo-light.svg" alt="logo" class="logo-light">
+    </a>
+    <a class="navbar-brand brand-logo-mini" routerLink="/"><img src="assets/images/logo-mini.svg" alt="logo" /></a>
+    <button class="navbar-toggler icon-button" type="button" (click)="toggleSidebar()" [title]="'Toggle menu' | translate" [attr.aria-label]="'Toggle menu' | translate">
+      <ng-icon name="lucidePanelLeft" />
+    </button>
+  </div>
+  <div class="navbar-menu-wrapper d-flex align-items-center">
+    <!-- Search on the left, where it is found first. On phones the search button opens it over the bar. -->
+    @if (session.can('users.view')) {
+      <form class="search-form" [class.search-open]="searchOpen()" role="search" (submit)="$event.preventDefault(); searchUsers(search.value); search.value = ''">
+        <ng-icon name="lucideSearch" class="search-icon" />
+        <input #search type="search" class="form-control" [placeholder]="'Search users' | translate" [attr.aria-label]="'Search users' | translate" [attr.aria-keyshortcuts]="searchShortcutKeys" (keydown.escape)="closeSearch()">
+        <kbd class="search-shortcut" aria-hidden="true">{{ searchShortcutLabel }}</kbd>
+        <button type="button" class="icon-button search-close" (click)="closeSearch()" [attr.aria-label]="'Close' | translate">
+          <ng-icon name="lucideX" />
+        </button>
+      </form>
+    }
+
+    <ul class="navbar-nav navbar-nav-right">
+      @if (session.can('users.view')) {
+        <li class="nav-item d-md-none">
+          <button type="button" class="nav-link icon-button" (click)="openSearch()" [attr.aria-label]="'Search users' | translate">
+            <ng-icon name="lucideSearch" />
+          </button>
+        </li>
+      }
+
+      <!-- The dot means something was logged since the menu was last opened -->
+      @if (session.can('activity.view')) {
+        <li class="nav-item">
+          <button type="button" class="nav-link icon-button count-indicator" [uiMenuTrigger]="activityMenu" [uiMenuPosition]="menuPosition" (menuOpened)="markActivitySeen()" [attr.aria-label]="(hasNewActivity() ? 'Recent activity, new items' : 'Recent activity') | translate">
+            <ng-icon name="lucideBell" />
+            @if (hasNewActivity()) {
+              <span class="count" aria-hidden="true"></span>
+            }
+          </button>
+          <ng-template #activityMenu>
+            <ui-menu class="activity-menu" [attr.aria-label]="'Recent activity' | translate">
+              <div uiMenuHeading>{{ 'Recent activity' | translate }}</div>
+              @for (entry of recentActivity(); track entry.id) {
+                <button uiMenuItem class="activity-item" (triggered)="selectedEntry.set(entry)">
+                  <ui-avatar [name]="actorName(entry.actorId)" [src]="actorAvatar(entry.actorId)" size="sm" />
+                  <span class="activity-item-text">
+                    <app-activity-text [entry]="entry" />
+                    <span class="activity-item-time">{{ entry.at | timeAgo }}</span>
+                  </span>
+                </button>
+              } @empty {
+                <p class="activity-empty">{{ 'No activity yet' | translate }}</p>
+              }
+              <hr uiMenuDivider />
+              <a uiMenuItem routerLink="/activity" [icon]="icons.history">{{ 'View all' | translate }}</a>
+            </ui-menu>
+          </ng-template>
+        </li>
+      }
+
+      <li class="nav-item">
+        <button type="button" class="nav-link icon-button theme-toggle" [title]="themeToggleLabel() | translate" [attr.aria-label]="themeToggleLabel() | translate" (click)="theme.toggle()">
+          <ng-icon [name]="theme.isDark() ? 'lucideSun' : 'lucideMoon'" />
+        </button>
+      </li>
+      <li class="nav-item navbar-divider d-none d-sm-flex" aria-hidden="true"></li>
+
+      <!-- Both languages in view, one click to switch; on phones it moves into the account menu -->
+      <li class="nav-item d-none d-sm-flex">
+        <ui-segmented class="language-switch" size="sm" [options]="languageOptions" [value]="language.current()" (valueChange)="setLanguage($event)" [ariaLabel]="'Language' | translate" />
+      </li>
+
+      @if (session.user(); as me) {
+        <!-- On every screen size: profile and sign out live here. Below 1200px only the photo shows. -->
+        <li class="nav-item">
+          <button type="button" class="nav-link pill-button user-button" [uiMenuTrigger]="accountMenu" [uiMenuPosition]="menuPosition" [attr.aria-label]="'accountMenu' | translate: { name: fullName(me) }">
+            <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="sm" />
+            <span class="user-text d-none d-xl-flex" aria-hidden="true">
+              <span class="user-name">{{ fullName(me) }}</span>
+              <span class="user-role">{{ session.role()?.name }}</span>
+            </span>
+          </button>
+          <ng-template #accountMenu>
+            <ui-menu class="account-menu" [attr.aria-label]="'accountMenu' | translate: { name: fullName(me) }">
+              <div class="account-card">
+                <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="md" />
+                <div class="account-text">
+                  <span class="account-name">{{ fullName(me) }}</span>
+                  <span class="account-email">{{ me.email }}</span>
+                  <app-role-badge class="account-role" [roleId]="me.roleId" />
+                </div>
+              </div>
+              <hr uiMenuDivider />
+              @if (isPhone()) {
+                <div uiMenuHeading>{{ 'Language' | translate }}</div>
+                @for (option of languageOptions; track option.value) {
+                  <button uiMenuItemRadio [checked]="option.value === language.current()" [attr.lang]="option.lang" (triggered)="setLanguage(option.value)">{{ option.ariaLabel }}</button>
+                }
+                <hr uiMenuDivider />
+              }
+              <a uiMenuItem [icon]="icons.user" [routerLink]="['/users', me.id]">{{ 'My Profile' | translate }}</a>
+              <a uiMenuItem [icon]="icons.security" [routerLink]="['/users', me.id]" [queryParams]="{ tab: 'security' }">{{ 'Security and devices' | translate }}</a>
+              @if (session.can('activity.view')) {
+                <a uiMenuItem [icon]="icons.activity" routerLink="/activity" [queryParams]="{ user: me.id }">{{ 'My activity' | translate }}</a>
+              }
+              <a uiMenuItem [icon]="icons.blocks" routerLink="/ui-kit">{{ 'UI kit' | translate }}</a>
+              <hr uiMenuDivider />
+              <button uiMenuItem tone="danger" [icon]="icons.signOut" (triggered)="signOut()">{{ 'Sign Out' | translate }}</button>
+            </ui-menu>
+          </ng-template>
+        </li>
+      }
+    </ul>
+  </div>
+</nav>
+
+<app-activity-dialog [entry]="selectedEntry()" (closed)="selectedEntry.set(null)" />

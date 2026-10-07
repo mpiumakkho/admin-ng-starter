@@ -1,0 +1,44 @@
+@if (state.open()) {
+  <div class="sidebar-backdrop" (click)="state.close()" aria-hidden="true"></div>
+}
+<nav class="sidebar sidebar-offcanvas" id="sidebar" [class.active]="state.open()">
+  <ul class="nav">
+    <li class="nav-item navbar-brand-mini-wrapper">
+      <a class="nav-link navbar-brand brand-logo-mini" routerLink="/"><img src="assets/images/logo-mini.svg" alt="logo" /></a>
+    </li>
+    @for (section of menu(); track $index) {
+      @if (section.label) {
+        <li class="nav-item nav-category"><span class="nav-link">{{ section.label | translate }}</span></li>
+      }
+      @for (item of section.items; track item.label) {
+        @if (item.children) {
+          <!-- A group: a button that opens and closes its pages, marked while one of them is open -->
+          <li class="nav-item nav-group" routerLinkActive="active" [class.hover-open]="flyout() === item.label" (mouseenter)="showFlyout(item.label)" (mouseleave)="flyout.set(null)">
+            <button type="button" class="nav-link" (click)="toggle(item.label)" [attr.aria-expanded]="isOpen(item.label)" [attr.aria-controls]="'menu-group-' + $index">
+              <ng-icon [svg]="item.icon" class="menu-icon" />
+              <span class="menu-title">{{ item.label | translate }}</span>
+              <ng-icon [svg]="chevron" class="menu-arrow" />
+            </button>
+            <!-- Opens by animating its height in CSS; closed, its links are out of reach (inert) -->
+            <div class="sub-menu-wrap" [id]="'menu-group-' + $index" [class.open]="isOpen(item.label)" [inert]="!isOpen(item.label) && flyout() !== item.label">
+              <div class="sub-menu-clip">
+                <ul class="nav flex-column sub-menu">
+                  @for (child of item.children; track child.link) {
+                    <li class="nav-item"><a class="nav-link" [routerLink]="child.link" routerLinkActive="active">{{ child.label | translate }}</a></li>
+                  }
+                </ul>
+              </div>
+            </div>
+          </li>
+        } @else {
+          <li class="nav-item" routerLinkActive="active" [class.hover-open]="flyout() === item.label" (mouseenter)="showFlyout(item.label)" (mouseleave)="flyout.set(null)">
+            <a class="nav-link" [routerLink]="item.link!">
+              <ng-icon [svg]="item.icon" class="menu-icon" />
+              <span class="menu-title">{{ item.label | translate }}</span>
+            </a>
+          </li>
+        }
+      }
+    }
+  </ul>
+</nav>

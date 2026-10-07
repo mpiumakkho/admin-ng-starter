@@ -1,0 +1,567 @@
+/* Sidebar */
+
+@import '../../../assets/scss/core';
+
+// Height of one top-level menu row: 9px padding, 20px line, 9px padding
+$menu-item-height: 38px;
+// How a group opens: quick at first, settling gently, the same for the height, the pages and the chevron
+$menu-easing: cubic-bezier(.2, .8, .2, 1);
+$menu-motion: .3s $menu-easing;
+
+.sidebar {
+  min-height: calc(100vh - #{$navbar-height});
+  height: 100%;
+  width: $sidebar-width-lg;
+  padding: 0;
+  background: $sidebar-light-bg;
+  border-inline-end: 1px solid $sidebar-light-border-color;
+  font-family: $type1;
+  z-index: 11;
+  transition: width $action-transition-duration $action-transition-timing-function, background $action-transition-duration $action-transition-timing-function;
+
+  > .nav {
+    overflow: hidden;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    margin: 0;
+    padding: .75rem 0 2rem;
+
+    > .nav-item {
+      padding: 0 .75rem;
+
+      > .nav-link {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        min-height: $menu-item-height;
+        margin-bottom: 2px;
+        padding: .5625rem .75rem;
+        border-radius: $radius;
+        color: $sidebar-light-menu-color;
+        font-size: $sidebar-menu-font-size;
+        font-weight: $font-weight-medium;
+        line-height: 1.25;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+        transition: background-color .15s ease, color .15s ease;
+
+        .menu-icon {
+          flex-shrink: 0;
+          font-size: $sidebar-icon-font-size;
+          color: $sidebar-light-menu-icon-color;
+          transition: color .15s ease;
+        }
+
+        // A group's header is a button: no browser button look
+        &:is(button) {
+          width: 100%;
+          border: 0;
+          background: transparent;
+          font-family: inherit;
+          text-align: start;
+        }
+
+        .menu-title {
+          flex-grow: 1;
+          min-width: 0;
+          // Taller clipping box, same row height: Thai marks stacked above (สิทธิ์, ตั้ง) are not cut off
+          margin-block: -.3em;
+          padding-block: .3em;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        // Points right while closed (left in right-to-left text) and turns clockwise to point down when open,
+        // in step with the pages sliding open
+        .menu-arrow {
+          flex-shrink: 0;
+          margin-inline-start: auto;
+          font-size: .875rem;
+          color: $sidebar-light-menu-arrow-color;
+          transition: transform $menu-motion;
+
+          :host-context(.rtl) & {
+            transform: rotate(180deg);
+          }
+        }
+
+        &[aria-expanded="true"] .menu-arrow {
+          transform: rotate(90deg);
+        }
+
+        .badge {
+          margin-inline-start: auto;
+        }
+      }
+
+      &:not(.nav-category):not(.active) > .nav-link:hover {
+        background: $sidebar-light-menu-hover-bg;
+        color: $sidebar-light-menu-hover-color;
+
+        .menu-icon {
+          color: $sidebar-light-menu-hover-color;
+        }
+      }
+
+      &.active:not(.navbar-brand-mini-wrapper) > .nav-link {
+        background: $sidebar-light-menu-active-bg;
+        color: $sidebar-light-menu-active-color;
+        font-weight: $font-weight-semibold;
+
+        .menu-icon,
+        .menu-arrow {
+          color: $sidebar-light-accent-color;
+        }
+      }
+
+      // An open group already marks the current page inside it; the header keeps only its colour
+      &.nav-group.active > .nav-link[aria-expanded="true"] {
+        background: transparent;
+
+        &:hover {
+          background: $sidebar-light-menu-hover-bg;
+        }
+      }
+
+      /* Section headings */
+      &.nav-category {
+        > .nav-link {
+          min-height: 0;
+          margin: 0;
+          padding: 1.25rem .75rem .5rem;
+          color: $sidebar-light-category-color;
+          font-size: .71875rem;
+          font-weight: $font-weight-semibold;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          cursor: default;
+        }
+
+        :host-context(.sidebar-icon-only) & {
+          display: none;
+        }
+      }
+
+      /* Small logo, shown at the top of the icon-only sidebar */
+      &.navbar-brand-mini-wrapper {
+        display: none;
+
+        > .nav-link {
+          justify-content: center;
+          width: 100%;
+          margin: 0 0 .5rem;
+          padding: .5rem 0;
+
+          img {
+            width: 28px;
+            height: 28px;
+          }
+        }
+
+        :host-context(.sidebar-icon-only) & {
+          @media (min-width: 992px) {
+            display: block;
+          }
+        }
+      }
+    }
+  }
+
+  /* A group's pages: the height eases open (grid rows from 0fr to 1fr, no measuring in script) while
+     the pages fade in and slide down a little */
+  .sub-menu-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows $menu-motion;
+
+    .sub-menu {
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity .2s ease, transform $menu-motion;
+    }
+
+    &.open {
+      grid-template-rows: 1fr;
+
+      .sub-menu {
+        opacity: 1;
+        transform: none;
+        transition-delay: .05s;
+      }
+    }
+  }
+
+  .sub-menu-clip {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sub-menu-wrap,
+    .sub-menu-wrap .sub-menu,
+    .menu-arrow {
+      transition: none !important;
+    }
+  }
+
+  /* Sub-menu: indented under a guide line that starts below the parent's icon */
+  .sub-menu {
+    margin: 0 0 .375rem;
+    margin-inline-start: calc(.75rem + #{$sidebar-icon-font-size} / 2);
+    padding: .125rem 0;
+    border-inline-start: 1px solid $sidebar-light-menu-border-color;
+    list-style: none;
+
+    .nav-item {
+      padding: 0;
+
+      .nav-link {
+        position: relative;
+        display: block;
+        margin: 1px 0;
+        margin-inline-start: .625rem;
+        padding: .4375rem .75rem;
+        border-radius: $radius;
+        color: $sidebar-light-submenu-color;
+        font-size: $sidebar-submenu-font-size;
+        line-height: 1.4;
+        white-space: nowrap;
+        transition: background-color .15s ease, color .15s ease;
+
+        &:hover {
+          background: $sidebar-light-menu-hover-bg;
+          color: $sidebar-light-submenu-hover-color;
+        }
+
+        // Marks the current page on the guide line
+        &.active {
+          color: $sidebar-light-menu-active-color;
+          font-weight: $font-weight-semibold;
+
+          &::before {
+            content: "";
+            position: absolute;
+            top: 7px;
+            bottom: 7px;
+            inset-inline-start: calc(-.625rem - 1.5px);
+            width: 2px;
+            border-radius: 2px;
+            background: $sidebar-light-accent-color;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Compact menu: icon above the label */
+:host-context(.sidebar-mini) {
+  @media (min-width: 992px) {
+    .sidebar {
+      width: $sidebar-width-mini;
+
+      > .nav > .nav-item {
+        > .nav-link {
+          flex-direction: column;
+          gap: .375rem;
+          padding: .75rem .5rem;
+          text-align: center;
+
+          .menu-title {
+            flex-grow: 0;
+            white-space: normal;
+          }
+
+          .menu-arrow,
+          .badge {
+            display: none;
+          }
+        }
+
+        &.nav-category > .nav-link {
+          text-align: center;
+        }
+      }
+
+      .sub-menu {
+        margin-inline-start: 0;
+        border-inline-start: 0;
+
+        .nav-item .nav-link {
+          margin-inline-start: 0;
+          text-align: center;
+
+          &.active::before {
+            display: none;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Icon-only menu: labels open in a flyout on hover */
+:host-context(.sidebar-icon-only) {
+  @media (min-width: 992px) {
+    .sidebar {
+      width: $sidebar-width-icon;
+
+      > .nav {
+        overflow: visible;
+
+        > .nav-item {
+          position: relative;
+
+          > .nav-link {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+
+            .menu-title,
+            .menu-arrow,
+            .badge {
+              display: none;
+            }
+          }
+
+          .sub-menu-wrap {
+            display: none;
+          }
+
+          &.hover-open {
+            > .nav-link .menu-title {
+              position: absolute;
+              top: 0;
+              // The room kept for Thai marks in the menu is not needed in the flyout, which is taller
+              margin-block: 0;
+              inset-inline-start: 100%;
+              z-index: 1000;
+              display: flex;
+              align-items: center;
+              width: $icon-only-collapse-width;
+              height: $menu-item-height;
+              padding: 0 1rem;
+              border: 1px solid $border-color;
+              border-radius: $radius-lg;
+              background: $white;
+              box-shadow: $shadow-lg;
+              color: $slate-900;
+              font-weight: $font-weight-semibold;
+            }
+
+            > .nav-link[aria-expanded] .menu-title {
+              border-bottom-color: transparent;
+              border-end-start-radius: 0;
+              border-end-end-radius: 0;
+              // The list below carries the shadow, so none falls between the two
+              box-shadow: 0 -4px 12px -6px rgba($slate-900, .12);
+            }
+
+            .sub-menu-wrap {
+              position: absolute;
+              top: $menu-item-height;
+              inset-inline-start: 100%;
+              z-index: 999;
+              display: block;
+              width: $icon-only-collapse-width;
+              height: auto !important;
+              border: 1px solid $border-color;
+              border-top: 0;
+              border-radius: 0 0 $radius-lg $radius-lg;
+              background: $white;
+              box-shadow: $shadow-lg;
+            }
+
+            .sub-menu {
+              margin: 0;
+              padding: .375rem;
+              border: 0;
+
+              .nav-link {
+                margin: 0;
+
+                &.active::before {
+                  display: none;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/* On desktop the sidebar is pinned: it stays put while the page scrolls.
+   The icon-only layout wins over the overflow here, so its flyouts are not clipped. */
+@media (min-width: 992px) {
+  .sidebar {
+    position: fixed;
+
+    > .nav {
+      position: relative;
+      max-height: calc(100vh - #{$navbar-height});
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding-bottom: 3rem;
+    }
+  }
+}
+
+:host-context(.sidebar-hidden) {
+  @media (min-width: 992px) {
+    .sidebar {
+      width: 0;
+      overflow: hidden;
+      border: 0;
+      transition: width $action-transition-duration $action-transition-timing-function;
+    }
+  }
+}
+
+:host-context(.sidebar-absolute) {
+  @media (min-width: 992px) {
+    .sidebar {
+      transition: none;
+    }
+  }
+}
+
+:host-context(.sidebar-absolute:not(.sidebar-hidden)) {
+  .sidebar {
+    position: absolute;
+    height: 100%;
+    box-shadow: $shadow-lg;
+  }
+}
+
+/* Below 992px the menu slides in from the left, under the navbar, over a dimmed page */
+@media screen and (max-width: 991px) {
+  .sidebar-offcanvas {
+    position: fixed;
+    top: $navbar-height;
+    bottom: 0;
+    left: 0;
+    z-index: 1029;
+    max-width: calc(100vw - 3rem);
+    max-height: calc(100vh - #{$navbar-height});
+    overflow: auto;
+    transform: translateX(-100%);
+    // Hidden once it has slid away, so its links are out of the tab order
+    visibility: hidden;
+    transition: transform .25s $ease-out, visibility 0s linear .25s;
+
+    &.active {
+      transform: none;
+      visibility: visible;
+      box-shadow: $shadow-lg;
+      transition: transform .25s $ease-out;
+    }
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: $navbar-height 0 0;
+    z-index: 1028;
+    background: rgba($slate-900, .4);
+    animation: backdrop-in .25s ease;
+  }
+}
+
+@media screen and (min-width: 992px) {
+  .sidebar-backdrop {
+    display: none;
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Dark theme */
+:host-context(.theme-dark) {
+  .sidebar {
+    background: $sidebar-dark-bg;
+    border-inline-end-color: $sidebar-dark-border-color;
+
+    > .nav > .nav-item {
+      > .nav-link {
+        color: $sidebar-dark-menu-color;
+
+        .menu-icon {
+          color: $sidebar-dark-menu-icon-color;
+        }
+
+        .menu-arrow {
+          color: $sidebar-dark-menu-arrow-color;
+        }
+      }
+
+      &:not(.nav-category):not(.active) > .nav-link:hover {
+        background: $sidebar-dark-menu-hover-bg;
+        color: $sidebar-dark-menu-hover-color;
+
+        .menu-icon {
+          color: $sidebar-dark-menu-hover-color;
+        }
+      }
+
+      &.active:not(.navbar-brand-mini-wrapper) > .nav-link {
+        background: $sidebar-dark-menu-active-bg;
+        color: $sidebar-dark-menu-active-color;
+
+        .menu-icon,
+        .menu-arrow {
+          color: $sidebar-dark-accent-color;
+        }
+      }
+
+      &.nav-group.active > .nav-link[aria-expanded="true"] {
+        background: transparent;
+
+        &:hover {
+          background: $sidebar-dark-menu-hover-bg;
+        }
+      }
+
+      &.nav-category > .nav-link {
+        color: $sidebar-dark-category-color;
+      }
+
+      &.hover-open > .nav-link .menu-title,
+      &.hover-open .sub-menu-wrap {
+        border-color: $sidebar-dark-border-color;
+        background: $sidebar-dark-bg;
+        color: $white;
+      }
+
+      &.hover-open > .nav-link[aria-expanded] .menu-title {
+        border-bottom-color: transparent;
+      }
+    }
+
+    .sub-menu {
+      border-inline-start-color: $sidebar-dark-border-color;
+
+      .nav-item .nav-link {
+        color: $sidebar-dark-submenu-color;
+
+        &:hover {
+          background: $sidebar-dark-menu-hover-bg;
+          color: $sidebar-dark-submenu-hover-color;
+        }
+
+        &.active {
+          color: $white;
+
+          &::before {
+            background: $sidebar-dark-accent-color;
+          }
+        }
+      }
+    }
+  }
+}

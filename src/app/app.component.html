@@ -1,0 +1,28 @@
+<div class="container-scroller">
+  @if (!isFullPage()) {
+    <app-navbar></app-navbar>
+  }
+  <div class="container-fluid page-body-wrapper" [class.full-page-wrapper]="isFullPage()">
+    @if (!isFullPage()) {
+      <app-sidebar></app-sidebar>
+    }
+    <div class="main-panel" [class.main-panel-only]="isFullPage()" [class.w-100]="isFullPage()">
+      <div class="content-wrapper" [class.p-0]="isFullPage()">
+        <!-- The spinner covers the page while the next one loads. The page stays, so it can still ask about unsaved changes. -->
+        @if (isLoading()) {
+          <app-spinner></app-spinner>
+        }
+        <div contentAnimate class="h-100">
+          <router-outlet></router-outlet>
+        </div>
+      </div>
+      @if (!isFullPage()) {
+        <app-footer></app-footer>
+      }
+      <!-- partial -->
+    </div>
+    <!-- main-panel ends -->
+  </div>
+  <!-- page-body-wrapper ends -->
+  <ui-toaster />
+</div>

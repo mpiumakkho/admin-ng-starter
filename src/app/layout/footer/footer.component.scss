@@ -1,0 +1,54 @@
+@import '../../../assets/scss/core';
+:host {
+  width: 100%;
+}
+.footer {
+  width: 100%;
+  padding: .75rem 2rem;
+  background: $footer-bg;
+  color: $footer-color;
+  font-family: $type1;
+  font-size: .8125rem;
+  transition: all $action-transition-duration $action-transition-timing-function;
+
+  > div {
+    // Slim, so a page that fills the window (page-fit) keeps more room for its content
+    padding-top: .75rem !important;
+    padding-bottom: 0 !important;
+    border-top: 1px solid $border-color;
+  }
+
+  a {
+    color: inherit;
+    font-size: inherit;
+    padding: 0 5px;
+
+    &:first-of-type {
+      border-right: 1px solid $footer-color;
+    }
+  }
+
+  @media (max-width: 991px) {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  @media (max-width: 767px) {
+    padding: 1rem;
+  }
+}
+
+:host-context(.theme-dark) {
+  .footer {
+    background: $dark-content-bg;
+    color: $dark-text-muted;
+
+    > div {
+      border-top-color: $dark-border-color;
+    }
+
+    a:first-of-type {
+      border-right-color: $dark-text-muted;
+    }
+  }
+}
