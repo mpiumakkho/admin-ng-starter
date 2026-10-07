@@ -1,0 +1,53 @@
+/* You can add global styles to this file, and also import other style files */
+
+@import "bootstrap/scss/functions";
+@import "./assets/scss/tokens";
+@import "bootstrap/scss/variables";
+@import './assets/scss/variables';
+@import "./assets/scss/compat";
+@import "bootstrap/scss/bootstrap";
+@import "./assets/scss/fonts";
+@import "./assets/scss/functions";
+
+/* === Icon fonts === */
+
+
+/* === Template mixins === */
+@import "./assets/scss/mixins/animation";
+@import "./assets/scss/mixins/badges";
+@import "./assets/scss/mixins/buttons";
+@import "./assets/scss/mixins/misc";
+@import "./assets/scss/mixins/color-functions";
+@import "./assets/scss/mixins/cards";
+@import "./assets/scss/mixins/blockqoute";
+
+/* === Core Styles === */
+@import "./assets/scss/typography";
+@import "./assets/scss/reset";
+@import "./assets/scss/responsive";
+@import "./assets/scss/misc";
+@import "./assets/scss/utilities";
+@import "./assets/scss/demo";
+@import "./assets/scss/spinner";
+
+/* === Components === */
+@import "./assets/scss/components/forms";
+@import "./assets/scss/components/checkbox-radio";
+@import "./assets/scss/components/tables";
+@import "./assets/scss/components/buttons";
+@import "./assets/scss/components/badges";
+@import "./assets/scss/components/lists";
+@import "./assets/scss/components/cards";
+@import "./assets/scss/components/bootstrap-progress";
+@import "./assets/scss/components/dropdowns";
+
+@import "./assets/scss/components/landing-screens/auth";
+
+/* === Plugin Overrides === */
+@import "./assets/scss/components/plugin-overrides/ng-bootstrap";
+
+/* === Layout === */
+@import "./assets/scss/layout";
+
+/* === Dark theme === */
+@import "./assets/scss/dark";

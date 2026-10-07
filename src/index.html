@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>Admin Dashboard</title>
+  <base href="/">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+<body class="theme-light">
+  <script>
+    // Pick the theme before the first paint: the saved choice, else the system setting
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem('theme'); } catch (e) { /* storage unavailable */ }
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      if (theme === 'dark') {
+        document.body.classList.replace('theme-light', 'theme-dark');
+        document.documentElement.style.colorScheme = 'dark';
+      }
+    })();
+  </script>
+  <app-root>
+      <div class="main-spinner-wrapper">
+        <div class="donut"></div>
+      </div>
+  </app-root>
+</body>
+</html>

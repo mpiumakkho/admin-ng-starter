@@ -1,0 +1,16 @@
+/* ng-bootstrap reads Bootstrap 5 custom properties and class names; map them onto this Bootstrap 4 theme */
+
+:root {
+  --bs-tertiary-bg: #{$gray-100};
+  --bs-border-color: #{$border-color};
+  --bs-text-muted: #{$text-muted};
+  --bs-info: #{theme-color(info)};
+}
+
+.ngb-dp-navigation-select .form-select {
+  @extend .custom-select;
+}
+
+.visually-hidden {
+  @include sr-only();
+}

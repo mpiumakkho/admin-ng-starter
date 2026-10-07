@@ -1,0 +1,41 @@
+/* Badges */
+
+.badge {
+  border-radius: 999px;
+  font-size: .71875rem;
+  line-height: 1.2;
+  padding: .25rem .625rem;
+  font-family: $type1;
+  font-weight: $font-weight-semibold;
+  letter-spacing: .01em;
+  &.badge-pill {
+    border-radius: 999px;
+  }
+}
+
+
+/*Badge variations: soft tint with a strong label*/
+@each $color, $value in $theme-colors {
+  .badge-#{$color} {
+    @include badge-variations($value);
+  }
+}
+
+.badge-light {
+  background-color: $slate-100;
+  border-color: $slate-200;
+  color: $slate-600;
+}
+
+.badge-dark {
+  background-color: $slate-800;
+  border-color: $slate-800;
+  color: $white;
+}
+
+/*Badge outlined variations*/
+@each $color, $value in $theme-colors {
+  .badge-outline-#{$color} {
+    @include badge-outline-variations($value);
+  }
+}

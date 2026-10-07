@@ -1,0 +1,190 @@
+/* Miscellanoeous */
+body,
+html {
+  overflow-x: hidden;
+  padding-right: 0 !important; // resets padding right added by Bootstrap modal
+}
+
+// Colors that change with the theme, for component styles. _dark.scss sets the dark values.
+:root {
+  --app-heading: #{$heading-color};
+  --app-body: #{$body-color};
+  --app-muted: #{$text-muted};
+  --app-subtle: #{$slate-400};
+  --app-border: #{$border-color};
+  --app-surface: #{$white};
+  --app-surface-muted: #{$slate-50};
+  --app-hover: #{$slate-100};
+}
+
+body {
+  background: $content-bg;
+}
+
+::selection {
+  background: rgba($primary, .18);
+}
+
+// Thin scrollbars that stay out of the way
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba($slate-400, .45) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba($slate-400, .45);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// Keyboard focus is always visible; mouse focus stays quiet. Text fields draw their own ring.
+:focus-visible:not(input):not(textarea):not(select):not(.form-control) {
+  outline: 2px solid rgba($primary, .55) !important;
+  outline-offset: 2px;
+}
+
+*:-moz-full-screen,
+*:-webkit-full-screen,
+*:fullscreen *:-ms-fullscreen {
+  overflow: auto;
+}
+
+.page-body-wrapper {
+  min-height: calc(100vh - #{$navbar-height});
+  padding-top: $navbar-height;
+  @include display-flex();
+  @include flex-direction(row);
+  padding-left: 0;
+  padding-right: 0;
+
+  &.full-page-wrapper {
+    width: 100%;
+    min-height: 100vh;
+    padding-top: 0;
+  }
+}
+
+.main-panel {
+  transition: width $action-transition-duration $action-transition-timing-function, margin $action-transition-duration $action-transition-timing-function;
+  width: calc(100% - #{$sidebar-width-lg});
+  min-height: calc(100vh - #{$navbar-height});
+  @include display-flex();
+  @include flex-direction(column);
+  @media (max-width: 991px) {
+    margin-left: 0;
+    width: 100%;
+  }
+  &.main-panel-only {
+    transition: none;
+  }
+}
+
+.content-wrapper {
+  background: $content-bg;
+  padding: 2rem 2rem 0;
+  width: 100%;
+  @include flex-grow(1);
+  @media (max-width: 767px) {
+    padding: 1.25rem 1rem 0;
+  }
+}
+
+// The page behind the open menu on small screens does not scroll
+@media (max-width: 991px) {
+  body.menu-open {
+    overflow: hidden;
+  }
+}
+
+// A page whose host has the page-fit class fills the window below the navbar instead of making it scroll;
+// its own content (a table, say) scrolls inside. Phones and short windows keep normal page scrolling.
+@media (min-width: 992px) and (min-height: 600px) {
+  .main-panel:has(.page-fit) {
+    height: calc(100vh - #{$navbar-height});
+
+    .content-wrapper {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    // The contentAnimate wrapper around the router outlet
+    .content-wrapper > div {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      min-height: 0;
+    }
+  }
+
+  .page-fit {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+  }
+}
+
+.container-scroller {
+  overflow: hidden;
+}
+
+pre {
+  background: $slate-50;
+  border: 1px solid $border-color;
+  border-radius: $radius;
+  padding: 1rem;
+  font-size: .8125rem;
+}
+
+code {
+  padding: .125rem .375rem;
+  color: $pink;
+  background: rgba($pink, .08);
+  font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: .8125rem;
+  border-radius: $radius-sm;
+}
+
+.page-header {
+  @extend .d-flex;
+  @extend .justify-content-between;
+  @extend .align-items-center;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+  margin: 0 0 1.5rem 0;
+  .breadcrumb {
+    border: 0;
+    margin-bottom: 0;
+    padding: 0;
+  }
+}
+.page-title {
+  color: $heading-color;
+  font-size: 1.375rem;
+  font-weight: $font-weight-semibold;
+  letter-spacing: -.02em;
+  margin-bottom: 0;
+  .page-title-icon {
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    border-radius: $radius;
+    text-align: center;
+    box-shadow: $shadow-sm;
+    i {
+      font-size: .9375rem;
+      line-height: 36px;
+    }
+  }
+}
