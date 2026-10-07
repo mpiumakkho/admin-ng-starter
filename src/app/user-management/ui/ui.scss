@@ -1,0 +1,276 @@
+// The ui theme. Included once, through angular.json "styles".
+//
+// Every component reads its colors, radii and shadows from the --ui-* variables below.
+// Dark mode applies under `.theme-dark` or `[data-theme="dark"]` on any ancestor (usually <body>).
+// To rebrand, override the variables in your own stylesheet, after this one.
+
+@use '@angular/cdk' as cdk;
+
+// Positioning layer for menus and other overlays
+@include cdk.overlay();
+
+:root {
+  // Sarabun when the app provides it (this project does, in assets/fonts), otherwise the system font
+  --ui-font: "Sarabun", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --ui-font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+
+  // Brand and status colors. *-soft is a tinted background, *-text the readable color on it.
+  --ui-primary: #4f46e5;
+  --ui-primary-hover: #4338ca;
+  --ui-primary-soft: rgba(79, 70, 229, .1);
+  --ui-primary-text: #4338ca;
+  --ui-on-primary: #ffffff;
+
+  --ui-success: #10b981;
+  --ui-success-soft: rgba(16, 185, 129, .12);
+  --ui-success-text: #047857;
+
+  --ui-warning: #f59e0b;
+  --ui-warning-soft: rgba(245, 158, 11, .14);
+  --ui-warning-text: #b45309;
+
+  --ui-danger: #ef4444;
+  --ui-danger-hover: #dc2626;
+  --ui-danger-soft: rgba(239, 68, 68, .1);
+  --ui-danger-text: #b91c1c;
+
+  --ui-info: #0ea5e9;
+  --ui-info-soft: rgba(14, 165, 233, .12);
+  --ui-info-text: #0369a1;
+
+  --ui-neutral: #64748b;
+  --ui-neutral-soft: #f1f5f9;
+  --ui-neutral-text: #475569;
+
+  // Surfaces and text
+  --ui-bg: #f6f8fb;
+  --ui-surface: #ffffff;
+  --ui-surface-muted: #f8fafc;
+  --ui-hover: #f1f5f9;
+  --ui-border: #e4e7ee;
+  --ui-border-strong: #cbd5e1;
+  --ui-input-border: #dbe0e8;
+  --ui-heading: #0f172a;
+  --ui-text: #334155;
+  --ui-muted: #64748b;
+  --ui-subtle: #94a3b8;
+
+  // Shape and depth
+  --ui-radius-sm: 6px;
+  --ui-radius: 8px;
+  --ui-radius-lg: 12px;
+  --ui-radius-xl: 16px;
+  --ui-shadow-xs: 0 1px 2px rgba(15, 23, 42, .05);
+  --ui-shadow-sm: 0 1px 3px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .04);
+  --ui-shadow-md: 0 6px 16px -4px rgba(15, 23, 42, .1), 0 2px 4px -2px rgba(15, 23, 42, .06);
+  --ui-shadow-lg: 0 20px 40px -12px rgba(15, 23, 42, .22), 0 6px 14px -6px rgba(15, 23, 42, .1);
+  --ui-ring: 0 0 0 3px rgba(79, 70, 229, .18);
+  --ui-ease: cubic-bezier(.16, 1, .3, 1);
+}
+
+.theme-dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ui-primary: #6366f1;
+  --ui-primary-hover: #818cf8;
+  --ui-primary-soft: rgba(129, 140, 248, .16);
+  --ui-primary-text: #a5b4fc;
+
+  --ui-success-soft: rgba(16, 185, 129, .16);
+  --ui-success-text: #34d399;
+  --ui-warning-soft: rgba(245, 158, 11, .16);
+  --ui-warning-text: #fbbf24;
+  --ui-danger-soft: rgba(239, 68, 68, .16);
+  --ui-danger-text: #f87171;
+  --ui-info-soft: rgba(14, 165, 233, .16);
+  --ui-info-text: #38bdf8;
+  --ui-neutral-soft: rgba(148, 163, 184, .14);
+  --ui-neutral-text: #cbd5e1;
+
+  --ui-bg: #0f172a;
+  --ui-surface: #1e293b;
+  --ui-surface-muted: #172033;
+  --ui-hover: #283548;
+  --ui-border: #334155;
+  --ui-border-strong: #475569;
+  --ui-input-border: #475569;
+  --ui-heading: #f1f5f9;
+  --ui-text: #e2e8f0;
+  --ui-muted: #94a3b8;
+  --ui-subtle: #64748b;
+
+  --ui-shadow-md: 0 10px 24px -10px rgba(0, 0, 0, .6);
+  --ui-shadow-lg: 0 20px 40px -12px rgba(0, 0, 0, .7);
+  --ui-ring: 0 0 0 3px rgba(129, 140, 248, .25);
+}
+
+/* Text fields: add the uiInput directive to <input>, <select> or <textarea> */
+.ui-input {
+  display: block;
+  width: 100%;
+  height: 40px;
+  padding: .5rem .875rem;
+  border: 1px solid var(--ui-input-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+  color: var(--ui-heading);
+  font: 400 .875rem/1.5 var(--ui-font);
+  transition: border-color .15s ease, box-shadow .15s ease;
+  appearance: none;
+
+  &::placeholder {
+    color: var(--ui-subtle);
+  }
+
+  &:hover:not(:disabled):not(:focus) {
+    border-color: var(--ui-border-strong);
+  }
+
+  &:focus {
+    border-color: var(--ui-primary);
+    box-shadow: var(--ui-ring);
+    outline: none;
+  }
+
+  &:disabled,
+  &[readonly] {
+    background: var(--ui-surface-muted);
+    color: var(--ui-muted);
+  }
+
+  &.ng-invalid.ng-touched {
+    border-color: var(--ui-danger);
+
+    &:focus {
+      box-shadow: 0 0 0 3px var(--ui-danger-soft);
+    }
+  }
+
+  &.ui-input-sm {
+    height: 32px;
+    padding: .25rem .625rem;
+    font-size: .8125rem;
+  }
+}
+
+textarea.ui-input {
+  height: auto;
+  min-height: 96px;
+  resize: vertical;
+}
+
+select.ui-input {
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='m6 9 6 6 6-6'/%3e%3c/svg%3e");
+  background-position: right .75rem center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  cursor: pointer;
+
+  option {
+    background: var(--ui-surface);
+    color: var(--ui-heading);
+  }
+}
+
+/* Tables: add the uiTable directive to a <table> */
+.ui-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--ui-text);
+  font: 400 .875rem/1.4 var(--ui-font);
+
+  th,
+  td {
+    padding: .875rem 1rem;
+    border-bottom: 1px solid var(--ui-border);
+    text-align: start;
+    vertical-align: middle;
+  }
+
+  thead th {
+    // Stays in view when the table scrolls inside .ui-table-scroll. The bottom line is a shadow because
+    // collapsed borders stay behind with the table instead of moving with a sticky cell.
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 0;
+    box-shadow: inset 0 -1px 0 var(--ui-border);
+    background: var(--ui-surface-muted);
+    color: var(--ui-muted);
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  th:first-child,
+  td:first-child {
+    padding-inline-start: 1.5rem;
+  }
+
+  th:last-child,
+  td:last-child {
+    padding-inline-end: 1.5rem;
+  }
+
+  tbody tr {
+    transition: background-color .12s ease;
+
+    &:hover {
+      background: var(--ui-surface-muted);
+    }
+
+    &.ui-row-selected {
+      background: var(--ui-primary-soft);
+    }
+
+    &.ui-row-link {
+      cursor: pointer;
+    }
+
+    &:last-child td {
+      border-bottom: 0;
+    }
+  }
+
+  .ui-cell-shrink {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  .ui-cell-end {
+    text-align: end;
+  }
+
+  &.ui-table-dense {
+    th,
+    td {
+      padding-block: .5rem;
+    }
+  }
+}
+
+.ui-table-scroll {
+  // Positioned, so hidden labels and inputs in the table stay inside the scroll area
+  // instead of widening the page on small screens
+  position: relative;
+  // Sideways on narrow screens; up and down too when a height limit applies, such as in <ui-card fit>
+  overflow: auto;
+}
+
+// Visually hidden but read by screen readers
+.ui-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

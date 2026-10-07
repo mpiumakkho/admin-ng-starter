@@ -1,0 +1,93 @@
+.ui-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+}
+
+.ui-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .75rem 1rem;
+  padding: 1.25rem 1.5rem 0;
+}
+
+.ui-card-heading {
+  min-width: 0;
+}
+
+.ui-card-title {
+  margin: 0;
+  color: var(--ui-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -.011em;
+  line-height: 1.4;
+}
+
+.ui-card-description {
+  margin: .125rem 0 0;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.ui-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.ui-card-body {
+  flex: 1 1 auto;
+  padding: 1.25rem 1.5rem 1.5rem;
+
+  &.ui-card-body-flush {
+    padding: 1rem 0 0;
+  }
+}
+
+// A flush body directly under the edge (no header) needs no top gap either
+.ui-card > .ui-card-body-flush:first-child {
+  padding-top: 0;
+}
+
+.ui-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem;
+  padding: .875rem 1.5rem;
+  border-top: 1px solid var(--ui-border);
+  border-radius: 0 0 var(--ui-radius-lg) var(--ui-radius-lg);
+  background: var(--ui-surface-muted);
+}
+
+// The marked container only groups the projected buttons; they line up in the footer itself
+.ui-card-footer > [uiCardFooter] {
+  display: contents;
+}
+
+.ui-card-fit {
+  min-height: 0;
+
+  > .ui-card-body {
+    display: flex;
+    flex: 0 1 auto;
+    flex-direction: column;
+    min-height: 0;
+  }
+}

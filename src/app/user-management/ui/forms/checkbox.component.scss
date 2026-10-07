@@ -1,0 +1,76 @@
+.ui-checkbox {
+  display: inline-flex;
+  font-family: var(--ui-font);
+}
+
+.ui-check {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: .625rem;
+  margin: 0;
+  color: var(--ui-text);
+  font-size: .875rem;
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+}
+
+// The real input covers the box, invisible, so clicks and keyboard focus still work
+.ui-check-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  opacity: 0;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.ui-check-box {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1.5px solid var(--ui-border-strong);
+  border-radius: 5px;
+  background: var(--ui-surface);
+  color: transparent;
+  font-size: 13px;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+
+  ng-icon {
+    --ng-icon__stroke-width: 3;
+  }
+}
+
+.ui-check:hover .ui-check-box {
+  border-color: var(--ui-primary);
+}
+
+.ui-check-input:checked + .ui-check-box,
+.ui-check-input:indeterminate + .ui-check-box {
+  border-color: var(--ui-primary);
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+}
+
+.ui-check-input:focus-visible + .ui-check-box {
+  box-shadow: var(--ui-ring);
+}
+
+.ui-check-input:disabled + .ui-check-box {
+  opacity: .5;
+}
+
+.ui-check-label:empty {
+  display: none;
+}

@@ -1,0 +1,158 @@
+.ui-btn {
+  --ui-btn-bg: var(--ui-primary);
+  --ui-btn-fg: var(--ui-on-primary);
+  --ui-btn-border: transparent;
+  --ui-btn-hover-bg: var(--ui-primary-hover);
+  --ui-btn-hover-fg: var(--ui-btn-fg);
+  --ui-btn-height: 38px;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  height: var(--ui-btn-height);
+  padding: 0 1rem;
+  border: 1px solid var(--ui-btn-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-btn-bg);
+  color: var(--ui-btn-fg);
+  font: 600 .875rem/1 var(--ui-font);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .1s ease;
+
+  &:hover {
+    background: var(--ui-btn-hover-bg);
+    color: var(--ui-btn-hover-fg);
+    text-decoration: none;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+
+  &:disabled,
+  &[aria-disabled="true"] {
+    opacity: .55;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  ng-icon {
+    flex-shrink: 0;
+    font-size: 1.0625rem;
+  }
+}
+
+/* Variants */
+.ui-btn-primary {
+  box-shadow: 0 1px 2px rgba(79, 70, 229, .25), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.ui-btn-secondary {
+  --ui-btn-bg: var(--ui-surface);
+  --ui-btn-fg: var(--ui-text);
+  --ui-btn-border: var(--ui-input-border);
+  --ui-btn-hover-bg: var(--ui-hover);
+  --ui-btn-hover-fg: var(--ui-heading);
+  box-shadow: var(--ui-shadow-xs);
+}
+
+.ui-btn-soft {
+  --ui-btn-bg: var(--ui-primary-soft);
+  --ui-btn-fg: var(--ui-primary-text);
+  --ui-btn-hover-bg: var(--ui-primary);
+  --ui-btn-hover-fg: var(--ui-on-primary);
+}
+
+.ui-btn-outline {
+  --ui-btn-bg: transparent;
+  --ui-btn-fg: var(--ui-primary-text);
+  --ui-btn-border: var(--ui-primary);
+  --ui-btn-hover-bg: var(--ui-primary-soft);
+}
+
+.ui-btn-ghost {
+  --ui-btn-bg: transparent;
+  --ui-btn-fg: var(--ui-muted);
+  --ui-btn-hover-bg: var(--ui-hover);
+  --ui-btn-hover-fg: var(--ui-heading);
+}
+
+.ui-btn-danger {
+  --ui-btn-bg: var(--ui-danger);
+  --ui-btn-fg: #ffffff;
+  --ui-btn-hover-bg: var(--ui-danger-hover);
+}
+
+.ui-btn-danger-soft {
+  --ui-btn-bg: var(--ui-danger-soft);
+  --ui-btn-fg: var(--ui-danger-text);
+  --ui-btn-hover-bg: var(--ui-danger);
+  --ui-btn-hover-fg: #ffffff;
+}
+
+/* Sizes */
+.ui-btn-sm {
+  --ui-btn-height: 32px;
+  gap: .375rem;
+  padding: 0 .75rem;
+  font-size: .8125rem;
+
+  ng-icon {
+    font-size: 1rem;
+  }
+}
+
+.ui-btn-lg {
+  --ui-btn-height: 46px;
+  padding: 0 1.375rem;
+  border-radius: .625rem;
+  font-size: .9375rem;
+}
+
+.ui-btn-icon {
+  width: var(--ui-btn-height);
+  padding: 0;
+}
+
+.ui-btn-block {
+  display: flex;
+  width: 100%;
+}
+
+/* Loading: the label stays in place (so the width holds) but is hidden behind a spinner */
+.ui-btn-loading {
+  color: transparent !important;
+  pointer-events: none;
+
+  > :not(.ui-btn-spinner) {
+    visibility: hidden;
+  }
+}
+
+.ui-btn-spinner {
+  position: absolute;
+  inset: 0;
+  width: 1rem;
+  height: 1rem;
+  margin: auto;
+  border: 2px solid var(--ui-btn-fg);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin .7s linear infinite;
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

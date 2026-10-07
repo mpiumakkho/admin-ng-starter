@@ -1,0 +1,68 @@
+# ui
+
+The building blocks user management is made of, for Angular 22, with light and dark themes. They are standalone, use signals, and work without Bootstrap or a translation library: every piece of text comes in through an input, so the app decides the language.
+
+They come with user management (see [../README.md](../README.md)); nothing here is built or installed on its own. Open `/ui-kit` to see every piece with a usage snippet.
+
+Selectors start with `ui-` (`<ui-card>`, `button[uiButton]`), classes with `Ui` (`UiCard`) and CSS variables with `--ui-`.
+
+The folder also works alone, for a dashboard that needs the components but not user management: copy it, install `@angular/cdk`, `@ng-icons/core` and `@ng-icons/lucide` (plus `chart.js` and `ng2-charts` for `charts/`), and add `ui.scss` to the `styles` in `angular.json`.
+
+## Theme
+
+`ui.scss` defines the `--ui-*` color, radius, shadow and font variables and the shared `.ui-input` and `.ui-table` classes. Put `theme-dark` on `<body>` (or `data-theme="dark"` on any element) for the dark theme; `UiThemeService` does this for you and remembers the choice:
+
+```ts
+readonly theme = inject(UiThemeService);
+// theme.toggle(), theme.set('dark'), theme.isDark()
+```
+
+Change the look by overriding the variables, for example `--ui-primary`, `--ui-radius` or `--ui-font`. `--ui-font` starts with Sarabun, which this project ships in `src/assets/fonts/sarabun`; an app without it gets the system font instead.
+
+Icons are passed as SVG strings, so import only the ones you use:
+
+```ts
+import { lucideUsers } from '@ng-icons/lucide';
+
+<ui-stat-card label="Users" [value]="1284" [icon]="lucideUsers" tone="primary" [trend]="4.2" hint="vs last month" />
+```
+
+## Components
+
+| Group | Pieces |
+| --- | --- |
+| Actions and surfaces | `uiButton` on `<button>` or `<a>`, `ui-card` (`uiCardActions`, `uiCardFooter`, `fit` to shrink to its parent's height so a table inside scrolls), `ui-page-header` (`breadcrumbLabel` names the trail for screen readers), `ui-dialog`, `ui-alert` (a tinted message in the page), `UiConfirmService`, `UiToastService` with `<ui-toaster>`, `uiMenuTrigger` (`menuOpened` and `menuClosed` events) with `ui-menu`, `uiMenuItem`, `uiMenuItemRadio` and `uiMenuHeading` |
+| Data display | `ui-badge`, `ui-avatar`, `ui-person`, `ui-icon-chip`, `ui-trend`, `ui-stat-card` (`trendSuffix=""` for a change in counts, content inside goes under the number, wrap it in an `<a>` to make the whole card a link), `ui-split-bar` (one bar split by status or kind, with a legend), `ui-empty-state`, `ui-timeline`, `ui-detail-list`, `ui-progress`, `ui-chart-legend` (an item with `link` and `queryParams` is a link) |
+| Navigation and filters | `ui-segmented` (pills or underline tabs; an option's `ariaLabel` and `lang` let a short label such as "EN" be read as "English"), `ui-search-input` (`size="sm"` for toolbars), `ui-filter-chips`, `ui-pagination` |
+| Tables | `UiTableState` (search, filters, sort, paging and selection as signals; `selectable` limits which rows can be ticked, `pageSizeKey` remembers the reader's page size in the browser), `table[uiTable]` (`dense` for tighter rows), `ui-sort-header`, `ui-bulk-bar`, `ui-page-size` (the "1–10 of 48" button that picks rows per page). `[uiTableMinRows]` on `.ui-table-scroll` keeps a short last page as tall as a full one, and `[uiTableScrollReset]="table"` scrolls it back to the top when the page, page size, sort, search or filters change. Headers stay in view when the table scrolls inside `.ui-table-scroll` |
+| Forms | `ui-form-field` (label, hint, errors), `uiInput`, `ui-checkbox`, `ui-switch`, `ui-choice-cards` (a choice with `disabled` shows but cannot be picked), `ui-file-dropzone` (`compact` for one row) |
+| Charts (`charts/`) | `syncChartTheme()` keeps Chart.js colors in step with the theme, `UI_CHART_PALETTE`, `areaFill()` |
+
+Form controls implement `ControlValueAccessor`, so they work with `formControlName` and `ngModel`. `ui-form-field` shows the errors of the control inside it once the control is touched or changed:
+
+```html
+<ui-form-field label="Email" for="email" required [errors]="{ required: 'Enter your email.', email: 'Check the address.' }">
+  <input uiInput id="email" formControlName="email" />
+</ui-form-field>
+```
+
+A table keeps its own markup; `UiTableState` only does the work:
+
+```ts
+readonly table = new UiTableState({
+  rows: this.users,
+  id: user => user.id,
+  search: (user, query) => user.name.toLowerCase().includes(query),
+  sorters: { name: (a, b) => a.name.localeCompare(b.name) },
+  pageSize: 10,
+});
+```
+
+```html
+@for (user of table.pageRows(); track user.id) { ... }
+<ui-pagination [(page)]="table.page" [pageCount]="table.pageCount()" />
+```
+
+## Tests
+
+Their unit tests run with the app's: `npm test`.
