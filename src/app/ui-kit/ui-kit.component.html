@@ -1,0 +1,213 @@
+<ui-page-header title="UI kit" subtitle="Every piece in user-management/ui, with how to use it." [icon]="icons.page" [breadcrumbs]="[{ label: 'Developers' }]" />
+
+<div class="kit">
+  <!-- Buttons -->
+  <ui-card title="Button" description="On a native <button> or <a>. Variants, sizes, icons and a loading state.">
+    <code uiCardActions class="tag">button[uiButton]</code>
+    <div class="row-wrap">
+      @for (variant of variants; track variant) {
+        <button uiButton [variant]="variant" type="button">{{ variant }}</button>
+      }
+    </div>
+    <div class="row-wrap">
+      <button uiButton size="sm" type="button"><ng-icon [svg]="icons.plus" /> Small</button>
+      <button uiButton type="button"><ng-icon [svg]="icons.plus" /> Medium</button>
+      <button uiButton size="lg" type="button"><ng-icon [svg]="icons.plus" /> Large</button>
+      <button uiButton variant="secondary" iconOnly type="button" aria-label="Settings"><ng-icon [svg]="icons.settings" /></button>
+      <button uiButton variant="ghost" iconOnly type="button" aria-label="Notifications"><ng-icon [svg]="icons.bell" /></button>
+      <button uiButton type="button" [loading]="loading()" (click)="load()"><ng-icon [svg]="icons.download" /> Click to load</button>
+    </div>
+    <pre class="snippet">&lt;button uiButton variant="secondary" size="sm" [loading]="saving()"&gt;Save&lt;/button&gt;</pre>
+  </ui-card>
+
+  <!-- Display -->
+  <ui-card title="Badge, trend, icon chip, avatar, person" description="Small pieces for lists and tables.">
+    <div class="row-wrap">
+      <ui-badge tone="primary">Primary</ui-badge>
+      <ui-badge tone="success" dot>Active</ui-badge>
+      <ui-badge tone="warning" dot>Invited</ui-badge>
+      <ui-badge tone="danger" dot>Suspended</ui-badge>
+      <ui-badge tone="info">Info</ui-badge>
+      <ui-badge>Neutral</ui-badge>
+    </div>
+    <div class="row-wrap">
+      <ui-trend [value]="12.5" />
+      <ui-trend [value]="-3.2" />
+      <ui-trend [value]="-8" inverse />
+      <ui-trend [value]="0" />
+      <ui-icon-chip [icon]="icons.users" />
+      <ui-icon-chip [icon]="icons.wallet" tone="success" />
+      <ui-icon-chip [icon]="icons.bell" tone="warning" size="sm" />
+    </div>
+    <div class="row-wrap">
+      <ui-avatar name="Henry Klein" src="assets/images/faces/face8.jpg" size="lg" />
+      <ui-avatar name="Nattaya Srisuk" size="lg" />
+      <ui-avatar name="Krit" size="md" />
+      <ui-person name="Henry Klein" detail="henry@example.com" src="assets/images/faces/face8.jpg" />
+    </div>
+    <pre class="snippet">&lt;ui-badge tone="success" dot&gt;Active&lt;/ui-badge&gt;  &lt;ui-trend [value]="4.2" /&gt;  &lt;ui-person [name]="…" [detail]="…" [src]="…" /&gt;</pre>
+  </ui-card>
+
+  <!-- Stat cards -->
+  <div class="stat-row">
+    <ui-stat-card label="Total users" value="1,284" [icon]="icons.users" [trend]="8.4" hint="vs last month" />
+    <ui-stat-card label="Revenue" value="$48.2k" [icon]="icons.wallet" tone="success" [trend]="-2.1" hint="vs last month" />
+    <ui-stat-card label="Open tickets" value="37" [icon]="icons.bell" tone="warning" [trend]="-12" inverse hint="fewer is better" />
+  </div>
+
+  <!-- Navigation -->
+  <ui-card title="Segmented, tabs, filter chips, search, pagination" description="Pickers and navigation; all support two-way binding.">
+    <div class="row-wrap">
+      <ui-segmented [options]="ranges" [(value)]="range" ariaLabel="Range" />
+      <ui-filter-chips [options]="chips" [(value)]="chip" />
+    </div>
+    <ui-segmented variant="underline" [options]="tabs" [(value)]="tab" ariaLabel="Sections" />
+    <div class="row-wrap">
+      <ui-search-input class="grow" [(value)]="query" placeholder="Search projects" />
+      <ui-pagination [(page)]="page" [pageCount]="12" />
+    </div>
+    <pre class="snippet">&lt;ui-segmented [options]="ranges" [(value)]="range" /&gt;  &lt;ui-pagination [(page)]="page" [pageCount]="12" /&gt;</pre>
+  </ui-card>
+
+  <!-- Forms -->
+  <ui-card title="Form controls" description="Work with Reactive Forms. Errors appear after the field is touched; press Validate.">
+    <form class="form-demo" [formGroup]="form">
+      <ui-form-field label="Email" for="kitEmail" required hint="We never share it." [errors]="{ required: 'Enter an email.', email: 'That is not a valid email.' }">
+        <input uiInput id="kitEmail" formControlName="email" />
+      </ui-form-field>
+      <ui-form-field label="Team size" for="kitSize">
+        <select uiInput id="kitSize"><option>1–10</option><option>11–50</option><option>51+</option></select>
+      </ui-form-field>
+      <ui-choice-cards class="span-2" [choices]="plans" formControlName="plan" ariaLabel="Plan" />
+      <ui-switch class="span-2" formControlName="notify" description="Weekly summary by email">Email me updates</ui-switch>
+      <div class="row-wrap span-2">
+        <ui-checkbox formControlName="terms">I agree to the terms</ui-checkbox>
+        <ui-checkbox [checked]="allChecked()" [indeterminate]="someChecked()" (changed)="allChecked.set($event); someChecked.set(false)">Select all (indeterminate)</ui-checkbox>
+        <ui-checkbox disabled>Disabled</ui-checkbox>
+      </div>
+      <ui-file-dropzone class="span-2" accept="image/*" [preview]="preview()" hint="PNG or JPG" (fileSelected)="pick($event)" (removed)="preview.set('')" />
+    </form>
+    <div uiCardFooter>
+      <button uiButton variant="secondary" type="button" (click)="form.reset()">Reset</button>
+      <button uiButton type="button" (click)="validate()">Validate</button>
+    </div>
+  </ui-card>
+
+  <!-- Feedback -->
+  <ui-card title="Alert" description="A message in the page: an error under a form, a note that a page is read-only. Danger alerts are announced as they appear.">
+    <div class="stack">
+      <ui-alert tone="info">Your role can view roles but not change them.</ui-alert>
+      <ui-alert tone="success" title="Imported">48 users were added.</ui-alert>
+      <ui-alert tone="warning">Only the first 500 rows are read.</ui-alert>
+      <ui-alert tone="danger">Wrong email or password.</ui-alert>
+    </div>
+    <pre class="snippet">&lt;ui-alert tone="danger"&gt;Wrong email or password.&lt;/ui-alert&gt;</pre>
+  </ui-card>
+
+  <ui-card title="Toast, confirm, dialog, empty state, progress" description="Feedback after an action, and states for empty or loading content.">
+    <div class="row-wrap">
+      <button uiButton variant="secondary" type="button" (click)="showToast('success')">Toast: success</button>
+      <button uiButton variant="secondary" type="button" (click)="showToast('error')">Toast: error</button>
+      <button uiButton variant="secondary" type="button" (click)="showToast('info')">Toast: info</button>
+      <button uiButton variant="danger-soft" type="button" (click)="ask()">Confirm…</button>
+      <button uiButton type="button" (click)="dialogOpen.set(true)">Open dialog</button>
+    </div>
+    <div class="split">
+      <ui-empty-state compact title="Nothing here yet" description="Projects you create appear here.">
+        <button uiButton size="sm" type="button"><ng-icon [svg]="icons.plus" /> New project</button>
+      </ui-empty-state>
+      <div class="stack">
+        <ui-progress [value]="72" label="Storage" valueLabel="72%" />
+        <ui-progress [value]="38" tone="success" label="Seats" valueLabel="19 of 50" />
+        <ui-progress [value]="91" tone="danger" label="API quota" valueLabel="91%" />
+      </div>
+    </div>
+    <pre class="snippet">this.toast.show('Saved');   if (await this.confirm.ask({{ '{' }} title: 'Delete?', tone: 'danger' {{ '}' }})) {{ '{' }} … {{ '}' }}</pre>
+  </ui-card>
+
+  <!-- Table -->
+  <ui-card title="Table + UiTableState" description="Search, sort, page and select as signals; the markup stays a plain <table>. Add dense for tighter rows." flush>
+    <div class="table-tools">
+      <ui-search-input class="grow" [value]="table.query()" (valueChange)="table.search($event)" placeholder="Search" />
+    </div>
+    @if (table.selectedIds().size) {
+      <ui-bulk-bar [label]="table.selectedIds().size + ' selected'" (cleared)="table.clearSelection()">
+        <button uiButton size="sm" variant="danger-soft" type="button"><ng-icon [svg]="icons.remove" /> Delete</button>
+      </ui-bulk-bar>
+    }
+    <div class="ui-table-scroll" [uiTableMinRows]="4">
+      <table uiTable>
+        <thead>
+          <tr>
+            <th class="ui-cell-shrink"><ui-checkbox [checked]="table.allOnPageSelected()" [indeterminate]="table.someOnPageSelected()" (changed)="table.togglePage()" ariaLabel="Select all" /></th>
+            <th><ui-sort-header [table]="table" key="name">Name</ui-sort-header></th>
+            <th>Team</th>
+            <th class="ui-cell-end"><ui-sort-header [table]="table" key="score">Score</ui-sort-header></th>
+            <th class="ui-cell-shrink"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of table.pageRows(); track row.id) {
+            <tr [class.ui-row-selected]="table.isSelected(row)">
+              <td class="ui-cell-shrink"><ui-checkbox [checked]="table.isSelected(row)" (changed)="table.toggle(row)" [ariaLabel]="'Select ' + row.name" /></td>
+              <td><ui-person [name]="row.name" [detail]="row.team" /></td>
+              <td><ui-badge>{{ row.team }}</ui-badge></td>
+              <td class="ui-cell-end">{{ row.score }}</td>
+              <td class="ui-cell-shrink">
+                <button uiButton variant="ghost" size="sm" iconOnly type="button" [uiMenuTrigger]="menu" aria-label="Actions"><ng-icon [svg]="icons.more" /></button>
+                <ng-template #menu>
+                  <ui-menu>
+                    <button uiMenuItem [icon]="icons.edit">Edit</button>
+                    <button uiMenuItem [icon]="icons.copy">Duplicate</button>
+                    <hr uiMenuDivider />
+                    <button uiMenuItem tone="danger" [icon]="icons.remove">Delete</button>
+                  </ui-menu>
+                </ng-template>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="table-foot">
+      <ui-page-size [table]="table" [label]="table.range().from + '–' + table.range().to + ' of ' + table.range().total" [sizes]="[4, 8, 12]" />
+      <ui-pagination [page]="table.currentPage()" (pageChange)="table.page.set($event)" [pageCount]="table.pageCount()" />
+    </div>
+  </ui-card>
+
+  <!-- Timeline, details, chart -->
+  <div class="split">
+    <ui-card title="Timeline" description="Events joined by a line.">
+      <ui-timeline>
+        <ui-timeline-item [icon]="icons.invite" tone="success" time="2 min ago"><b>Henry</b> invited <b>Jane</b></ui-timeline-item>
+        <ui-timeline-item [icon]="icons.edit" tone="info" time="1 hour ago"><b>Jane</b> updated her profile</ui-timeline-item>
+        <ui-timeline-item [icon]="icons.remove" tone="danger" time="Yesterday"><b>Krit</b> deleted a project</ui-timeline-item>
+      </ui-timeline>
+    </ui-card>
+    <ui-card title="Detail list" description="Label and value pairs.">
+      <ui-detail-list [columns]="2">
+        <ui-detail-item label="Email">henry@example.com</ui-detail-item>
+        <ui-detail-item label="Role"><ui-badge tone="primary">Administrator</ui-badge></ui-detail-item>
+        <ui-detail-item label="Joined">4 Oct 2025</ui-detail-item>
+        <ui-detail-item label="Status"><ui-badge tone="success" dot>Active</ui-badge></ui-detail-item>
+      </ui-detail-list>
+    </ui-card>
+  </div>
+
+  <ui-card title="Chart helpers (ui/charts)" description="syncChartTheme keeps Chart.js in step with dark mode; areaFill draws the gradient.">
+    <ui-chart-legend uiCardActions [items]="legend" />
+    <div class="chart">
+      <canvas baseChart type="line" [data]="chartData()" [options]="chartOptions"></canvas>
+    </div>
+  </ui-card>
+</div>
+
+<ui-dialog [(open)]="dialogOpen" title="Invite people" description="They get an email with a link to join.">
+  <ui-form-field label="Email addresses" for="kitInvite" hint="Separate addresses with commas.">
+    <textarea uiInput id="kitInvite" rows="3" placeholder="jane@example.com, krit@example.com"></textarea>
+  </ui-form-field>
+  <div uiDialogFooter>
+    <button uiButton variant="secondary" type="button" (click)="dialogOpen.set(false)">Cancel</button>
+    <button uiButton type="button" (click)="dialogOpen.set(false)"><ng-icon [svg]="icons.invite" /> Send invites</button>
+  </div>
+</ui-dialog>

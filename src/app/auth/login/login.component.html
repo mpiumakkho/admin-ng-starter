@@ -1,0 +1,61 @@
+<div class="auth">
+  <app-auth-aside />
+  <div class="auth-main">
+    <div class="auth-form-light">
+      <div class="brand-logo">
+        <img src="assets/images/logo-light.svg" alt="logo" class="logo-on-light">
+        <img src="assets/images/logo.svg" alt="logo" class="logo-on-dark">
+      </div>
+      <h4>{{ 'Welcome back' | translate }}</h4>
+      <h6>{{ 'Sign in to the admin to continue.' | translate }}</h6>
+      <form class="login-form" [formGroup]="form" (ngSubmit)="signIn()" novalidate>
+        @if (error()) {
+          <ui-alert tone="danger">{{ error() | translate }}</ui-alert>
+        } @else if (expired() === 'idle') {
+          <ui-alert tone="warning">{{ 'You were signed out after a while without activity. Sign in again to continue.' | translate }}</ui-alert>
+        } @else if (expired()) {
+          <ui-alert tone="warning">{{ 'Your session has ended. Sign in again to continue.' | translate }}</ui-alert>
+        }
+        @if (codeStep()) {
+          <ui-alert tone="info" [title]="'Two-step sign-in' | translate">{{ 'Type the 6-digit code from the authenticator app on your phone.' | translate }}</ui-alert>
+          <ui-form-field [label]="'Code' | translate" for="loginCode" [errors]="errors()">
+            <input #codeInput uiInput id="loginCode" class="code-input" [formControl]="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+          </ui-form-field>
+          <button uiButton size="lg" block type="submit" [loading]="signingIn()">{{ 'Verify' | translate }}</button>
+          <button type="button" class="auth-link start-over" (click)="startOver()">{{ 'Use another account' | translate }}</button>
+        } @else {
+          <ui-form-field [label]="'Email' | translate" for="loginEmail" [errors]="errors()">
+            <div class="input-icon">
+              <ng-icon name="lucideMail" />
+              <input uiInput id="loginEmail" type="email" formControlName="email" autocomplete="username" placeholder="you@example.com">
+            </div>
+          </ui-form-field>
+          <ui-form-field [label]="'Password' | translate" for="loginPassword" [errors]="errors()">
+            <a uiFieldAside href="javascript:void(0)" class="auth-link">{{ 'Forgot password?' | translate }}</a>
+            <div class="input-icon">
+              <ng-icon name="lucideLockKeyhole" />
+              <input uiInput id="loginPassword" [type]="showPassword() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" placeholder="••••••••">
+              <button type="button" class="input-action" (click)="showPassword.set(!showPassword())" [attr.aria-label]="(showPassword() ? 'Hide password' : 'Show password') | translate" [attr.aria-pressed]="showPassword()">
+                <ng-icon [name]="showPassword() ? 'lucideEyeOff' : 'lucideEye'" />
+              </button>
+            </div>
+          </ui-form-field>
+          <ui-checkbox formControlName="remember">{{ 'Keep me signed in' | translate }}</ui-checkbox>
+          <button uiButton size="lg" block type="submit" [loading]="signingIn()">{{ 'Sign in' | translate }}</button>
+        }
+      </form>
+
+      @if (demoAccounts.length) {
+        <section class="demo" [attr.aria-label]="'Sample accounts' | translate">
+          <p class="demo-title">{{ 'Try a role from the sample data' | translate }}</p>
+          <div class="demo-accounts">
+            @for (account of demoAccounts; track account.email) {
+              <button type="button" class="demo-account" [disabled]="signingIn()" (click)="signInAs(account.email)" [title]="account.email">{{ account.roleName }}</button>
+            }
+          </div>
+          <p class="demo-note">{{ 'Or use the email of any active user, with any password of 6 or more characters.' | translate }}</p>
+        </section>
+      }
+    </div>
+  </div>
+</div>

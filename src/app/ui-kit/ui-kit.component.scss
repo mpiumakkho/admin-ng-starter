@@ -1,0 +1,121 @@
+.kit {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.row-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+
+  & + .row-wrap,
+  & + ui-segmented,
+  ui-segmented + & {
+    margin-top: 1rem;
+  }
+}
+
+ui-segmented[variant="underline"] {
+  display: flex;
+  margin-top: 1rem;
+}
+
+.grow {
+  flex: 1 1 260px;
+}
+
+.tag {
+  padding: .1875rem .5rem;
+  border: 1px solid var(--ui-border);
+  border-radius: .375rem;
+  background: var(--ui-surface-muted);
+  color: var(--ui-text);
+  font-family: var(--ui-font-mono);
+  font-size: .75rem;
+}
+
+.snippet {
+  margin: 1.25rem 0 0;
+  padding: .75rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text);
+  font-family: var(--ui-font-mono);
+  font-size: .75rem;
+  white-space: pre;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.form-demo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem 1rem;
+
+  .span-2 {
+    grid-column: span 2;
+  }
+
+  @media (max-width: 767px) {
+    grid-template-columns: 1fr;
+
+    .span-2 {
+      grid-column: auto;
+    }
+  }
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+
+  .kit > & {
+    margin-top: 0;
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.table-tools {
+  display: flex;
+  padding: 0 1.5rem 1rem;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.table-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .875rem 1.5rem;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+.chart {
+  position: relative;
+  height: 240px;
+}
+
+b {
+  color: var(--ui-heading);
+  font-weight: 600;
+}
