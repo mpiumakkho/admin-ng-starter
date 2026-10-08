@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Translations
+        run: npm run check-i18n
+      - name: Unit tests
+        run: npm test -- --watch=false
+      - name: Build
+        run: npm run build
+
+      # Against the dev server, in the Google Chrome the runner image already has
+      - name: End-to-end tests
+        run: npm run e2e
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

@@ -38,6 +38,9 @@ Any active user's email works too, with any password of 6 or more characters, un
 | `npm run watch` | Rebuilds the development bundle on change |
 | `npm test` | Runs the unit tests with Vitest |
 | `npm run e2e` | Runs the end-to-end tests in `e2e/` with Playwright, in the installed Google Chrome, against the dev server (started if it is not running) |
+| `npm run check-i18n` | Checks the translations: every language has the same keys as English, none empty, and every key the code names is translated |
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit tests, the build and the end-to-end tests on every push and pull request.
 
 ## Pages
 
