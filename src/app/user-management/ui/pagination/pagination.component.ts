@@ -1,11 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, input, model, ViewEncapsulation } from '@angular/core';
+import {
+  afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, inject, Injector, input, model, ViewEncapsulation,
+} from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
-import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
+import { lucideChevronLeft, lucideChevronRight, lucideChevronsLeft, lucideChevronsRight } from '@ng-icons/lucide';
 
-type PageItem = number | 'gap-start' | 'gap-end';
+/** The most page numbers shown at once */
+const VISIBLE_PAGES = 5;
 
 /**
- * Page buttons with previous and next. Long ranges collapse into "…".
+ * Page buttons with previous and next. At most five page numbers show, with the current one in the middle where it
+ * can be; with more pages than that, first and last buttons appear on the outside: << < 6 7 8 9 10 > >>
  *
  *   <ui-pagination [(page)]="page" [pageCount]="12" />
  */
@@ -13,24 +17,33 @@ type PageItem = number | 'gap-start' | 'gap-end';
   selector: 'ui-pagination',
   imports: [NgIcon],
   template: `
-    <button type="button" class="ui-page ui-page-arrow" [disabled]="page() <= 1" [attr.aria-label]="previousLabel()" (click)="go(page() - 1)">
-      <ng-icon [svg]="previousIcon" />
+    @if (hasMore()) {
+      <button type="button" class="ui-page ui-page-arrow" [disabled]="current() <= 1" [attr.aria-label]="firstLabel()" (click)="go(1, $event)">
+        <ng-icon [svg]="icons.first" />
+      </button>
+    }
+    <button type="button" class="ui-page ui-page-arrow" [disabled]="current() <= 1" [attr.aria-label]="previousLabel()" (click)="go(current() - 1, $event)">
+      <ng-icon [svg]="icons.previous" />
     </button>
     @for (item of items(); track item) {
-      @if (item === 'gap-start' || item === 'gap-end') {
-        <span class="ui-page-gap" aria-hidden="true">…</span>
-      } @else {
-        <button type="button" class="ui-page" [class.ui-page-active]="item === page()" [attr.aria-current]="item === page() ? 'page' : null" (click)="go(item)">{{ item }}</button>
-      }
+      <button type="button" class="ui-page" [class.ui-page-active]="item === current()" [attr.aria-current]="item === current() ? 'page' : null" (click)="go(item, $event)">{{ item }}</button>
     }
-    <button type="button" class="ui-page ui-page-arrow" [disabled]="page() >= pageCount()" [attr.aria-label]="nextLabel()" (click)="go(page() + 1)">
-      <ng-icon [svg]="nextIcon" />
+    <button type="button" class="ui-page ui-page-arrow" [disabled]="current() >= count()" [attr.aria-label]="nextLabel()" (click)="go(current() + 1, $event)">
+      <ng-icon [svg]="icons.next" />
     </button>
+    @if (hasMore()) {
+      <button type="button" class="ui-page ui-page-arrow" [disabled]="current() >= count()" [attr.aria-label]="lastLabel()" (click)="go(count(), $event)">
+        <ng-icon [svg]="icons.last" />
+      </button>
+    }
   `,
   styles: `
+    // Wraps onto a second line rather than run off the narrowest screens
     .ui-pagination {
       display: inline-flex;
+      flex-wrap: wrap;
       align-items: center;
+      justify-content: flex-end;
       gap: .25rem;
       font-family: var(--ui-font);
     }
@@ -83,10 +96,17 @@ type PageItem = number | 'gap-start' | 'gap-end';
       cursor: default;
     }
 
-    .ui-page-gap {
-      min-width: 1.5rem;
-      color: var(--ui-subtle);
-      text-align: center;
+    // Nine buttons fit across most phones; each stays above the 24px a finger needs (WCAG 2.5.8)
+    @media (max-width: 479px) {
+      .ui-pagination {
+        gap: .125rem;
+      }
+
+      .ui-page {
+        min-width: 30px;
+        height: 32px;
+        padding: 0 .375rem;
+      }
     }
   `,
   encapsulation: ViewEncapsulation.None,
@@ -96,27 +116,38 @@ type PageItem = number | 'gap-start' | 'gap-end';
 export class UiPagination {
   readonly page = model(1);
   readonly pageCount = input.required<number>();
+  readonly firstLabel = input('First page');
   readonly previousLabel = input('Previous page');
   readonly nextLabel = input('Next page');
+  readonly lastLabel = input('Last page');
   readonly ariaLabel = input('Pagination');
 
-  protected readonly previousIcon = lucideChevronLeft;
-  protected readonly nextIcon = lucideChevronRight;
+  protected readonly icons = { first: lucideChevronsLeft, previous: lucideChevronLeft, next: lucideChevronRight, last: lucideChevronsRight };
 
-  // First, last, and the pages either side of the current one; the rest become gaps
-  protected readonly items = computed<PageItem[]>(() => {
-    const count = Math.max(1, this.pageCount());
-    const current = Math.min(Math.max(1, this.page()), count);
-    if (count <= 7) {
-      return Array.from({ length: count }, (_, index) => index + 1);
-    }
-    const start = Math.max(2, Math.min(current - 1, count - 4));
-    const end = Math.min(count - 1, Math.max(current + 1, 5));
-    const middle = Array.from({ length: end - start + 1 }, (_, index) => start + index);
-    return [1, ...(start > 2 ? ['gap-start' as const] : []), ...middle, ...(end < count - 1 ? ['gap-end' as const] : []), count];
+  protected readonly count = computed(() => Math.max(1, this.pageCount()));
+  protected readonly current = computed(() => Math.min(Math.max(1, this.page()), this.count()));
+  /** More pages than fit: the first and last buttons show */
+  protected readonly hasMore = computed(() => this.count() > VISIBLE_PAGES);
+
+  // Five pages with the current one in the middle, moved along at either end so there are always five
+  protected readonly items = computed<number[]>(() => {
+    const shown = Math.min(this.count(), VISIBLE_PAGES);
+    const start = Math.min(Math.max(1, this.current() - Math.floor(VISIBLE_PAGES / 2)), this.count() - shown + 1);
+    return Array.from({ length: shown }, (_, index) => start + index);
   });
 
-  protected go(page: number) {
-    this.page.set(Math.min(Math.max(1, page), Math.max(1, this.pageCount())));
+  private readonly host: HTMLElement = inject(ElementRef).nativeElement;
+  private readonly injector = inject(Injector);
+
+  protected go(page: number, event: Event) {
+    this.page.set(Math.min(Math.max(1, page), this.count()));
+    // First, previous, next and last turn off at either end; the keyboard focus moves to the current page instead of
+    // being lost with them
+    const button = event.currentTarget as HTMLButtonElement;
+    afterNextRender(() => {
+      if (button.disabled) {
+        this.host.querySelector<HTMLButtonElement>('.ui-page-active')?.focus();
+      }
+    }, { injector: this.injector });
   }
 }

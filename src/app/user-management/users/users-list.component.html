@@ -109,7 +109,7 @@
     </div>
     <div class="table-footer">
       <ui-page-size [table]="table" [sizes]="pageSizes" [label]="'rangeOf' | translate: table.range()" [heading]="'Rows per page' | translate" />
-      <ui-pagination [ariaLabel]="'Pagination' | translate" [page]="table.currentPage()" (pageChange)="table.page.set($event)" [pageCount]="table.pageCount()" [previousLabel]="'Previous page' | translate" [nextLabel]="'Next page' | translate" />
+      <ui-pagination [ariaLabel]="'Pagination' | translate" [page]="table.currentPage()" (pageChange)="table.page.set($event)" [pageCount]="table.pageCount()" [firstLabel]="'First page' | translate" [previousLabel]="'Previous page' | translate" [nextLabel]="'Next page' | translate" [lastLabel]="'Last page' | translate" />
     </div>
   } @else {
     <ui-empty-state [icon]="icons.empty" [title]="'No users found' | translate" [description]="(hasFilters() ? 'Try another search or clear the filters.' : 'Add the first user to get started.') | translate">
