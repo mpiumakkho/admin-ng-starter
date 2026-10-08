@@ -81,6 +81,26 @@ const ROLES: Role[] = [
   },
 ];
 
+/**
+ * Roles an organization adds of its own, so the sample shows the pages with a longer list of roles. A few people
+ * hold each; the demo accounts on the sign-in page stay with the four roles above.
+ */
+const CUSTOM_ROLES: Role[] = [
+  { id: 'help-desk', name: 'Help desk', description: 'Unlocks accounts and fixes sign-in problems', tone: 'info', permissions: ['users.view', 'users.edit'], system: false },
+  { id: 'hr', name: 'HR', description: 'Adds and invites new staff', tone: 'success', permissions: ['users.view', 'users.create', 'users.edit'], system: false },
+  { id: 'auditor', name: 'Auditor', description: 'Reads the activity log and exports it', tone: 'warning', permissions: ['users.view', 'roles.view', 'activity.view', 'activity.export', 'settings.view'], system: false },
+  { id: 'security', name: 'Security', description: 'Reviews sign-ins, devices and the sign-in settings', tone: 'danger', permissions: ['users.view', 'activity.view', 'settings.view'], system: false },
+  { id: 'team-lead', name: 'Team lead', description: 'Edits the people in their team', tone: 'primary', permissions: ['users.view', 'users.edit', 'activity.view'], system: false },
+  { id: 'onboarding', name: 'Onboarding', description: 'Invites new people and sends invitations again', tone: 'success', permissions: ['users.view', 'users.create'], system: false },
+  { id: 'it-operations', name: 'IT operations', description: 'Looks after the settings and signed-in devices', tone: 'info', permissions: ['users.view', 'users.edit', 'settings.view', 'settings.manage'], system: false },
+  { id: 'compliance', name: 'Compliance', description: 'Reads the roles, the settings and the activity log', tone: 'warning', permissions: ['users.view', 'roles.view', 'activity.view', 'activity.export', 'settings.view'], system: false },
+  { id: 'finance', name: 'Finance', description: 'Reads the user list for billing', tone: 'neutral', permissions: ['users.view'], system: false },
+  { id: 'contractor', name: 'Contractor', description: 'Limited access for outside staff', tone: 'neutral', permissions: ['users.view'], system: false },
+];
+
+/** How many people hold each custom role, in the order above */
+const CUSTOM_ROLE_HOLDERS = [3, 2, 2, 1, 2, 1, 1, 0, 1, 0];
+
 /** Small deterministic generator, so the sample data is the same on every first load */
 function random(seed: number) {
   return () => {
@@ -119,6 +139,14 @@ export function createMockData(now = Date.now()): AdminData {
       lastActiveAt: status === 'invited' ? null : new Date(now - (isOwner ? 0.01 : next() * 30) * DAY).toISOString(),
     };
   });
+
+  // Every other Support and Viewer person moves to a custom role, until each has its holders. This draws no random
+  // numbers, so everything generated after it is the same as without the custom roles.
+  const holders = CUSTOM_ROLES.flatMap((role, index) => Array<string>(CUSTOM_ROLE_HOLDERS[index]).fill(role.id));
+  users.filter(user => user.roleId === 'support' || user.roleId === 'viewer')
+    .filter((_, index) => index % 2 === 1)
+    .slice(0, holders.length)
+    .forEach((user, index) => user.roleId = holders[index]);
 
   const admins = users.filter(user => user.roleId === 'admin' || user.roleId === 'manager');
 
@@ -190,7 +218,7 @@ export function createMockData(now = Date.now()): AdminData {
     };
   }).sort((a, b) => b.at.localeCompare(a.at));
 
-  return { users, roles: structuredClone(ROLES), activity, settings: { ...DEFAULT_SETTINGS }, sessions: createMockSessions(users, now) };
+  return { users, roles: structuredClone([...ROLES, ...CUSTOM_ROLES]), activity, settings: { ...DEFAULT_SETTINGS }, sessions: createMockSessions(users, now) };
 }
 
 /**
@@ -233,8 +261,8 @@ export function createMockSessions(users: User[], now = Date.now()): UserSession
  * Any password of 6 or more characters signs in. Not for a real server.
  */
 export const DEMO_ACCOUNTS: { email: string; roleId: string; roleName: string }[] = (() => {
-  const { users, roles } = createMockData(0);
-  return roles.flatMap(role => {
+  const { users } = createMockData(0);
+  return ROLES.flatMap(role => {
     const user = users.find(item => item.roleId === role.id && item.status === 'active');
     return user ? [{ email: user.email, roleId: role.id, roleName: role.name }] : [];
   });

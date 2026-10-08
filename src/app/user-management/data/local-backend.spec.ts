@@ -68,7 +68,7 @@ describe('HttpAdminApi against localBackend', () => {
     try {
       vi.setSystemTime(Date.now() + 16 * 60_000);
       answers = [];
-      expect((await reloaded.listRoles()).length).toBe(4);
+      expect((await reloaded.listRoles()).length).toBe(14);
       expect(answers).toEqual(['GET /api/roles 401', 'POST /api/auth/refresh 200', 'GET /api/roles 200']);
     } finally {
       vi.useRealTimers();

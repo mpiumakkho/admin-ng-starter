@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { CanDeactivateFn, Router, RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
@@ -31,6 +32,9 @@ import { errorMessage } from '../shared/errors';
 import { translationsChanged } from '../shared/i18n';
 
 const AVATAR_SIZE = 160;
+
+/** Up to this many roles show as cards with their description; more, and the form offers a dropdown */
+const ROLE_CARDS_UP_TO = 6;
 
 @Component({
   selector: 'app-user-form',
@@ -107,6 +111,11 @@ export class UserFormComponent implements OnInit {
       disabled: role.id !== current && !this.session.canAssign(role),
     }));
   });
+
+  protected readonly manyRoles = computed(() => this.store.roles().length > ROLE_CARDS_UP_TO);
+  private readonly roleId = toSignal(this.form.controls.roleId.valueChanges, { initialValue: this.form.controls.roleId.value });
+  /** The role picked in the dropdown, whose description and permissions show under it */
+  protected readonly pickedRole = computed(() => this.roleChoices().find(choice => choice.value === this.roleId()));
 
   /** Some roles grant permissions the signed-in user lacks, so they cannot be picked */
   protected readonly someRolesLocked = computed(() => !this.isSelf() && this.roleChoices().some(choice => choice.disabled));

@@ -120,7 +120,7 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 
 ## Trying it with the sample data
 
-`LocalAdminApi` keeps 48 sample users, 4 roles and a month of activity in the browser's `localStorage`. The sign-in page offers one account per role (Administrator, Manager, Support and Viewer); any active user's email works too, with any password of 6 or more characters. Clear the `admin-data-v3` key in the browser to start over.
+`LocalAdminApi` keeps 48 sample users, 14 roles and a month of activity in the browser's `localStorage`: the four built-in roles and ten an organization might add (Help desk, HR, Auditor and so on), so the pages show a longer list of roles. With more than six roles, the roles page searches its list, the user form offers roles in a dropdown and the overview chart adds up all but the five largest. The sign-in page offers one account for each built-in role (Administrator, Manager, Support and Viewer); any active user's email works too, with any password of 6 or more characters. Clear the `admin-data-v4` key in the browser to start over.
 
 ## Using a real server
 

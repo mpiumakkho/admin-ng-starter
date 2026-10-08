@@ -128,7 +128,7 @@ describe('Session and permissions', () => {
     it('keeps roles read-only without roles.manage', async () => {
       await signInAs('support');
 
-      expect(store.roles().length).toBe(4);
+      expect(store.roles().length).toBe(14);
       await expect(store.createRole({ name: 'X', description: '', tone: 'info', permissions: [] })).rejects.toEqual(new AdminApiError('forbidden'));
     });
   });
@@ -287,14 +287,14 @@ describe('Session and permissions', () => {
       await signInAs('admin');
       const revision = store.revision();
 
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v3' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v4' }));
       await vi.waitFor(() => expect(store.revision()).toBe(revision + 1), { timeout: 3000 });
 
       // Another tab signs this browser's session out
-      const data = JSON.parse(localStorage.getItem('admin-data-v3')!);
+      const data = JSON.parse(localStorage.getItem('admin-data-v4')!);
       data.sessions = data.sessions.filter((item: { userId: string }) => item.userId !== session.userId());
-      localStorage.setItem('admin-data-v3', JSON.stringify(data));
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v3' }));
+      localStorage.setItem('admin-data-v4', JSON.stringify(data));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v4' }));
       await vi.waitFor(() => expect(session.signedIn()).toBe(false), { timeout: 3000 });
     });
   });

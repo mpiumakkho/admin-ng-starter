@@ -10,7 +10,7 @@ import {
 } from './models';
 import { createSecret, otpauthUri, verifyTotp } from './totp';
 
-const STORAGE_KEY = 'admin-data-v3';
+const STORAGE_KEY = 'admin-data-v4';
 /** This browser's session id: kept in sessionStorage, or in localStorage with "Keep me signed in" */
 const SESSION_KEY = 'admin-session';
 /** The name authenticator apps show next to the codes */
@@ -34,7 +34,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /**
  * AdminApi backed by localStorage, seeded with sample data on first use. It plays the server's part: it knows
  * who is signed in, checks their permissions (see access-rules.ts) and writes the activity log.
- * Clear the "admin-data-v3" key in the browser to start over.
+ * Clear the "admin-data-v4" key in the browser to start over.
  */
 @Injectable()
 export class LocalAdminApi extends AdminApi {

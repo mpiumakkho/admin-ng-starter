@@ -39,7 +39,7 @@ describe('AdminStore', () => {
   it('loads the sample data after signing in', () => {
     expect(store.loaded()).toBe(true);
     expect(store.users().length).toBe(48);
-    expect(store.roles().length).toBe(4);
+    expect(store.roles().length).toBe(14);
     expect(session.user()?.email).toBe(ADMIN);
     expect(store.activity()[0]).toMatchObject({ action: 'auth.sign_in', actorId: session.userId() });
   });

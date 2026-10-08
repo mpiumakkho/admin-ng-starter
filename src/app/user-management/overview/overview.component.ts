@@ -61,6 +61,11 @@ const TONE_COLORS: Record<UiTone, string> = {
   neutral: '#94a3b8',
 };
 
+/** With more roles than fit the card, the chart names the ones most people hold and adds up the rest */
+const CHART_ROLES = 5;
+/** Lighter than the neutral tone, so "other roles" never looks like a role of its own */
+const OTHER_ROLES_COLOR = '#cbd5e1';
+
 @Component({
   selector: 'app-overview',
   imports: [
@@ -204,16 +209,30 @@ export class OverviewComponent {
 
   /* Users per role */
 
-  protected readonly roleBreakdown = computed(() => this.store.roles().map(role => ({
-    id: role.id,
-    label: role.name,
-    color: TONE_COLORS[role.tone],
-    value: this.store.roleCounts().get(role.id) ?? 0,
-  })));
+  protected readonly roleBreakdown = computed<{ id: string | null; label: string; color: string; value: number }[]>(() => {
+    this.i18n();
+    const roles = this.store.roles().map(role => ({
+      id: role.id as string | null,
+      label: role.name,
+      color: TONE_COLORS[role.tone],
+      value: this.store.roleCounts().get(role.id) ?? 0,
+    }));
+    if (roles.length <= CHART_ROLES + 1) {
+      return roles;
+    }
+    const byCount = [...roles].sort((a, b) => b.value - a.value);
+    const rest = byCount.slice(CHART_ROLES);
+    return [...byCount.slice(0, CHART_ROLES), {
+      id: null,
+      label: this.translate.instant('otherRoles', { count: rest.length }),
+      color: OTHER_ROLES_COLOR,
+      value: rest.reduce((sum, role) => sum + role.value, 0),
+    }];
+  });
 
-  /** Each role links to the users who have it */
+  /** Each role links to the users who have it; the rest added up, to the list of every role */
   protected readonly roleLegend = computed<UiLegendItem[]>(() =>
-    this.roleBreakdown().map(({ id, ...item }) => ({ ...item, link: '/users', queryParams: { role: id } })));
+    this.roleBreakdown().map(({ id, ...item }) => id ? { ...item, link: '/users', queryParams: { role: id } } : { ...item, link: '/roles' }));
 
   protected readonly roleData = computed<ChartData<'doughnut'>>(() => ({
     labels: this.roleBreakdown().map(role => role.label),

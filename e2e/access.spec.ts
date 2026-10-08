@@ -72,8 +72,8 @@ test('a manager cannot give out or manage the Administrator role', async ({ page
   await signInAs(page, 'Manager');
 
   await page.goto('/users/new');
-  await expect(page.locator('.ui-choice', { hasText: 'Administrator' })).toHaveClass(/ui-choice-disabled/);
-  await expect(page.locator('.ui-choice', { hasText: 'Support' })).not.toHaveClass(/ui-choice-disabled/);
+  await expect(page.locator('#roleId option', { hasText: 'Administrator' })).toBeDisabled();
+  await expect(page.locator('#roleId option', { hasText: 'Support' })).toBeEnabled();
 
   await page.goto('/users/u-001');
   await expect(page.locator('.profile-actions')).toHaveCount(0);
@@ -89,7 +89,7 @@ test('nobody changes their own role, status or role permissions', async ({ page 
   await expect(page.locator('.editor-note')).toContainText('your own role');
   await page.goto('/users/u-001/edit');
   await expect(page.locator('ui-alert')).toContainText('your own role or status');
-  await expect(page.locator('.ui-choice input:not(:disabled)')).toHaveCount(0);
+  await expect(page.locator('#roleId')).toBeDisabled();
 });
 
 test('signing out with unsaved changes asks first', async ({ page }) => {
