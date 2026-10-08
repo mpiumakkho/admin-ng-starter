@@ -20,7 +20,7 @@ export type EmailLinkKind = 'invite' | 'reset';
   selector: 'app-set-password',
   imports: [ReactiveFormsModule, RouterLink, TranslatePipe, AuthAsideComponent, UiAlert, UiButton, UiFormField, UiInput],
   templateUrl: './set-password.component.html',
-  styleUrl: '../auth-form.scss',
+  styleUrls: ['../auth-page.scss', '../auth-form.scss'],
 })
 export class SetPasswordComponent {
   private readonly api = inject(AdminApi);

@@ -1,53 +1,273 @@
-/* You can add global styles to this file, and also import other style files */
+// Global styles: the Sarabun font, the base look of plain HTML elements, and the few rules for <body> itself.
+// Everything else lives in the components' own stylesheets. Colors, radii and shadows come from the --ui-*
+// variables in user-management/ui/ui.scss, which follow the light or dark theme.
 
-@import "bootstrap/scss/functions";
-@import "./assets/scss/tokens";
-@import "bootstrap/scss/variables";
-@import './assets/scss/variables';
-@import "./assets/scss/compat";
-@import "bootstrap/scss/bootstrap";
-@import "./assets/scss/fonts";
-@import "./assets/scss/functions";
+@use 'assets/scss/fonts';
 
-/* === Icon fonts === */
+/* Base: a small reset, so plain elements look the same in every browser; components style what they draw */
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
-/* === Template mixins === */
-@import "./assets/scss/mixins/animation";
-@import "./assets/scss/mixins/badges";
-@import "./assets/scss/mixins/buttons";
-@import "./assets/scss/mixins/misc";
-@import "./assets/scss/mixins/color-functions";
-@import "./assets/scss/mixins/cards";
-@import "./assets/scss/mixins/blockqoute";
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
 
-/* === Core Styles === */
-@import "./assets/scss/typography";
-@import "./assets/scss/reset";
-@import "./assets/scss/responsive";
-@import "./assets/scss/misc";
-@import "./assets/scss/utilities";
-@import "./assets/scss/demo";
-@import "./assets/scss/spinner";
+body {
+  margin: 0;
+  // Nothing reaches sideways past the window, such as the sidebar while it slides
+  overflow-x: hidden;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  font-size: .875rem;
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
 
-/* === Components === */
-@import "./assets/scss/components/forms";
-@import "./assets/scss/components/checkbox-radio";
-@import "./assets/scss/components/tables";
-@import "./assets/scss/components/buttons";
-@import "./assets/scss/components/badges";
-@import "./assets/scss/components/lists";
-@import "./assets/scss/components/cards";
-@import "./assets/scss/components/bootstrap-progress";
-@import "./assets/scss/components/dropdowns";
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0 0 .5rem;
+  color: var(--ui-heading);
+  font-weight: 600;
+  letter-spacing: -.011em;
+  line-height: 1.3;
+}
 
-@import "./assets/scss/components/landing-screens/auth";
+h1 {
+  font-size: 2rem;
+  letter-spacing: -.022em;
+}
 
-/* === Plugin Overrides === */
-@import "./assets/scss/components/plugin-overrides/ng-bootstrap";
+h2 {
+  font-size: 1.625rem;
+  letter-spacing: -.02em;
+}
 
-/* === Layout === */
-@import "./assets/scss/layout";
+h3 {
+  font-size: 1.375rem;
+  letter-spacing: -.017em;
+}
 
-/* === Dark theme === */
-@import "./assets/scss/dark";
+h4 {
+  font-size: 1.125rem;
+}
+
+h5 {
+  font-size: 1rem;
+}
+
+h6 {
+  font-size: .875rem;
+}
+
+// Paragraphs keep the body size even inside smaller text, such as a dialog's steps or an alert's title
+p {
+  margin: 0 0 1rem;
+  font-size: .875rem;
+  line-height: 1.6;
+}
+
+ul,
+ol {
+  margin: 0 0 1rem;
+  padding-inline-start: 1rem;
+}
+
+li {
+  line-height: 1.8;
+}
+
+b,
+strong {
+  font-weight: bolder;
+}
+
+small {
+  font-size: .875em;
+}
+
+a {
+  color: var(--ui-primary-text);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:not([href]):not([class]) {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+// Inline code, such as a permission key
+code {
+  padding: .125rem .375rem;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-hover);
+  color: var(--ui-text);
+  font-family: var(--ui-font-mono);
+  font-size: .8125rem;
+  overflow-wrap: break-word;
+}
+
+pre {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  overflow: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface-muted);
+  color: var(--ui-heading);
+  font-family: var(--ui-font-mono);
+  font-size: .8125rem;
+}
+
+kbd {
+  font-family: var(--ui-font-mono);
+}
+
+img,
+svg {
+  vertical-align: middle;
+}
+
+svg {
+  overflow: hidden;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th {
+  text-align: inherit;
+}
+
+label {
+  display: inline-block;
+}
+
+// Form controls take the text around them instead of the browser's small system font
+button,
+input,
+select,
+textarea {
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+button:not(:disabled),
+[role="button"] {
+  cursor: pointer;
+}
+
+textarea {
+  overflow: auto;
+  resize: vertical;
+}
+
+[type="search"] {
+  appearance: none;
+  outline-offset: -2px;
+}
+
+::-webkit-search-decoration {
+  appearance: none;
+}
+
+::-webkit-file-upload-button {
+  font: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--ui-primary) 20%, transparent);
+}
+
+/* Focus: always visible from the keyboard, quiet for the mouse. Text fields draw their own ring. */
+
+:focus-visible:not(input, textarea, select) {
+  outline: 2px solid color-mix(in srgb, var(--ui-primary) 55%, transparent) !important;
+  outline-offset: 2px;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+[tabindex="-1"]:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Thin scrollbars that stay out of the way, the same in both themes */
+
+* {
+  scrollbar-color: rgba(148, 163, 184, .45) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, .45);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* <body> */
+
+// The page behind the menu, open over it on smaller screens, does not scroll
+@media (max-width: 991px) {
+  body.menu-open {
+    overflow: hidden;
+  }
+}
+
+// Shown by index.html until the app starts
+.main-spinner-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--ui-bg);
+
+  .donut {
+    width: 4rem;
+    height: 4rem;
+    border: .3rem solid color-mix(in srgb, var(--ui-success) 30%, transparent);
+    border-top-color: var(--ui-success);
+    border-radius: 50%;
+    animation: spin 1.5s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

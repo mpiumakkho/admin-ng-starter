@@ -6,6 +6,6 @@ import { TranslatePipe } from '@ngx-translate/core';
   selector: 'app-error404',
   imports: [RouterLink, TranslatePipe],
   templateUrl: './error404.component.html',
-  styleUrl: './error404.component.scss',
+  styleUrl: '../error-page.scss',
 })
 export class Error404Component {}

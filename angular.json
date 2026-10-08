@@ -50,17 +50,7 @@
             "styles": [
               "src/app/user-management/ui/ui.scss",
               "src/styles.scss"
-            ],
-            "stylePreprocessorOptions": {
-              "sass": {
-                "silenceDeprecations": [
-                  "import",
-                  "global-builtin",
-                  "color-functions",
-                  "slash-div"
-                ]
-              }
-            }
+            ]
           },
           "configurations": {
             "production": {

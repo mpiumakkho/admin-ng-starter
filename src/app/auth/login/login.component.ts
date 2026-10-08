@@ -26,7 +26,7 @@ const SIGN_IN_ERRORS: Record<string, string> = {
   selector: 'app-login',
   imports: [ReactiveFormsModule, RouterLink, NgIcon, TranslatePipe, AuthAsideComponent, UiAlert, UiButton, UiCheckbox, UiFormField, UiInput],
   templateUrl: './login.component.html',
-  styleUrl: './login.component.scss',
+  styleUrls: ['../auth-page.scss', './login.component.scss'],
   viewProviders: [provideIcons({ lucideEye, lucideEyeOff, lucideLockKeyhole, lucideMail })],
 })
 export class LoginComponent {

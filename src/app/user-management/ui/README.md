@@ -1,6 +1,6 @@
 # ui
 
-The building blocks user management is made of, for Angular 22, with light and dark themes. They are standalone, use signals, and work without Bootstrap or a translation library: every piece of text comes in through an input, so the app decides the language.
+The building blocks user management is made of, for Angular 22, with light and dark themes. They are standalone, use signals, and need no CSS framework or translation library: every piece of text comes in through an input, so the app decides the language.
 
 They come with user management (see [../README.md](../README.md)); nothing here is built or installed on its own. Open `/ui-kit` to see every piece with a usage snippet.
 

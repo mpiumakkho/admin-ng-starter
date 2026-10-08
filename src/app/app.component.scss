@@ -1,0 +1,85 @@
+// The shell around every page: the navbar along the top, the sidebar on the left and the page beside it.
+// Sign-in and error pages (full-page) fill the window on their own.
+
+:host {
+  // Shared with the navbar, sidebar and spinner, which line up with the page area
+  --app-navbar-height: 64px;
+  --app-sidebar-width: 256px;
+
+  display: block;
+}
+
+// The sidebar narrowed to its icons, from the button in the navbar
+@media (min-width: 992px) {
+  :host-context(.sidebar-icon-only) {
+    --app-sidebar-width: 72px;
+  }
+}
+
+.app-body {
+  display: flex;
+  min-height: 100vh;
+  padding-top: var(--app-navbar-height);
+
+  &.full-page {
+    padding-top: 0;
+  }
+}
+
+// The sidebar is fixed in place, so the page keeps clear of it with a margin
+.main-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: calc(100vh - var(--app-navbar-height));
+  transition: margin-inline-start .2s ease;
+
+  @media (min-width: 992px) {
+    margin-inline-start: var(--app-sidebar-width);
+  }
+
+  .full-page & {
+    margin-inline-start: 0;
+    transition: none;
+  }
+}
+
+.content-wrapper {
+  flex-grow: 1;
+  padding: 2rem 2rem 0;
+
+  @media (max-width: 767px) {
+    padding: 1.25rem 1rem 0;
+  }
+
+  .full-page & {
+    padding: 0;
+  }
+}
+
+// A page whose host has the page-fit class fills the window below the navbar instead of making it scroll;
+// its own content (a table, say) scrolls inside. Phones and short windows keep normal page scrolling.
+@media (min-width: 992px) and (min-height: 600px) {
+  .main-panel:has(.page-fit) {
+    height: calc(100vh - var(--app-navbar-height));
+
+    .content-wrapper,
+    .page {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .page {
+      flex: 1 1 0;
+    }
+  }
+
+  .page ::ng-deep .page-fit {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+  }
+}

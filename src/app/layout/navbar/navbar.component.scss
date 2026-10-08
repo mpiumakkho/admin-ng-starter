@@ -1,335 +1,372 @@
 /* Navbar */
 
-@import '../../../assets/scss/core';
+:host {
+  // The bar is see-through, so the page shows softly as it scrolls under. In light mode it is white and its
+  // fields sink into it; in dark mode it takes the page color and its fields stand out.
+  --navbar-surface: var(--ui-surface);
+  --navbar-bg: color-mix(in srgb, var(--navbar-surface) 80%, transparent);
+  --navbar-control: var(--ui-hover);
+}
 
-$icon-button-size: 38px;
+:host-context(.theme-dark) {
+  --navbar-surface: var(--ui-bg);
+  --navbar-control: var(--ui-surface);
+}
 
 .navbar {
-  font-family: $type1;
-  background: transparent;
-  height: $navbar-height;
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 1030;
+  display: flex;
+  height: var(--app-navbar-height);
+}
 
-  /* Logo area, the same width as the sidebar */
-  .navbar-brand-wrapper {
-    width: $sidebar-width-lg;
-    height: $navbar-height;
-    padding: 0 .75rem 0 1.5rem;
-    background: $sidebar-light-bg;
-    border-inline-end: 1px solid $sidebar-light-border-color;
-    border-bottom: 1px solid $border-color;
-    transition: width $action-transition-duration $action-transition-timing-function, background $action-transition-duration $action-transition-timing-function;
+/* Logo area, the same width as the sidebar */
+.navbar-brand-wrapper {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  width: var(--app-sidebar-width);
+  padding: 0 .75rem 0 1.5rem;
+  border-inline-end: 1px solid var(--ui-border);
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  transition: width .2s ease, background .2s ease;
 
-    // Below 992px the bar is one strip: menu button and logo on the left, see-through like the rest
-    @media (max-width: 991px) {
-      width: auto;
-      gap: .5rem;
-      padding: 0 0 0 .75rem;
-      background: rgba($white, .82);
-      border-inline-end: 0;
-      backdrop-filter: saturate(180%) blur(12px);
-      -webkit-backdrop-filter: saturate(180%) blur(12px);
-    }
-
-    .navbar-brand {
-      display: flex;
-      align-items: center;
-      margin-right: 0;
-      padding: 0;
-
-      // The logo keeps its own proportions; only its height is set
-      img {
-        width: auto;
-        max-width: 100%;
-        height: 24px;
-      }
-
-      .logo-dark {
-        display: none;
-      }
-
-      &.brand-logo img {
-        @media screen and (max-width: 991px) {
-          height: 22px;
-        }
-
-        // The narrowest phones keep the mark only
-        @media screen and (max-width: 359px) {
-          display: none;
-        }
-      }
-
-      &.brand-logo-mini {
-        display: none;
-
-        img {
-          width: 28px;
-          height: 28px;
-        }
-
-        @media screen and (max-width: 359px) {
-          display: flex;
-        }
-      }
-    }
-
-    .navbar-toggler {
-      margin-inline-start: auto;
-
-      @media screen and (max-width: 991px) {
-        display: none;
-      }
-    }
-  }
-
-  /* Everything right of the logo: translucent, so content shows softly as it scrolls under */
-  .navbar-menu-wrapper {
-    // Positioned, so the phone search can open over it
-    position: relative;
-    width: calc(100% - #{$sidebar-width-lg});
-    height: $navbar-height;
-    padding: 0 1.5rem;
-    gap: 1rem;
-    background: rgba($white, .82);
-    border-bottom: 1px solid $border-color;
-    backdrop-filter: saturate(180%) blur(12px);
-    -webkit-backdrop-filter: saturate(180%) blur(12px);
-    color: $navbar-menu-color;
-    transition: width $action-transition-duration $action-transition-timing-function;
-
-    @media (max-width: 991px) {
-      width: auto;
-      flex-grow: 1;
-      padding: 0 .75rem;
-    }
-
-    .navbar-nav-right {
-      margin-inline-start: auto;
-    }
-  }
-
-  /* Square icon buttons */
-  .icon-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: $icon-button-size;
-    height: $icon-button-size;
-    padding: 0;
-    border: 0;
-    border-radius: $radius;
-    background: transparent;
-    color: $navbar-menu-icon-color;
-    font-size: 1.125rem;
-    cursor: pointer;
-    transition: background-color .15s ease, color .15s ease;
-
-    &:hover,
-    &[aria-expanded="true"] {
-      background: $slate-100;
-      color: $slate-900;
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: $focus-ring;
-    }
-
-    // Set on the icon itself: Bootstrap's nav-link font size would otherwise win
-    ng-icon {
-      font-size: 1.125rem;
-    }
-  }
-
-  .navbar-nav {
-    flex-direction: row;
-    align-items: center;
-    gap: .25rem;
-
-    .nav-item {
-      display: flex;
-      align-items: center;
-
-      .nav-link {
-        color: inherit;
-        font-size: $navbar-font-size;
-      }
-    }
-
-    /* Thin vertical rule between the icon buttons and the language and account */
-    .navbar-divider {
-      width: 1px;
-      height: 24px;
-      margin: 0 .5rem;
-      background: $border-color;
-    }
-  }
-
-  /* Search: on the left with its keyboard shortcut; on phones it opens over the bar */
-  .search-form {
-    position: relative;
-    display: flex;
-    flex: 0 1 420px;
-    align-items: center;
-    min-width: 0;
-
-    .search-icon {
-      position: absolute;
-      inset-inline-start: .75rem;
-      color: $slate-400;
-      font-size: 1rem;
-      pointer-events: none;
-    }
-
-    .form-control {
-      width: 100%;
-      height: 38px;
-      padding: 0 3.75rem 0 2.25rem;
-      border-color: transparent;
-      border-radius: $radius;
-      background: $slate-100;
-      box-shadow: none;
-      font-size: .8125rem;
-      transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
-
-      &:hover {
-        border-color: $slate-200;
-      }
-
-      &:focus {
-        border-color: $primary;
-        background: $white;
-        box-shadow: $focus-ring;
-      }
-
-      &::-webkit-search-cancel-button {
-        display: none;
-      }
-    }
-
-    .search-shortcut {
-      position: absolute;
-      inset-inline-end: .5rem;
-      padding: .125rem .375rem;
-      border: 1px solid $slate-200;
-      border-radius: .3125rem;
-      background: $white;
-      box-shadow: none;
-      color: $slate-500;
-      font-family: $type1;
-      font-size: .6875rem;
-      font-weight: $font-weight-medium;
-      pointer-events: none;
-    }
-
-    .search-close {
-      display: none;
-    }
-
-    @media (max-width: 767px) {
-      display: none;
-
-      &.search-open {
-        position: absolute;
-        inset: 0 .75rem;
-        z-index: 2;
-        display: flex;
-        gap: .25rem;
-        // Solid, so the buttons it covers do not show through the see-through bar
-        background: $white;
-
-        .form-control {
-          padding-inline-end: .75rem;
-        }
-
-        .search-shortcut {
-          display: none;
-        }
-
-        .search-close {
-          display: inline-flex;
-          flex-shrink: 0;
-        }
-      }
-    }
-  }
-
-  /* New activity dot */
-  .count-indicator {
-    position: relative;
-
-    .count {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 8px;
-      height: 8px;
-      border: 2px solid $white;
-      border-radius: 50%;
-      background: theme-color(danger);
-      box-sizing: content-box;
-    }
-  }
-
-  /* Account button: photo, name and role; just the photo below 1200px */
-  .pill-button {
-    display: inline-flex;
-    align-items: center;
+  // Below 992px the bar is one strip: menu button and logo on the left, see-through like the rest
+  @media (max-width: 991px) {
+    width: auto;
     gap: .5rem;
-    height: $icon-button-size;
-    padding: 0 .625rem 0 .25rem;
-    border: 0;
-    border-radius: $radius;
-    background: transparent;
-    color: $slate-700;
-    font-weight: $font-weight-medium;
-    cursor: pointer;
-    transition: background-color .15s ease;
+    padding: 0 0 0 .75rem;
+    border-inline-end: 0;
+    background: var(--navbar-bg);
+    backdrop-filter: saturate(180%) blur(12px);
+  }
+}
 
-    &:hover,
-    &[aria-expanded="true"] {
-      background: $slate-100;
-    }
+.navbar-brand {
+  display: flex;
+  align-items: center;
 
-    &:focus-visible {
-      outline: none;
-      box-shadow: $focus-ring;
-    }
+  // The logo keeps its own proportions; only its height is set
+  img {
+    width: auto;
+    max-width: 100%;
+    height: 24px;
+  }
+}
 
-    @media (max-width: 1199px) {
-      padding-inline-end: .25rem;
-    }
-
-    .user-text {
-      flex-direction: column;
-      align-items: flex-start;
-      max-width: 180px;
-      line-height: 1.25;
-      text-align: start;
-    }
-
-    .user-name,
-    .user-role {
-      max-width: 100%;
-      // Taller clipping box, same height: a role named in Thai keeps the marks above its letters
-      margin-block: -.25em;
-      padding-block: .25em;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .user-name {
-      color: $slate-900;
-      font-size: .8125rem;
-      font-weight: $font-weight-semibold;
-    }
-
-    .user-role {
-      color: $slate-500;
-      font-size: .6875rem;
-      font-weight: $font-weight-medium;
+.brand-logo {
+  @media (max-width: 991px) {
+    img {
+      height: 22px;
     }
   }
+
+  // The narrowest phones keep the mark only
+  @media (max-width: 359px) {
+    display: none;
+  }
+}
+
+.brand-logo-mini {
+  display: none;
+
+  img {
+    width: 28px;
+    height: 28px;
+  }
+
+  @media (max-width: 359px) {
+    display: flex;
+  }
+}
+
+// The logo with white lettering is for the dark theme
+.logo-dark {
+  display: none;
+}
+
+/* Everything right of the logo: translucent, so content shows softly as it scrolls under */
+.navbar-menu-wrapper {
+  // Positioned, so the phone search can open over it
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--navbar-bg);
+  color: var(--ui-heading);
+  backdrop-filter: saturate(180%) blur(12px);
+
+  @media (max-width: 991px) {
+    padding: 0 .75rem;
+  }
+}
+
+/* Square icon buttons */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: transparent;
+  color: var(--ui-muted);
+  font-size: 1.125rem;
+  transition: background-color .15s ease, color .15s ease;
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background: var(--navbar-control);
+    color: var(--ui-heading);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+}
+
+// Opens the sidebar below 992px, where it slides in over the page
+.menu-toggle {
+  @media (min-width: 992px) {
+    display: none;
+  }
+}
+
+// Narrows the pinned sidebar to its icons
+.navbar-toggler {
+  margin-inline-start: auto;
+
+  @media (max-width: 991px) {
+    display: none;
+  }
+}
+
+/* Buttons on the right */
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  margin: 0;
+  margin-inline-start: auto;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    display: flex;
+    align-items: center;
+  }
+
+  // These take the bar's text color; the buttons beside the logo stay muted
+  .icon-button {
+    color: inherit;
+  }
+
+  // The search field is hidden on phones, and this button opens it
+  > .search-button-item {
+    @media (min-width: 768px) {
+      display: none;
+    }
+  }
+
+  // On phones the language switch moves into the account menu
+  > .navbar-divider,
+  > .language-item {
+    @media (max-width: 575px) {
+      display: none;
+    }
+  }
+}
+
+/* Thin vertical rule between the icon buttons and the language and account */
+.navbar-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 .5rem;
+  background: var(--ui-border);
+}
+
+/* Search: on the left with its keyboard shortcut; on phones it opens over the bar */
+.search-form {
+  position: relative;
+  display: flex;
+  flex: 0 1 420px;
+  align-items: center;
+  min-width: 0;
+
+  @media (max-width: 767px) {
+    display: none;
+
+    &.search-open {
+      position: absolute;
+      inset: 0 .75rem;
+      z-index: 2;
+      display: flex;
+      gap: .25rem;
+      // Solid, so the buttons it covers do not show through the see-through bar
+      background: var(--navbar-surface);
+
+      .search-input {
+        padding-inline-end: .75rem;
+      }
+
+      .search-shortcut {
+        display: none;
+      }
+
+      .search-close {
+        display: inline-flex;
+        flex-shrink: 0;
+      }
+    }
+  }
+}
+
+.search-icon {
+  position: absolute;
+  inset-inline-start: .75rem;
+  color: var(--ui-subtle);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.search-input {
+  display: block;
+  width: 100%;
+  height: 38px;
+  padding: 0 3.75rem 0 2.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius);
+  background: var(--navbar-control);
+  color: var(--ui-heading);
+  font-size: .8125rem;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+
+  &::placeholder {
+    color: var(--ui-subtle);
+  }
+
+  &:hover {
+    border-color: var(--ui-border);
+  }
+
+  &:focus {
+    border-color: var(--ui-primary);
+    background: var(--navbar-surface);
+    box-shadow: var(--ui-ring);
+  }
+
+  &::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.search-shortcut {
+  position: absolute;
+  inset-inline-end: .5rem;
+  padding: .125rem .375rem;
+  border: 1px solid var(--ui-border);
+  border-radius: .3125rem;
+  background: var(--navbar-surface);
+  color: var(--ui-muted);
+  font-family: var(--ui-font);
+  font-size: .6875rem;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.search-close {
+  display: none;
+}
+
+/* New activity dot */
+.count-indicator {
+  position: relative;
+
+  .count {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    box-sizing: content-box;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--navbar-surface);
+    border-radius: 50%;
+    background: var(--ui-danger);
+  }
+}
+
+/* Account button: photo, name and role; just the photo below 1200px */
+.user-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  height: 38px;
+  padding: 0 .625rem 0 .25rem;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: transparent;
+  color: var(--ui-text);
+  font-weight: 500;
+  transition: background-color .15s ease;
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background: var(--navbar-control);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+
+  @media (max-width: 1199px) {
+    padding-inline-end: .25rem;
+  }
+}
+
+.user-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 180px;
+  line-height: 1.25;
+  text-align: start;
+
+  @media (max-width: 1199px) {
+    display: none;
+  }
+}
+
+.user-name,
+.user-role {
+  max-width: 100%;
+  // Taller clipping box, same height: a role named in Thai keeps the marks above its letters
+  margin-block: -.25em;
+  padding-block: .25em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-name {
+  color: var(--ui-heading);
+  font-size: .8125rem;
+  font-weight: 600;
+}
+
+.user-role {
+  color: var(--ui-muted);
+  font-size: .6875rem;
+  font-weight: 500;
 }
 
 /* Menus. They open in an overlay outside the bar, so they use the --ui colors, which follow the theme. */
@@ -409,127 +446,32 @@ $icon-button-size: 38px;
   white-space: nowrap;
 }
 
-/* Sidebar narrowed to its icons */
-:host-context(.sidebar-icon-only) {
-  @media(min-width: 992px) {
-    .navbar {
-      .navbar-brand-wrapper {
-        width: $sidebar-width-icon;
-        padding: 0;
-        justify-content: center;
+/* Sidebar narrowed to its icons: only the button to widen it again */
+@media (min-width: 992px) {
+  :host-context(.sidebar-icon-only) {
+    .navbar-brand-wrapper {
+      justify-content: center;
+      padding: 0;
+    }
 
-        .brand-logo,
-        .brand-logo-mini {
-          display: none;
-        }
+    .brand-logo,
+    .brand-logo-mini {
+      display: none;
+    }
 
-        .navbar-toggler {
-          margin: 0;
-        }
-      }
-      .navbar-menu-wrapper {
-        width: calc(100% - #{$sidebar-width-icon});
-      }
+    .navbar-toggler {
+      margin: 0;
     }
   }
 }
 
-/* Dark theme */
+/* Dark theme: the colors follow the --ui variables; only the logo changes */
 :host-context(.theme-dark) {
-  .navbar {
-    .navbar-brand-wrapper {
-      background: $sidebar-dark-bg;
-      border-color: $sidebar-dark-border-color;
+  .logo-light {
+    display: none;
+  }
 
-      @media (max-width: 991px) {
-        background: rgba($dark-content-bg, .78);
-        border-bottom-color: $dark-border-color;
-      }
-
-      .logo-light {
-        display: none;
-      }
-
-      .logo-dark {
-        display: block;
-      }
-    }
-
-    .navbar-menu-wrapper {
-      background: rgba($dark-content-bg, .78);
-      border-bottom-color: $dark-border-color;
-      color: $dark-body-color;
-    }
-
-    .icon-button {
-      color: $slate-400;
-
-      &:hover,
-      &[aria-expanded="true"] {
-        background: $slate-800;
-        color: $white;
-      }
-    }
-
-    .navbar-nav .navbar-divider {
-      background: $dark-border-color;
-    }
-
-    .search-form {
-      .search-icon {
-        color: $slate-500;
-      }
-
-      .form-control {
-        background: $slate-800;
-        border-color: transparent;
-        color: $dark-body-color;
-
-        &::placeholder {
-          color: $slate-500;
-        }
-
-        &:hover {
-          border-color: $slate-700;
-        }
-
-        &:focus {
-          background: $slate-900;
-          border-color: $primary-on-dark;
-          box-shadow: 0 0 0 3px rgba($primary-on-dark, .2);
-        }
-      }
-
-      .search-shortcut {
-        background: $slate-900;
-        border-color: $slate-700;
-        color: $slate-400;
-      }
-
-      &.search-open {
-        background: $dark-content-bg;
-      }
-    }
-
-    .count-indicator .count {
-      border-color: $dark-content-bg;
-    }
-
-    .pill-button {
-      color: $dark-body-color;
-
-      .user-name {
-        color: $white;
-      }
-
-      .user-role {
-        color: $slate-400;
-      }
-
-      &:hover,
-      &[aria-expanded="true"] {
-        background: $slate-800;
-      }
-    }
+  .logo-dark {
+    display: block;
   }
 }

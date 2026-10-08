@@ -1,40 +1,26 @@
-
-@import '../../../assets/scss/core';
-
-// Covers the current page while the next one loads; shows only when loading takes a moment, so quick loads never flash
+// Covers the page area while the next page loads; shows only when loading takes a moment, so quick loads never flash
 .spinner-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  position: fixed;
+  inset: var(--app-navbar-height) 0 0 var(--app-sidebar-width);
   z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: color-mix(in srgb, var(--ui-bg) 75%, transparent);
   animation: spinner-in .2s ease .2s both;
-  height: calc(100vh - #{$navbar-height} - 5.5rem);
-  position: fixed;
-  width: calc(100% - #{$sidebar-width-lg} - 4rem);
+
   @media (max-width: 991px) {
-    width: 100%;
-  }
-  .donut {
-    width: 4rem;
-    height: 4rem;
-    border-radius: 50%;
-    border: 0.3rem solid rgba(theme-color(success), 0.3);
-    border-top-color: theme-color(success);
-    animation: 1.5s spin infinite linear;
+    inset-inline-start: 0;
   }
 }
 
-:host-context(.sidebar-icon-only) {
-  .spinner-wrapper {
-    width: calc(100% - #{$sidebar-width-icon} - 4rem);    
-  }
-}
-
-:host-context(.sidebar-mini) {
-  .spinner-wrapper {
-    width: calc(100% - #{$sidebar-width-mini} - 4rem);    
-  }
+.donut {
+  width: 4rem;
+  height: 4rem;
+  border: .3rem solid color-mix(in srgb, var(--ui-success) 30%, transparent);
+  border-top-color: var(--ui-success);
+  border-radius: 50%;
+  animation: spin 1.5s linear infinite;
 }
 
 @keyframes spinner-in {

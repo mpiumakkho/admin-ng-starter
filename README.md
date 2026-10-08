@@ -68,7 +68,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit
   - `ui` has the building blocks the pages are made of. See [its README](src/app/user-management/ui/README.md).
 - `src/app/layout` is the app around it: navbar, sidebar, footer and the language switch. The sidebar shows the groups in `src/app/layout/sidebar/menu.ts`: each part of the app is one dropdown (user management's comes from `USER_MANAGEMENT_MENU`), open on its own pages, with a chevron that turns clockwise as it opens. Pages the signed-in user's role does not allow are left out. In the icon-only layout a group opens as a flyout on hover.
 - `src/app/auth` is the sign-in page, `src/app/error-pages` the 404 and 500 pages, and `src/app/ui-kit` the component reference.
-- `src/assets/scss` is the Bootstrap 4 theme used by the layout. User management uses its own `ui` theme instead.
+- `src/styles.scss` holds the few global styles: the font, the base look of plain HTML elements and the rules for `<body>`. Everything else, the layout included, is styled in each component's own stylesheet with the `--ui-*` variables of user management's `ui` theme.
 - `e2e` holds the end-to-end tests: signing in, what each role can and cannot do, profiles, import and settings.
 
 ## Connecting a real API
@@ -106,7 +106,7 @@ The app uses [Sarabun](https://github.com/cadsondemak/Sarabun) for Thai and Engl
 
 - The files are in `src/assets/fonts/sarabun`: weights 300 to 700, each split into Thai, Latin and accented Latin, so a page downloads only what it shows (about 10 KB per file). The license, SIL Open Font License 1.1, is `OFL.txt` beside them.
 - `src/assets/scss/_fonts.scss` declares them. The build gives them hashed names in `media/`, so browsers cache them safely.
-- `$font-family-sans-serif` in `src/assets/scss/_tokens.scss` (the layout) and `--ui-font` in `src/app/user-management/ui/ui.scss` (user management) put Sarabun first.
+- `--ui-font` in `src/app/user-management/ui/ui.scss` puts Sarabun first, for the whole app.
 - Sarabun's letters run smaller than the font the sizes were first set for (x-height 0.50 against 0.55), so `size-adjust: 106%` in each `@font-face` draws them a little larger. Every font size keeps its intended look and the layout does not move; change that one value to make all text larger or smaller.
 - The "Admin" wordmark in `src/assets/images/logo.svg` and `logo-light.svg` is Sarabun Bold drawn as outlines, so it matches without loading a font.
 
@@ -117,10 +117,4 @@ Headings have a line height of at least 1.35, so Thai vowels and tone marks stac
 The app has a light theme (white sidebar) and a dark theme (slate). Visitors switch with the sun/moon button in the navbar. The choice is stored in `localStorage`; without one, the app follows the system setting.
 
 - `UiThemeService` from `user-management/ui` sets `theme-light` or `theme-dark` on `<body>`. A small script in `src/index.html` sets the same class before the app starts, so the page never flashes the wrong theme.
-- User management takes its colors from the `--ui-*` variables in `src/app/user-management/ui/ui.scss`, which switch with the theme.
-- The layout's dark styles live in `src/assets/scss/_dark.scss`.
-
-## Notes
-
-- The layout theme is written for Bootstrap 4. `ng-bootstrap` (used by the sidebar) expects Bootstrap 5, so `src/assets/scss/components/plugin-overrides/_ng-bootstrap.scss` maps the few classes and custom properties it needs.
-- The layout SCSS uses `@import` and the older Sass color functions. Their deprecation warnings are silenced in `angular.json`, and the code needs migrating to `@use` before Dart Sass 3.
+- The whole app, layout and user management, takes its colors from the `--ui-*` variables in `src/app/user-management/ui/ui.scss`, which switch with the theme. The few layout colors without a variable, such as the sidebar's current page and the gradients of the sign-in and error pages, set their dark value in the component's own stylesheet.

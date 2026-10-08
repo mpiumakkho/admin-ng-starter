@@ -21,7 +21,7 @@ import { AuthAsideComponent } from '../auth-aside/auth-aside.component';
   selector: 'app-forgot-password',
   imports: [ReactiveFormsModule, RouterLink, NgIcon, TranslatePipe, AuthAsideComponent, UiAlert, UiButton, UiFormField, UiInput],
   templateUrl: './forgot-password.component.html',
-  styleUrl: '../auth-form.scss',
+  styleUrls: ['../auth-page.scss', '../auth-form.scss'],
   viewProviders: [provideIcons({ lucideMail })],
 })
 export class ForgotPasswordComponent {

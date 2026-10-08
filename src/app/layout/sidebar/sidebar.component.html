@@ -2,7 +2,7 @@
   <div class="sidebar-backdrop" (click)="state.close()" aria-hidden="true"></div>
 }
 <nav class="sidebar sidebar-offcanvas" id="sidebar" [class.active]="state.open()">
-  <ul class="nav">
+  <ul class="menu">
     <li class="nav-item navbar-brand-mini-wrapper">
       <a class="nav-link navbar-brand brand-logo-mini" routerLink="/"><img src="assets/images/logo-mini.svg" alt="logo" /></a>
     </li>
@@ -22,7 +22,7 @@
             <!-- Opens by animating its height in CSS; closed, its links are out of reach (inert) -->
             <div class="sub-menu-wrap" [id]="'menu-group-' + $index" [class.open]="isOpen(item.label)" [inert]="!isOpen(item.label) && flyout() !== item.label">
               <div class="sub-menu-clip">
-                <ul class="nav flex-column sub-menu">
+                <ul class="sub-menu">
                   @for (child of item.children; track child.link) {
                     <li class="nav-item"><a class="nav-link" [routerLink]="child.link" routerLinkActive="active">{{ child.label | translate }}</a></li>
                   }

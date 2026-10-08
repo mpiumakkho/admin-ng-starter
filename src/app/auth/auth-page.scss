@@ -1,0 +1,126 @@
+// The sign-in pages: the brand panel (app-auth-aside) on the left, the form centered on the right.
+// Shared by sign-in, forgot password and set password.
+
+.auth {
+  display: flex;
+  min-height: 100vh;
+  background: var(--ui-surface);
+}
+
+.auth-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.auth-form-light {
+  width: 100%;
+  max-width: 400px;
+
+  h4 {
+    margin-bottom: .375rem;
+    font-size: 1.625rem;
+    letter-spacing: -.025em;
+  }
+
+  h6 {
+    margin-bottom: 2rem;
+    color: var(--ui-muted);
+    font-size: .9375rem;
+    font-weight: 400;
+  }
+}
+
+// The logo above the form, where the brand panel is hidden
+.brand-logo {
+  margin-bottom: 2.5rem;
+
+  img {
+    width: auto;
+    height: 24px;
+  }
+
+  @media (min-width: 992px) {
+    display: none;
+  }
+}
+
+// The logo with white lettering is for the dark theme
+.logo-on-dark {
+  display: none;
+}
+
+.auth-link {
+  color: var(--ui-primary-text);
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
+// Input with an icon at the start and an optional button at the end
+.input-icon {
+  position: relative;
+
+  > ng-icon {
+    position: absolute;
+    top: 50%;
+    inset-inline-start: .875rem;
+    color: var(--ui-subtle);
+    font-size: 1.125rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .ui-input {
+    height: 44px;
+    padding-inline-start: 2.625rem;
+  }
+
+  .ui-input:has(~ .input-action) {
+    padding-inline-end: 2.75rem;
+  }
+}
+
+.input-action {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: .375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-subtle);
+  font-size: 1.125rem;
+  transform: translateY(-50%);
+
+  &:hover {
+    background: var(--ui-hover);
+    color: var(--ui-text);
+  }
+}
+
+/* Dark theme: the page takes the darker page color, so the fields stand out from it */
+:host-context(.theme-dark) {
+  .auth {
+    background: var(--ui-bg);
+  }
+
+  .input-icon > ng-icon,
+  .input-action {
+    color: var(--ui-muted);
+  }
+
+  .logo-on-light {
+    display: none;
+  }
+
+  .logo-on-dark {
+    display: inline;
+  }
+}

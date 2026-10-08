@@ -1,0 +1,101 @@
+// The 404 and 500 pages: the code and a short message, white on a gradient that fills the window.
+// Side by side with a line between them from 992px; stacked and centered below.
+
+.error-page {
+  display: flex;
+  align-items: center;
+  min-height: 100vh;
+  padding: 3rem 1rem 1.5rem;
+  background:
+    radial-gradient(60% 50% at 15% 10%, rgba(165, 180, 252, .5) 0, transparent 70%),
+    radial-gradient(50% 45% at 90% 15%, rgba(192, 132, 252, .4) 0, transparent 70%),
+    radial-gradient(70% 60% at 85% 100%, rgba(34, 211, 238, .3) 0, transparent 70%),
+    linear-gradient(160deg, #4f46e5, #3730a3);
+  color: #fff;
+  text-align: center;
+
+  // Something went wrong on the server: sky blue instead of indigo
+  &.server-error {
+    background:
+      radial-gradient(60% 50% at 15% 10%, rgba(125, 211, 252, .5) 0, transparent 70%),
+      radial-gradient(70% 60% at 85% 100%, rgba(165, 180, 252, .35) 0, transparent 70%),
+      linear-gradient(160deg, #0284c7, #1e40af);
+  }
+}
+
+.error-content {
+  width: 100%;
+  max-width: 950px;
+  margin: 0 auto;
+}
+
+.error-message {
+  @media (min-width: 992px) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+}
+
+.error-code {
+  margin: 0;
+  color: inherit;
+  font-size: 7rem;
+  font-weight: 700;
+  letter-spacing: -.06em;
+  line-height: 1;
+
+  @media (min-width: 992px) {
+    padding-inline-end: 1.5rem;
+    font-size: 10rem;
+    text-align: end;
+  }
+}
+
+.error-text {
+  @media (min-width: 992px) {
+    padding-inline-start: 1.5rem;
+    border-inline-start: 1px solid rgba(255, 255, 255, .3);
+    text-align: start;
+  }
+
+  h2,
+  h3 {
+    color: inherit;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+    letter-spacing: -.02em;
+  }
+
+  h3 {
+    font-size: 1.125rem;
+    font-weight: 300;
+    line-height: 1.5;
+    opacity: .85;
+  }
+}
+
+.error-home {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 3rem;
+  padding: .75rem 1.375rem;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font-weight: 500;
+  text-decoration: none;
+  backdrop-filter: blur(6px);
+  transition: background-color .15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, .24);
+  }
+
+  @media (min-width: 1200px) {
+    margin-top: 3.5rem;
+  }
+}

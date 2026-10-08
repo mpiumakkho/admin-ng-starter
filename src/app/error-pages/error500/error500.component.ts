@@ -6,6 +6,6 @@ import { TranslatePipe } from '@ngx-translate/core';
   selector: 'app-error500',
   imports: [RouterLink, TranslatePipe],
   templateUrl: './error500.component.html',
-  styleUrl: './error500.component.scss',
+  styleUrl: '../error-page.scss',
 })
 export class Error500Component {}
