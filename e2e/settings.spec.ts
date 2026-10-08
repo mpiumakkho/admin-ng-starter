@@ -1,0 +1,134 @@
+import { expect, Page, test } from '@playwright/test';
+
+import { signInAs, signOut, start, totp } from './helpers';
+
+async function saveSettings(page: Page) {
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Settings saved.');
+}
+
+async function openOwnSecurity(page: Page) {
+  await page.locator('.user-button').click();
+  await page.getByRole('menuitem', { name: 'Security and devices' }).click();
+}
+
+async function changePassword(page: Page, current: string, next: string) {
+  await page.getByRole('button', { name: 'Change password' }).click();
+  const fields = page.locator('dialog[open] input[type=password]');
+  await fields.nth(0).fill(current);
+  await fields.nth(1).fill(next);
+  await fields.nth(2).fill(next);
+  await page.locator('dialog[open]').getByRole('button', { name: 'Change password' }).click();
+}
+
+/** Today in the browser's time zone, as a date input wants it */
+function today() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+test('a role that must use two-step sign-in: nothing else opens until it is on', async ({ page }) => {
+  await start(page);
+  await signInAs(page, 'Administrator');
+  await page.goto('/settings');
+  await page.getByRole('group', { name: 'Two-step sign-in required for' }).getByRole('checkbox', { name: 'Viewer' }).check();
+  await saveSettings(page);
+  await signOut(page);
+
+  await signInAs(page, 'Viewer');
+  await expect(page).toHaveURL('/setup-two-factor');
+  await expect(page.locator('ui-empty-state')).toContainText('Your role, Viewer, requires two-step sign-in.');
+  await page.goto('/users');
+  await expect(page).toHaveURL('/setup-two-factor');
+
+  await page.getByRole('button', { name: 'Turn on' }).click();
+  const dialog = page.locator('dialog[open]');
+  const secret = (await dialog.locator('.secret code').textContent())!.replace(/\s/g, '');
+  await dialog.locator('input[autocomplete=one-time-code]').fill(totp(secret));
+  await dialog.getByRole('button', { name: 'Turn on' }).click();
+  await expect(page).not.toHaveURL(/setup-two-factor/);
+  await expect(page.locator('#sidebar')).toBeVisible();
+
+  // It stays on: the role requires it
+  await openOwnSecurity(page);
+  await expect(page.locator('.security-row').first()).toContainText('Your role requires it.');
+  await expect(page.locator('.security-row').first().getByRole('button', { name: 'Turn off' })).toHaveCount(0);
+});
+
+test('password rules: a longer shortest password, and no going back to a recent one', async ({ page }) => {
+  await start(page);
+  await signInAs(page, 'Administrator');
+  await page.goto('/settings');
+  await page.locator('#passwordMinLength').selectOption({ label: '12 characters' });
+  await page.locator('#passwordHistory').selectOption({ label: 'Not the last 3' });
+  await saveSettings(page);
+
+  await openOwnSecurity(page);
+  await page.getByRole('button', { name: 'Change password' }).click();
+  const dialog = page.locator('dialog[open]');
+  await expect(dialog).toContainText('At least 12 characters.');
+  const fields = dialog.locator('input[type=password]');
+  await fields.nth(0).fill('any-password');
+  await fields.nth(1).fill('short-pass1');
+  await fields.nth(2).fill('short-pass1');
+  await dialog.getByRole('button', { name: 'Change password' }).click();
+  await expect(dialog).toContainText('Use at least 12 characters.');
+
+  await fields.nth(1).fill('first-password-1');
+  await fields.nth(2).fill('first-password-1');
+  await dialog.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Your password has been changed.');
+
+  // The sample accounts take any password, so the first one remembered is the one just set
+  await changePassword(page, 'first-password-1', 'second-password-2');
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await changePassword(page, 'second-password-2', 'first-password-1');
+  await expect(page.locator('ui-toaster')).toContainText('You used this password recently. Choose another one.');
+});
+
+test('changes the role of several people at once', async ({ page }) => {
+  await start(page);
+  await signInAs(page, 'Administrator');
+  await page.goto('/users?role=support');
+  const rows = page.locator('.users-table tbody tr');
+  await expect(rows.first()).toBeVisible();
+  const emails = await rows.locator('ui-person').evaluateAll(people => people.slice(0, 2).map(person => person.textContent ?? ''));
+  await rows.nth(0).getByRole('checkbox').check();
+  await rows.nth(1).getByRole('checkbox').check();
+
+  await page.locator('ui-bulk-bar').getByRole('button', { name: 'Change role' }).click();
+  const dialog = page.locator('dialog[open]');
+  await expect(dialog).toContainText('Change the role of 2 people');
+  await dialog.locator('select').selectOption({ label: 'Viewer' });
+  await dialog.getByRole('button', { name: 'Change role' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Changed the role of 2 user(s)');
+  await expect(page.locator('ui-bulk-bar')).toHaveCount(0);
+
+  // They have left the Support list
+  for (const text of emails) {
+    await expect(rows.filter({ hasText: text })).toHaveCount(0);
+  }
+});
+
+test('the activity log between two dates, and exporting just that part', async ({ page }) => {
+  await start(page);
+  await signInAs(page, 'Administrator');
+  await page.goto('/activity');
+  await page.getByLabel('Time range').selectOption({ label: 'Pick dates' });
+  await page.getByLabel('From', { exact: true }).fill(today());
+  await page.getByLabel('To', { exact: true }).fill(today());
+  const rows = page.locator('.log tbody tr');
+  // Signing in just now is in today's part
+  await expect(rows.first()).toContainText('Signed in');
+  const count = await rows.count();
+
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export' }).click();
+  expect((await download).suggestedFilename()).toBe('activity.csv');
+  await expect(page.locator('ui-toaster')).toContainText(/Exported \d+ rows/);
+  expect(count).toBeGreaterThan(0);
+
+  await page.getByLabel('From', { exact: true }).fill('2001-01-01');
+  await page.getByLabel('To', { exact: true }).fill('2001-01-02');
+  await expect(page.locator('ui-empty-state')).toContainText('No activity found');
+});

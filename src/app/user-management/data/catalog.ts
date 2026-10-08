@@ -137,6 +137,10 @@ export const FIELD_LABELS: Record<string, string> = {
   allowedDomains: 'Allowed email domains',
   inviteExpiryDays: 'Invitations expire after',
   sessionTimeoutMinutes: 'Sign out when idle',
+  twoFactorRoleIds: 'Two-step sign-in required for',
+  passwordMinLength: 'Shortest password',
+  passwordHistory: 'Recent passwords not allowed again',
+  activityRetentionDays: 'Keep activity for',
   devices: 'Devices',
 };
 
@@ -146,11 +150,18 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   allowedDomains: [],
   inviteExpiryDays: 7,
   sessionTimeoutMinutes: 0,
+  twoFactorRoleIds: [],
+  passwordMinLength: 8,
+  passwordHistory: 0,
+  activityRetentionDays: 730,
 };
 
 /** Choices on the settings page */
 export const INVITE_EXPIRY_DAYS = [3, 7, 14, 30];
 export const SESSION_TIMEOUT_MINUTES = [0, 15, 30, 60, 240, 480];
+export const PASSWORD_MIN_LENGTHS = [8, 10, 12, 14, 16];
+export const PASSWORD_HISTORY = [0, 1, 3, 5, 10];
+export const ACTIVITY_RETENTION_DAYS = [30, 90, 180, 365, 730, 1825];
 
 /** Permission label by key, such as "users.view" → "View users" */
 export const PERMISSION_LABELS = new Map<string, string>(PERMISSION_GROUPS.flatMap(group => group.permissions.map(permission => [permission.key, permission.label] as const)));

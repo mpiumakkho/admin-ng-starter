@@ -6,6 +6,7 @@ import { AdminApiError } from './admin-api';
 import { HttpAdminApi } from './http-admin-api';
 import { localBackend } from './local-backend';
 import { DEMO_ACCOUNTS } from './mock-data';
+import { totp } from './totp';
 
 describe('HttpAdminApi against localBackend', () => {
   let api: HttpAdminApi;
@@ -123,5 +124,46 @@ describe('HttpAdminApi against localBackend', () => {
     } finally {
       console.mockRestore();
     }
+  });
+
+  it('follows the account rules in the settings', async () => {
+    const admin = DEMO_ACCOUNTS.find(account => account.roleName === 'Administrator')!.email;
+    const viewer = DEMO_ACCOUNTS.find(account => account.roleName === 'Viewer')!;
+    await api.signIn(admin, 'any-password', false);
+    expect(await api.getPasswordPolicy()).toEqual({ minLength: 8, history: 0 });
+
+    // Password rules: at least 12 characters, and not one of the last 3
+    await api.updateSettings({ passwordMinLength: 12, passwordHistory: 3 });
+    expect(await api.getPasswordPolicy()).toEqual({ minLength: 12, history: 3 });
+    await expect(api.changePassword('any-password', 'short-pass1')).rejects.toEqual(new AdminApiError('weak_password'));
+    await api.changePassword('any-password', 'first-password-1');
+    await api.changePassword('first-password-1', 'second-password-2');
+    await expect(api.changePassword('second-password-2', 'first-password-1')).rejects.toEqual(new AdminApiError('password_reused'));
+    await expect(api.updateSettings({ passwordMinLength: 4 })).rejects.toEqual(new AdminApiError('invalid_request'));
+
+    // Several people's role at once, never your own
+    const users = await api.listUsers();
+    const others = users.filter(user => user.roleId === 'support').slice(0, 2).map(user => user.id);
+    expect((await api.setUsersRole(others, 'viewer')).map(user => user.roleId)).toEqual(['viewer', 'viewer']);
+    const self = users.find(user => user.email === admin)!.id;
+    await expect(api.setUsersRole([self], 'viewer')).rejects.toEqual(new AdminApiError('self_change'));
+
+    // A part of the activity log
+    expect(await api.listActivity({ from: new Date(Date.now() + 60_000).toISOString() })).toEqual([]);
+    expect((await api.listActivity({ from: new Date(Date.now() - 60_000).toISOString() })).length).toBeGreaterThan(0);
+
+    // Kept for 30 days to 10 years
+    expect((await api.updateSettings({ activityRetentionDays: 30 })).activityRetentionDays).toBe(30);
+    await expect(api.updateSettings({ activityRetentionDays: 7 })).rejects.toEqual(new AdminApiError('invalid_request'));
+
+    // A role that must use two-step sign-in: nothing but setting it up until it is on
+    await api.updateSettings({ twoFactorRoleIds: ['viewer'] });
+    await api.signIn(viewer.email, 'any-password', false);
+    await expect(api.listUsers()).rejects.toEqual(new AdminApiError('two_factor_mandatory'));
+    expect((await api.getSettings()).twoFactorRoleIds).toEqual(['viewer']);
+    const { secret } = await api.startTwoFactor();
+    await api.confirmTwoFactor(await totp(secret));
+    expect((await api.listUsers()).length).toBeGreaterThan(1);
+    await expect(api.disableTwoFactor(await totp(secret))).rejects.toEqual(new AdminApiError('two_factor_mandatory'));
   });
 });

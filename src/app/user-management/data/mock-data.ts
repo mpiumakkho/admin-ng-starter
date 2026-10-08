@@ -16,6 +16,8 @@ export interface AdminData {
    * of 6 or more characters.
    */
   passwords?: Record<string, string>;
+  /** SHA-256 of the passwords people used before, newest first, for the settings' passwordHistory */
+  passwordHistory?: Record<string, string[]>;
   /** Links in emails that still work, by token: an invitation to set a first password, or a password reset */
   links?: Record<string, EmailLink>;
 }

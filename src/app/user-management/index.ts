@@ -8,7 +8,8 @@ export type { UserManagementMenuGroup, UserManagementMenuLink, UserManagementMen
 export { provideUserManagement } from './provide-user-management';
 export type { UserManagementOptions } from './provide-user-management';
 export { Session } from './access/session';
-export { canViewUser, requirePermission, signedIn, signedOut } from './access/guards';
+export { canViewUser, requirePermission, settingUpTwoFactor, signedIn, signedOut } from './access/guards';
+export { TWO_FACTOR_SETUP_PATH } from './access/session';
 export { AdminApi, AdminApiError } from './data/admin-api';
 export { HttpAdminApi } from './data/http-admin-api';
 export { LocalAdminApi } from './data/local-admin-api';

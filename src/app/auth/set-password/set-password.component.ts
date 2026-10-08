@@ -1,10 +1,9 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import { AdminApi, AdminApiError } from '../../user-management';
-import { NEW_PASSWORD_LENGTH } from '../../user-management/data/access-rules';
 import { errorMessage } from '../../user-management/shared/errors';
 import { translationsChanged } from '../../user-management/shared/i18n';
 import { UiAlert, UiButton, UiFormField, UiInput } from '../../user-management/ui';
@@ -40,8 +39,12 @@ export class SetPasswordComponent {
   /** The server turned the link down: expired, used already, or never made */
   protected readonly deadLink = signal(false);
 
+  /** The password rules from the settings, readable without signing in; 8 characters until they arrive */
+  private readonly policy = resource({ loader: () => this.api.getPasswordPolicy() });
+  protected readonly minLength = computed(() => this.policy.value()?.minLength ?? 8);
+
   protected readonly form = inject(NonNullableFormBuilder).group({
-    password: ['', [Validators.required, Validators.minLength(NEW_PASSWORD_LENGTH)]],
+    password: ['', [Validators.required, (control: AbstractControl) => this.longEnough(control)]],
     repeat: ['', [Validators.required, (control: AbstractControl) => this.matches(control)]],
   });
 
@@ -49,7 +52,7 @@ export class SetPasswordComponent {
     this.i18n();
     return {
       required: this.translate.instant('This field is required.'),
-      minlength: this.translate.instant('Use at least 8 characters.'),
+      minlength: this.translate.instant('useAtLeastCharacters', { count: this.minLength() }),
       mismatch: this.translate.instant('The passwords do not match.'),
     };
   });
@@ -80,6 +83,10 @@ export class SetPasswordComponent {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  private longEnough(control: AbstractControl): ValidationErrors | null {
+    return control.value && control.value.length < this.minLength() ? { minlength: true } : null;
   }
 
   private matches(control: AbstractControl): ValidationErrors | null {

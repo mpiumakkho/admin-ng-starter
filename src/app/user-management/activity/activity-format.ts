@@ -4,7 +4,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, STATUS_META } from '../data/catalog';
 import { Activity, ActivityChange, fullName, UserStatus } from '../data/models';
-import { idleTimeoutLabel } from '../shared/formatting';
+import { idleTimeoutLabel, passwordHistoryLabel, retentionLabel } from '../shared/formatting';
 
 /** Where an entry's target can be opened, if it still exists */
 export interface ActivityTarget {
@@ -68,6 +68,12 @@ export class ActivityFormat {
         return this.translate.instant('dayCount', { count: Number(raw) });
       case 'sessionTimeoutMinutes':
         return idleTimeoutLabel(this.translate, Number(raw));
+      case 'passwordMinLength':
+        return this.translate.instant('characterCount', { count: Number(raw) });
+      case 'passwordHistory':
+        return passwordHistoryLabel(this.translate, Number(raw));
+      case 'activityRetentionDays':
+        return retentionLabel(this.translate, Number(raw));
       case 'status':
         return this.translate.instant(STATUS_META[raw as UserStatus]?.label ?? raw);
       case 'department':
@@ -80,6 +86,11 @@ export class ActivityFormat {
   permission(key: string): string {
     const label = PERMISSION_LABELS.get(key);
     return label ? this.translate.instant(label) : key;
+  }
+
+  /** One item of a list change: a permission's label, a role's name, or the item itself (a domain, a device) */
+  listItem(field: string, key: string): string {
+    return field === 'twoFactorRoleIds' ? this.store.rolesById().get(key)?.name ?? key : this.permission(key);
   }
 
   /** One line for the table, such as "Department: Sales → Marketing · +1" */
@@ -103,7 +114,10 @@ export class ActivityFormat {
       const removed = change.removed ?? [];
       // Name a couple of permissions; count a longer list
       if (added.length + removed.length <= 2) {
-        return [...added.map(key => '+' + this.permission(key)), ...removed.map(key => '−' + this.permission(key))].join(', ');
+        return [
+          ...added.map(key => '+' + this.listItem(change.field, key)),
+          ...removed.map(key => '−' + this.listItem(change.field, key)),
+        ].join(', ');
       }
       return [added.length ? `+${added.length}` : '', removed.length ? `−${removed.length}` : ''].filter(Boolean).join(' ');
     }

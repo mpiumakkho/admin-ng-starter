@@ -22,7 +22,15 @@
       <option value="today">{{ 'Today' | translate }}</option>
       <option value="7d">{{ 'Last 7 days' | translate }}</option>
       <option value="30d">{{ 'Last 30 days' | translate }}</option>
+      <option value="custom">{{ 'Pick dates' | translate }}</option>
     </select>
+    @if (period() === 'custom') {
+      <span class="date-range">
+        <input uiInput type="date" class="ui-input-sm" [value]="fromDay()" [max]="toDay()" (change)="setDay('from', $any($event.target).value)" [attr.aria-label]="'From' | translate" />
+        <span aria-hidden="true">–</span>
+        <input uiInput type="date" class="ui-input-sm" [value]="toDay()" [min]="fromDay()" (change)="setDay('to', $any($event.target).value)" [attr.aria-label]="'To' | translate" />
+      </span>
+    }
     <select uiInput class="ui-input-sm toolbar-select" [value]="actor()" (change)="setActor($any($event.target).value)" [attr.aria-label]="'Done by' | translate">
       <option value="all">{{ 'Anyone' | translate }}</option>
       @for (person of actors(); track person.id) {

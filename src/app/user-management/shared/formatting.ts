@@ -10,7 +10,6 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['minute', 60],
 ];
 
-/** Locale for Intl formatting: Thai uses the Buddhist calendar, as Thai readers expect */
 /** An idle timeout as people say it: "Never", "30 minutes", "1 hour", "4 hours" */
 export function idleTimeoutLabel(translate: TranslateService, minutes: number): string {
   if (!minutes) {
@@ -22,6 +21,23 @@ export function idleTimeoutLabel(translate: TranslateService, minutes: number): 
   return minutes === 60 ? translate.instant('1 hour') : translate.instant('hourCount', { count: minutes / 60 });
 }
 
+/** How long the activity log keeps entries: "90 days", "1 year", "5 years" */
+export function retentionLabel(translate: TranslateService, days: number): string {
+  if (days % 365) {
+    return translate.instant('dayCount', { count: days });
+  }
+  return days === 365 ? translate.instant('1 year') : translate.instant('yearCount', { count: days / 365 });
+}
+
+/** The password history setting: "Any password", "Not the current one", "Not the last 3" */
+export function passwordHistoryLabel(translate: TranslateService, count: number): string {
+  if (!count) {
+    return translate.instant('Any password');
+  }
+  return count === 1 ? translate.instant('Not the current one') : translate.instant('notLastPasswords', { count });
+}
+
+/** Locale for Intl formatting: Thai uses the Buddhist calendar, as Thai readers expect */
 export function intlLocale(language: string): string {
   return language === 'th' ? 'th-TH' : 'en-GB';
 }

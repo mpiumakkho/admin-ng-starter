@@ -3,7 +3,9 @@ import { inject, Injectable, InjectionToken } from '@angular/core';
 import { firstValueFrom, Observable, Subscription } from 'rxjs';
 
 import { AdminApi, AdminApiError, AdminApiErrorCode } from './admin-api';
-import { Activity, AdminSettings, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus } from './models';
+import {
+  Activity, ActivityRange, AdminSettings, PasswordPolicy, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
+} from './models';
 
 /** Where the server's API starts, such as "/api" or "https://admin.example.com/api". Set by provideUserManagement(). */
 export const ADMIN_API_URL = new InjectionToken<string>('ADMIN_API_URL', { factory: () => '/api' });
@@ -21,7 +23,8 @@ export interface TokenAnswer {
 const CODES: readonly AdminApiErrorCode[] = [
   'email_taken', 'not_found', 'not_invited', 'role_in_use', 'system_role', 'invalid_credentials', 'account_suspended',
   'invite_pending', 'unauthenticated', 'forbidden', 'self_change', 'email_domain', 'weak_password', 'default_role',
-  'invalid_request', 'two_factor_required', 'invalid_code', 'invalid_token', 'too_many_requests',
+  'invalid_request', 'two_factor_required', 'invalid_code', 'invalid_token', 'two_factor_mandatory', 'password_reused',
+  'too_many_requests',
 ];
 
 /** The /auth requests carry the refresh cookie, also to an API on another origin */
@@ -94,6 +97,10 @@ export class HttpAdminApi extends AdminApi {
     await this.request(this.http.post(`${this.url}/auth/password-reset/confirm`, { token, password }));
   }
 
+  getPasswordPolicy(): Promise<PasswordPolicy> {
+    return this.request(this.http.get<PasswordPolicy>(`${this.url}/auth/password-policy`));
+  }
+
   /* Users */
 
   listUsers(): Promise<User[]> {
@@ -114,6 +121,10 @@ export class HttpAdminApi extends AdminApi {
 
   setUserStatus(ids: string[], status: UserStatus): Promise<User[]> {
     return this.send<User[]>('POST', '/users/status', { ids, status });
+  }
+
+  setUsersRole(ids: string[], roleId: string): Promise<User[]> {
+    return this.send<User[]>('POST', '/users/role', { ids, roleId });
   }
 
   async deleteUsers(ids: string[]): Promise<void> {
@@ -148,8 +159,9 @@ export class HttpAdminApi extends AdminApi {
 
   /* Activity */
 
-  listActivity(): Promise<Activity[]> {
-    return this.send<Activity[]>('GET', '/activity');
+  listActivity(range: ActivityRange = {}): Promise<Activity[]> {
+    const query = new URLSearchParams(Object.entries(range).filter((entry): entry is [string, string] => !!entry[1]));
+    return this.send<Activity[]>('GET', `/activity${query.size ? `?${query}` : ''}`);
   }
 
   /* Settings */

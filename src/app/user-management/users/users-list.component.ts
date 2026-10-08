@@ -9,6 +9,7 @@ import {
   lucideKeyRound,
   lucidePencil,
   lucideSearchX,
+  lucideShield,
   lucideTrash2,
   lucideUpload,
   lucideUserCheck,
@@ -52,6 +53,7 @@ import { downloadText, toCsv } from '../shared/csv';
 import { errorMessage } from '../shared/errors';
 import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
+import { ChangeRoleDialog } from './change-role-dialog.component';
 import { ImportUsersDialog } from './import-users-dialog.component';
 
 type SortKey = 'name' | 'role' | 'department' | 'lastActive' | 'created';
@@ -87,6 +89,7 @@ type SortKey = 'name' | 'role' | 'department' | 'lastActive' | 'created';
     TimeAgoPipe,
     LocalDatePipe,
     ImportUsersDialog,
+    ChangeRoleDialog,
   ],
   templateUrl: './users-list.component.html',
   styleUrl: './users-list.component.scss',
@@ -104,9 +107,10 @@ export class UsersListComponent {
   protected readonly icons = {
     page: lucideUsers, add: lucideUserPlus, export: lucideDownload, more: lucideEllipsis, view: lucideEye, edit: lucidePencil,
     suspend: lucideBan, activate: lucideUserCheck, reset: lucideKeyRound, remove: lucideTrash2, empty: lucideSearchX,
-    import: lucideUpload,
+    import: lucideUpload, role: lucideShield,
   };
   protected readonly importing = signal(false);
+  protected readonly changingRole = signal(false);
   protected readonly fullName = fullName;
   protected readonly busy = signal(false);
 

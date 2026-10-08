@@ -15,9 +15,6 @@ import { Permission, Role, User } from './models';
  * - Everyone can change their own name, phone and photo, and their password, without any permission.
  */
 
-/** The shortest password someone can set */
-export const NEW_PASSWORD_LENGTH = 8;
-
 /** What people can change on their own account without users.edit */
 export const SELF_EDITABLE_FIELDS = ['firstName', 'lastName', 'phone', 'avatar'] as const;
 

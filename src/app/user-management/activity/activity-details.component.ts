@@ -53,8 +53,8 @@ export class ActivityDetails {
         to: this.format.value(change.field, change.to),
         rawFrom: change.from,
         rawTo: change.to,
-        added: (change.added ?? []).map(key => this.format.permission(key)),
-        removed: (change.removed ?? []).map(key => this.format.permission(key)),
+        added: (change.added ?? []).map(key => this.format.listItem(change.field, key)),
+        removed: (change.removed ?? []).map(key => this.format.listItem(change.field, key)),
       };
     });
   });

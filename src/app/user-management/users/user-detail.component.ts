@@ -146,6 +146,11 @@ export class UserDetailComponent {
   protected readonly canViewActivity = computed(() => this.session.can('activity.view'));
   /** Devices and two-step sign-in: your own, or, with users.edit, those of people you manage */
   protected readonly canSeeSecurity = computed(() => this.isSelf() || this.canEdit());
+  /** Their role must use two-step sign-in (settings), so they cannot turn it off themselves */
+  protected readonly twoFactorRequired = computed(() => {
+    const user = this.user();
+    return !!user && this.store.settings().twoFactorRoleIds.includes(user.roleId);
+  });
 
   protected readonly activity = computed(() =>
     this.store.activity().filter(entry => entry.actorId === this.id() || entry.targetId === this.id()).slice(0, 30));

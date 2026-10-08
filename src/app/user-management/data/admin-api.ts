@@ -1,4 +1,6 @@
-import { Activity, AdminSettings, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus } from './models';
+import {
+  Activity, ActivityRange, AdminSettings, PasswordPolicy, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
+} from './models';
 
 /** Why the server turned a request down; the UI turns each code into a message */
 export type AdminApiErrorCode =
@@ -33,6 +35,10 @@ export type AdminApiErrorCode =
   | 'invalid_code'
   /** A link from an email that has expired, was used already, or never existed */
   | 'invalid_token'
+  /** The role requires two-step sign-in and it is off: turn it on before anything else */
+  | 'two_factor_mandatory'
+  /** A new password that is one of the person's most recent ones */
+  | 'password_reused'
   /** Too many sign-in, refresh or reset attempts from one address; try again later */
   | 'too_many_requests';
 
@@ -71,6 +77,8 @@ export abstract class AdminApi {
   abstract requestPasswordReset(email: string): Promise<void>;
   /** Sets a new password from a reset link and ends the user's sessions; invalid_token for a dead link */
   abstract confirmPasswordReset(token: string, password: string): Promise<void>;
+  /** What a new password must be; readable without signing in */
+  abstract getPasswordPolicy(): Promise<PasswordPolicy>;
 
   /* Users */
 
@@ -81,6 +89,8 @@ export abstract class AdminApi {
   abstract createUsers(drafts: UserDraft[]): Promise<User[]>;
   abstract updateUser(id: string, changes: Partial<UserDraft>): Promise<User>;
   abstract setUserStatus(ids: string[], status: UserStatus): Promise<User[]>;
+  /** Gives several people the same role; answers with the ones whose role changed */
+  abstract setUsersRole(ids: string[], roleId: string): Promise<User[]>;
   abstract deleteUsers(ids: string[]): Promise<void>;
   abstract resetPassword(id: string): Promise<void>;
   /** Emails the invitation again to someone who has not accepted it yet */
@@ -95,8 +105,8 @@ export abstract class AdminApi {
 
   /* Activity */
 
-  /** The whole log, or nothing without activity.view */
-  abstract listActivity(): Promise<Activity[]>;
+  /** The whole log, or the part in range, newest first; nothing without activity.view */
+  abstract listActivity(range?: ActivityRange): Promise<Activity[]>;
 
   /* Settings: everyone signed in can read them, since sign-in and the user form follow them */
 

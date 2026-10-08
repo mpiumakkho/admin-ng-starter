@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, linkedSignal, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, linkedSignal, resource, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import { lucideChevronRight, lucideDownload, lucideHistory, lucideMonitor, lucideSearchX, lucideSmartphone, lucideX } from '@ng-icons/lucide';
@@ -36,7 +36,7 @@ import { ActivityDialog } from './activity-dialog.component';
 import { ActivityFormat, ActivityTarget } from './activity-format';
 
 type Kind = ActivityKind | 'all';
-type Period = 'all' | 'today' | '7d' | '30d';
+type Period = 'all' | 'today' | '7d' | '30d' | 'custom';
 type SortKey = 'time' | 'actor' | 'action';
 
 /** One table row: the entry plus the text it shows, worked out once per language */
@@ -104,6 +104,21 @@ export class ActivityComponent {
   protected readonly kind = signal<Kind>('all');
   protected readonly actor = signal('all');
   protected readonly period = signal<Period>('all');
+  /** A range of days picked by hand ('custom'), as the date inputs give them: "2026-10-01" */
+  protected readonly fromDay = signal('');
+  protected readonly toDay = signal('');
+
+  /**
+   * A range picked by hand is read from the server, so it reaches past what the pages keep loaded; it loads again
+   * when the data changes (revision), as the rest of the page does
+   */
+  private readonly range = resource({
+    params: () => this.period() === 'custom' ? { ...dayRange(this.fromDay(), this.toDay()), revision: this.store.revision() } : undefined,
+    loader: ({ params: { from, to } }) => this.store.activityBetween({ from, to }),
+  });
+  /** The entries the page works from: the range read from the server, or everything loaded */
+  private readonly entries = computed(() => this.period() === 'custom' ? this.range.value() ?? [] : this.store.activity());
+  protected readonly loadingRange = computed(() => this.period() === 'custom' && this.range.isLoading());
 
   /** ?user=…: only what one person did or what was done to them, as when opened from their profile */
   readonly userParam = input<string>(undefined, { alias: 'user' });
@@ -124,7 +139,7 @@ export class ActivityComponent {
     const actor = this.actor();
     const subject = this.subject();
     const since = this.since(this.period());
-    const entries = this.store.activity().filter(entry =>
+    const entries = this.entries().filter(entry =>
       (actor === 'all' || entry.actorId === actor)
       && (!subject || entry.actorId === subject || entry.targetId === subject)
       && (!since || entry.at >= since));
@@ -137,14 +152,14 @@ export class ActivityComponent {
 
   /** People who have done something, for the "Done by" filter */
   protected readonly actors = computed(() => {
-    const ids = new Set(this.store.activity().map(entry => entry.actorId));
+    const ids = new Set(this.entries().map(entry => entry.actorId));
     return [...ids].map(id => this.store.usersById().get(id)).filter(user => !!user).map(user => ({ id: user.id, name: fullName(user) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
   private readonly rows = computed<ActivityRow[]>(() => {
     this.i18n();
-    return this.store.activity().map(entry => ({
+    return this.entries().map(entry => ({
       entry,
       actor: this.store.usersById().get(entry.actorId),
       actorName: this.format.actorName(entry),
@@ -233,11 +248,18 @@ export class ActivityComponent {
     this.table.resetPage();
   }
 
+  protected setDay(which: 'from' | 'to', day: string) {
+    (which === 'from' ? this.fromDay : this.toDay).set(day);
+    this.table.resetPage();
+  }
+
   protected clearFilters() {
     this.table.search('');
     this.kind.set('all');
     this.actor.set('all');
     this.period.set('all');
+    this.fromDay.set('');
+    this.toDay.set('');
     if (this.subject()) {
       this.clearSubject();
     }
@@ -258,9 +280,9 @@ export class ActivityComponent {
     this.toast.show(this.translate.instant('toast.exported', { count: rows.length }));
   }
 
-  /** The earliest time a period includes, as an ISO string, or null for all time */
+  /** The earliest time a period includes, as an ISO string, or null for all time (and for a range, read already cut) */
   private since(period: Period): string | null {
-    if (period === 'all') {
+    if (period === 'all' || period === 'custom') {
       return null;
     }
     if (period === 'today') {
@@ -270,4 +292,15 @@ export class ActivityComponent {
     }
     return new Date(Date.now() - (period === '7d' ? 7 : 30) * DAY).toISOString();
   }
+}
+
+/** Two days picked in the date inputs as the server's range: from the start of the first to the end of the last, here */
+function dayRange(fromDay: string, toDay: string): { from?: string; to?: string } {
+  const start = (day: string) => {
+    const [year, month, date] = day.split('-').map(Number);
+    return new Date(year, month - 1, date);
+  };
+  const end = toDay ? start(toDay) : undefined;
+  end?.setDate(end.getDate() + 1);
+  return { from: fromDay ? start(fromDay).toISOString() : undefined, to: end?.toISOString() };
 }

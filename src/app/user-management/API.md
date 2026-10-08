@@ -34,7 +34,7 @@ Each sign-in is one **session**, which lasts until someone ends it or the refres
 | `POST /auth/refresh` | | A new `{ accessToken, expiresIn, user }` and a new refresh cookie. `401` `unauthenticated` when the cookie is missing, has run out or was already used, when the session has ended, or when the account is no longer active |
 | `POST /auth/logout` | | Nothing. Ends the refresh cookie's session and clears the cookie; works after the access token has run out, and answers the same when there is no cookie |
 | `GET /me` | | The signed-in `User` |
-| `POST /me/password` | `{ currentPassword, newPassword }` | Nothing. `invalid_credentials` when the current password is wrong, `weak_password` when the new one is under 8 characters |
+| `POST /me/password` | `{ currentPassword, newPassword }` | Nothing. `invalid_credentials` when the current password is wrong; `weak_password` or `password_reused` when the new one breaks the password rules below |
 
 Sign-in refusals: `invalid_credentials`, `account_suspended` (status `suspended`), `invite_pending` (status `invited`), `two_factor_required`, `invalid_code`. Wrong passwords count: after 5 in a row the account is locked for a minute, then twice as long each time (up to 30 minutes), answering `invalid_credentials` all the while so nobody learns which accounts exist. Too many attempts from one address are refused with `429` `too_many_requests`. On success, record the session (browser, OS, IP) for the devices list, write an `auth.sign_in` entry to the activity log and update `lastActiveAt`.
 
@@ -54,13 +54,21 @@ An invited user gets an email with a link to set their password; resetting someo
 
 | Request | Body | Answer |
 | --- | --- | --- |
-| `POST /auth/activate` | `{ token, password }` | Nothing. Sets the password and makes the account `active`. `invalid_token` (`400`) when the link has expired or was used; `weak_password` |
+| `POST /auth/activate` | `{ token, password }` | Nothing. Sets the password and makes the account `active`. `invalid_token` (`400`) when the link has expired or was used; `weak_password`, `password_reused` |
 | `POST /auth/password-reset/request` | `{ email }` | `202` always, whether or not the email belongs to someone, so the answer reveals nothing. Emails a link when it does |
-| `POST /auth/password-reset/confirm` | `{ token, password }` | Nothing. Sets the new password and ends the user's sessions. `invalid_token`; `weak_password` |
+| `POST /auth/password-reset/confirm` | `{ token, password }` | Nothing. Sets the new password and ends the user's sessions. `invalid_token`; `weak_password`, `password_reused` |
 
 Invitation links work for `inviteExpiryDays` from the settings; reset links for one hour. Each works once, and a newer link of the same kind replaces the older ones. These requests carry neither the access token nor the cookie.
 
 With the sample data (`LocalAdminApi`, or `localBackend`) there is no mail server: each email is written to the browser console as `[sample email] To ann@example.com: … http://…/activate?token=…`, so the links can be tried in development.
+
+## Password rules
+
+The settings decide how long a new password must be (`passwordMinLength`, 8 to 64) and how many of a user's most recent passwords, the current one included, cannot be chosen again (`passwordHistory`, 0 to 24; 0 checks nothing). They apply wherever someone sets a password: `POST /me/password`, `POST /auth/activate` and `POST /auth/password-reset/confirm`. Refuse a shorter one with `weak_password` and a recent one with `password_reused` (both `422`). Resetting someone's password keeps the old one in their history.
+
+| Request | Answer | Permission |
+| --- | --- | --- |
+| `GET /auth/password-policy` | `{ minLength, history }` | Anyone, signed in or not, so the pages for the links in emails can show the rule |
 
 ## Signed-in devices and two-step sign-in
 
@@ -78,6 +86,12 @@ People can see and end their own sessions and turn two-step sign-in on or off fo
 
 Codes are TOTP (RFC 6238): SHA-1, 30-second steps, 6 digits; accept one step either side for clock drift. `data/totp.ts` is a working reference. Log `auth.sessions_ended`, `auth.two_factor_on` and `auth.two_factor_off`.
 
+### Roles that must use two-step sign-in
+
+The settings can require it for some roles (`twoFactorRoleIds`). Someone who holds one of them and has not turned it on can still sign in, but until they turn it on the server answers every request with `403` `two_factor_mandatory`, except the ones they need to do it: `GET /me`, `GET /settings`, `GET /roles`, `POST /me/two-factor` and `POST /me/two-factor/confirm` (and `/auth/*`, which need no access token). `POST /me/two-factor/disable` is refused with `two_factor_mandatory` while their role requires it. An administrator can still turn it off for them with `POST /users/:id/two-factor/reset`; they then have to turn it on again before anything else.
+
+The app checks the same thing after signing in, and whenever a request answers `two_factor_mandatory`, and sends the person to `/setup-two-factor` until it is on.
+
 ## Live updates
 
 With `provideUserManagement({ api: HttpAdminApi, liveUpdates: true })`, the app reads the event stream at `GET /events` and loads its data again whenever a message arrives, so changes made by other people show without a reload. `EventSource` cannot send an `Authorization` header, so `HttpAdminApi` reads the stream through `HttpClient` with the access token, and connects again (refreshing the token first if needed) when the stream closes.
@@ -93,9 +107,12 @@ The server sends `data: changed` after each change and a `: ping` comment every 
 | `POST /users/import` | `{ users: UserDraft[] }` | The new `User`s. All or none: refuse the whole request when one is refused | `users.create` |
 | `PATCH /users/:id` | `Partial<UserDraft>` | The `User` | `users.edit`; without it, people may change their own `firstName`, `lastName`, `phone` and `avatar` |
 | `POST /users/status` | `{ ids, status }` | The `User`s that changed | `users.edit` |
+| `POST /users/role` | `{ ids, roleId }` | The `User`s that changed | `users.edit` |
 | `POST /users/delete` | `{ ids }` | Nothing | `users.delete` |
 | `POST /users/:id/reset-password` | | Nothing | `users.edit` |
 | `POST /users/:id/resend-invite` | | Nothing; `not_invited` unless the status is `invited` | `users.create` |
+
+`POST /users/role` gives several people the same role at once: `not_found` for an unknown role, `forbidden` for a role that grants more than the actor holds or for someone the actor may not manage, `self_change` when the list includes the actor. Log one `user.updated` entry per person whose role changed, with the `roleId` change.
 
 The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status `invited` gets an invitation email. Refuse an email someone else has with `email_taken`. When the settings list allowed domains, refuse a new or changed email outside them with `email_domain`.
 
@@ -112,9 +129,9 @@ The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status 
 
 | Request | Answer | Permission |
 | --- | --- | --- |
-| `GET /activity` | `Activity[]`, newest first | `activity.view`; without it, an empty list |
+| `GET /activity?from=&to=` | `Activity[]`, newest first, at most 10,000. `from` and `to` (ISO 8601, both optional) keep the entries at or after `from` and before `to` | `activity.view`; without it, an empty list |
 
-The server writes the log itself, one entry per change, with `actorId` from the session and `ip`, `browser` and `os` from the request. `changes` lists the fields that changed; see `Activity` in `data/models.ts` and how `data/local-admin-api.ts` fills it.
+The server writes the log itself, one entry per change, with `actorId` from the session and `ip`, `browser` and `os` from the request. `changes` lists the fields that changed; see `Activity` in `data/models.ts` and how `data/local-admin-api.ts` fills it. Entries older than the settings' `activityRetentionDays` are deleted every night.
 
 ## Settings
 
@@ -123,7 +140,7 @@ The server writes the log itself, one entry per change, with `actorId` from the 
 | `GET /settings` | | `AdminSettings` | Anyone signed in |
 | `PATCH /settings` | `Partial<AdminSettings>` | The `AdminSettings` | `settings.manage` |
 
-Store `allowedDomains` lower-cased, without duplicates. Log a `settings.updated` entry listing the fields that changed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
+Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the two lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
 
 ## Rules the server must check
 
@@ -144,11 +161,11 @@ Refuse a request with a 4xx status and a body such as `{ "code": "email_taken" }
 | Status | Codes |
 | --- | --- |
 | `401` | `unauthenticated` (no access token, or one that has run out or whose session has ended), `invalid_credentials`, `two_factor_required`, `invalid_code` |
-| `403` | `forbidden`, `self_change`, `account_suspended`, `invite_pending` |
+| `403` | `forbidden`, `self_change`, `account_suspended`, `invite_pending`, `two_factor_mandatory`: the role requires two-step sign-in and it is off |
 | `404` | `not_found` |
 | `400` | `invalid_request`: a field the request may not set, or a value of the wrong kind; `invalid_token`: an email link that has expired or was used |
 | `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role` |
-| `422` | `email_domain`, `weak_password` |
+| `422` | `email_domain`, `weak_password`, `password_reused` |
 | `429` | `too_many_requests`: too many sign-in, refresh or reset attempts from one address |
 
 Without a known code, `401` counts as `unauthenticated`, `403` as `forbidden`, `404` as `not_found` and `429` as `too_many_requests`. When a refresh cannot fix an `unauthenticated`, the app sends the person to sign in, then brings them back to the page they were on. Other failures (offline, `5xx`) show "Something went wrong".

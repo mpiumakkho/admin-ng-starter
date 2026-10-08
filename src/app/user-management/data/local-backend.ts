@@ -27,6 +27,8 @@ const STATUS: Record<AdminApiErrorCode, number> = {
   two_factor_required: 401,
   invalid_code: 401,
   invalid_token: 400,
+  two_factor_mandatory: 403,
+  password_reused: 422,
   too_many_requests: 429,
 };
 
@@ -37,7 +39,11 @@ const TOKEN_SECONDS = 900;
 const tokens = new Map<string, number>();
 
 type Body = Record<string, never>;
-type Route = [method: string, path: RegExp, answer: (api: LocalAdminApi, body: Body, id: string) => Promise<unknown>];
+type Route = [
+  method: string,
+  path: RegExp,
+  answer: (api: LocalAdminApi, body: Body, id: string, query: URLSearchParams) => Promise<unknown>,
+];
 
 /**
  * Every request in API.md, answered by LocalAdminApi. The session it keeps in the browser stands in for the
@@ -53,6 +59,7 @@ const ROUTES: Route[] = [
   ['POST', /^\/auth\/activate$/, (api, body) => api.acceptInvitation(body['token'], body['password'])],
   ['POST', /^\/auth\/password-reset\/request$/, (api, body) => api.requestPasswordReset(body['email'])],
   ['POST', /^\/auth\/password-reset\/confirm$/, (api, body) => api.confirmPasswordReset(body['token'], body['password'])],
+  ['GET', /^\/auth\/password-policy$/, api => api.getPasswordPolicy()],
   ['GET', /^\/me$/, async api => signedIn(await api.getSession())],
   ['POST', /^\/me\/password$/, (api, body) => api.changePassword(body['currentPassword'], body['newPassword'])],
   ['POST', /^\/me\/two-factor$/, api => api.startTwoFactor()],
@@ -66,6 +73,7 @@ const ROUTES: Route[] = [
   ['POST', /^\/users$/, (api, body) => api.createUser(body as unknown as UserDraft)],
   ['POST', /^\/users\/import$/, (api, body) => api.createUsers(body['users'])],
   ['POST', /^\/users\/status$/, (api, body) => api.setUserStatus(body['ids'], body['status'])],
+  ['POST', /^\/users\/role$/, (api, body) => api.setUsersRole(body['ids'], body['roleId'])],
   ['POST', /^\/users\/delete$/, (api, body) => api.deleteUsers(body['ids'])],
   ['POST', /^\/users\/([^/]+)\/reset-password$/, (api, _body, id) => api.resetPassword(id)],
   ['POST', /^\/users\/([^/]+)\/resend-invite$/, (api, _body, id) => api.resendInvite(id)],
@@ -74,7 +82,10 @@ const ROUTES: Route[] = [
   ['POST', /^\/roles$/, (api, body) => api.createRole(body as unknown as RoleDraft)],
   ['PATCH', /^\/roles\/([^/]+)$/, (api, body, id) => api.updateRole(id, body)],
   ['DELETE', /^\/roles\/([^/]+)$/, (api, _body, id) => api.deleteRole(id)],
-  ['GET', /^\/activity$/, api => api.listActivity()],
+  ['GET', /^\/activity$/, (api, _body, _id, query) => api.listActivity({
+    from: query.get('from') ?? undefined,
+    to: query.get('to') ?? undefined,
+  })],
   ['GET', /^\/settings$/, api => api.getSettings()],
   ['PATCH', /^\/settings$/, (api, body) => api.updateSettings(body)],
 ];
@@ -112,7 +123,7 @@ export const localBackend: HttpInterceptorFn = (request, next) => {
       if (!path.startsWith('/auth/') && !((tokens.get(token) ?? 0) > Date.now())) {
         return throwError(() => toHttpError(new AdminApiError('unauthenticated'), request));
       }
-      return from(answer(backend, (request.body ?? {}) as Body, decodeURIComponent(match[1] ?? ''))).pipe(
+      return from(answer(backend, (request.body ?? {}) as Body, decodeURIComponent(match[1] ?? ''), url.searchParams)).pipe(
         map(body => new HttpResponse({ status: body === undefined ? 204 : 200, body: body ?? null, url: request.url })),
         catchError(error => throwError(() => toHttpError(error, request))),
       );

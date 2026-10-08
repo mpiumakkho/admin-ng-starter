@@ -41,6 +41,53 @@
             }
           </select>
         </ui-form-field>
+        <ui-form-field [label]="'Two-step sign-in required for' | translate" [hint]="'People with these roles must turn on two-step sign-in before they can do anything else.' | translate">
+          <div class="role-checks" role="group" [attr.aria-label]="'Two-step sign-in required for' | translate">
+            @for (role of store.roles(); track role.id) {
+              <ui-checkbox [checked]="form.controls.twoFactorRoleIds.value.includes(role.id)" [disabled]="!canManage()"
+                (changed)="toggleTwoFactorRole(role.id, $event)">{{ role.name }}</ui-checkbox>
+            }
+          </div>
+        </ui-form-field>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="form-section-intro">
+        <h2>{{ 'Passwords' | translate }}</h2>
+        <p>{{ 'Rules for new passwords. They apply the next time someone sets one.' | translate }}</p>
+      </div>
+      <div class="field-stack">
+        <ui-form-field [label]="'Shortest password' | translate" for="passwordMinLength">
+          <select uiInput id="passwordMinLength" formControlName="passwordMinLength" class="timeout-select">
+            @for (option of passwordLengthOptions(); track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </ui-form-field>
+        <ui-form-field [label]="'Recent passwords not allowed again' | translate" for="passwordHistory" [hint]="'Stops people from going back to a password they used recently.' | translate">
+          <select uiInput id="passwordHistory" formControlName="passwordHistory" class="timeout-select">
+            @for (option of historyOptions(); track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </ui-form-field>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="form-section-intro">
+        <h2>{{ 'Activity log' | translate }}</h2>
+        <p>{{ 'How long each change stays in the log.' | translate }}</p>
+      </div>
+      <div class="field-stack">
+        <ui-form-field [label]="'Keep activity for' | translate" for="activityRetentionDays" [hint]="'Older entries are deleted every night. Export them first if you need them.' | translate">
+          <select uiInput id="activityRetentionDays" formControlName="activityRetentionDays" class="timeout-select">
+            @for (option of retentionOptions(); track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </ui-form-field>
       </div>
     </section>
 

@@ -8,6 +8,7 @@
 
 @if (session.can('users.create')) {
   <app-import-users-dialog [(open)]="importing" />
+  <app-change-role-dialog [users]="table.selectedRows()" [(open)]="changingRole" (done)="table.clearSelection()" />
 }
 
 <ui-card flush fit>
@@ -28,6 +29,7 @@
       @if (canEdit()) {
         <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="setStatusFor(table.selectedRows(), 'active')"><ng-icon [svg]="icons.activate" /> {{ 'Activate' | translate }}</button>
         <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="setStatusFor(table.selectedRows(), 'suspended')"><ng-icon [svg]="icons.suspend" /> {{ 'Suspend' | translate }}</button>
+        <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="changingRole.set(true)"><ng-icon [svg]="icons.role" /> {{ 'Change role' | translate }}</button>
       }
       @if (canDelete()) {
         <button uiButton size="sm" variant="danger-soft" type="button" [disabled]="busy()" (click)="remove(table.selectedRows())"><ng-icon [svg]="icons.remove" /> {{ 'Delete' | translate }}</button>

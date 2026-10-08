@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
 
-import { canManageRole, holdsAll, NEW_PASSWORD_LENGTH, permissionsOf, SELF_EDITABLE_FIELDS } from './access-rules';
+import { canManageRole, holdsAll, permissionsOf, SELF_EDITABLE_FIELDS } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
 import { ALL_PERMISSIONS, DEFAULT_SETTINGS, ROLE_TONES, STATUS_META } from './catalog';
 import { AdminData, createMockData, createMockSessions, EmailLink } from './mock-data';
 import {
-  Activity, ActivityAction, ActivityChange, AdminSettings, fullName, Permission, Role, RoleDraft, TwoFactorSetup, User, UserDraft,
-  UserSession, UserStatus,
+  Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, fullName, PasswordPolicy, Permission, Role, RoleDraft,
+  TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
 } from './models';
 import { createSecret, otpauthUri, verifyTotp } from './totp';
 
@@ -23,6 +23,9 @@ const LATENCY_MS = 250;
 const MIN_PASSWORD_LENGTH = 6;
 /** How long a password reset link works; invitations follow the settings */
 const RESET_LINK_MS = 60 * 60_000;
+/** How many earlier passwords are kept per user, for the settings' passwordHistory */
+const HISTORY_KEPT = 24;
+const DAY_MS = 24 * 60 * 60_000;
 
 /** User fields the activity log tracks, in the order it lists them; also every field a request may set */
 const USER_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'department', 'roleId', 'status', 'avatar'] as const;
@@ -97,10 +100,8 @@ export class LocalAdminApi extends AdminApi {
       await this.respond(undefined);
       throw new AdminApiError('invalid_credentials');
     }
-    if (newPassword.length < NEW_PASSWORD_LENGTH) {
-      throw new AdminApiError('weak_password');
-    }
-    this.data.passwords = { ...this.data.passwords, [actor.id]: await sha256(newPassword) };
+    await this.checkNewPassword(actor.id, newPassword);
+    await this.savePassword(actor.id, newPassword);
     // Anyone who knew the old password is signed out everywhere else
     const here = this.currentSession()?.session.id;
     this.data.sessions = this.data.sessions.filter(session => session.userId !== actor.id || session.id === here);
@@ -144,6 +145,12 @@ export class LocalAdminApi extends AdminApi {
     this.data.sessions = this.data.sessions.filter(session => session.userId !== user.id);
     this.log(user.id, 'user.password_changed', fullName(user), user.id);
     return this.respond(undefined);
+  }
+
+  async getPasswordPolicy(): Promise<PasswordPolicy> {
+    this.data = this.read();
+    const { passwordMinLength, passwordHistory } = this.data.settings;
+    return this.respond({ minLength: passwordMinLength, history: passwordHistory });
   }
 
   /* Users */
@@ -238,6 +245,27 @@ export class LocalAdminApi extends AdminApi {
     return this.respond(changed);
   }
 
+  async setUsersRole(ids: string[], roleId: string): Promise<User[]> {
+    const actor = this.actor('users.edit');
+    check(Array.isArray(ids) && ids.every(id => typeof id === 'string') && typeof roleId === 'string');
+    if (ids.includes(actor.id)) {
+      throw new AdminApiError('self_change');
+    }
+    this.assertCanAssign(actor, roleId);
+    ids.forEach(id => this.findManageable(actor, id));
+    const changed: User[] = [];
+    this.data.users = this.data.users.map(user => {
+      if (!ids.includes(user.id) || user.roleId === roleId) {
+        return user;
+      }
+      const updated = { ...user, roleId };
+      changed.push(updated);
+      this.log(actor.id, 'user.updated', fullName(user), user.id, [{ field: 'roleId', from: user.roleId, to: roleId }]);
+      return updated;
+    });
+    return this.respond(changed);
+  }
+
   async deleteUsers(ids: string[]): Promise<void> {
     const actor = this.actor('users.delete');
     if (ids.includes(actor.id)) {
@@ -280,7 +308,7 @@ export class LocalAdminApi extends AdminApi {
   /* Roles */
 
   async listRoles(): Promise<Role[]> {
-    this.actor();
+    this.actor(undefined, true);
     return this.respond(this.data.roles);
   }
 
@@ -351,28 +379,41 @@ export class LocalAdminApi extends AdminApi {
       throw new AdminApiError('default_role');
     }
     this.data.roles = this.data.roles.filter(item => item.id !== id);
+    const settings = this.data.settings;
+    this.data.settings = { ...settings, twoFactorRoleIds: settings.twoFactorRoleIds.filter(roleId => roleId !== id) };
     this.log(actor.id, 'role.deleted', role.name, undefined, [{ field: 'permissions', added: [], removed: role.permissions }]);
     return this.respond(undefined);
   }
 
   /* Activity */
 
-  async listActivity(): Promise<Activity[]> {
+  async listActivity(range: ActivityRange = {}): Promise<Activity[]> {
     const actor = this.actor();
-    return this.respond(this.permissions(actor).has('activity.view') ? this.data.activity : []);
+    const { from, to } = range;
+    check([from, to].every(value => value === undefined || (typeof value === 'string' && !Number.isNaN(Date.parse(value)))));
+    if (!this.permissions(actor).has('activity.view')) {
+      return this.respond([]);
+    }
+    const after = from ? new Date(from).getTime() : -Infinity;
+    const before = to ? new Date(to).getTime() : Infinity;
+    return this.respond(this.data.activity.filter(entry => {
+      const at = new Date(entry.at).getTime();
+      return at >= after && at < before;
+    }));
   }
 
   /* Settings */
 
   async getSettings(): Promise<AdminSettings> {
-    this.actor();
+    this.actor(undefined, true);
     return this.respond(this.data.settings);
   }
 
   async updateSettings(input: Partial<AdminSettings>): Promise<AdminSettings> {
     const actor = this.actor('settings.manage');
     const changes = settingsChanges(input);
-    if (changes.defaultRoleId !== undefined && !this.data.roles.some(role => role.id === changes.defaultRoleId)) {
+    const roleIds = [...(changes.defaultRoleId === undefined ? [] : [changes.defaultRoleId]), ...(changes.twoFactorRoleIds ?? [])];
+    if (roleIds.some(roleId => !this.data.roles.some(role => role.id === roleId))) {
       throw new AdminApiError('not_found');
     }
     const current = this.data.settings;
@@ -380,15 +421,20 @@ export class LocalAdminApi extends AdminApi {
       ...current,
       ...changes,
       allowedDomains: [...new Set((changes.allowedDomains ?? current.allowedDomains).map(domain => domain.trim().toLowerCase()).filter(Boolean))],
+      twoFactorRoleIds: [...new Set(changes.twoFactorRoleIds ?? current.twoFactorRoleIds)],
     };
     this.data.settings = settings;
-    const diff: ActivityChange[] = (['defaultRoleId', 'inviteExpiryDays', 'sessionTimeoutMinutes'] as const)
+    const diff: ActivityChange[] = ([
+      'defaultRoleId', 'inviteExpiryDays', 'sessionTimeoutMinutes', 'passwordMinLength', 'passwordHistory', 'activityRetentionDays',
+    ] as const)
       .filter(field => current[field] !== settings[field])
       .map(field => ({ field, from: String(current[field]), to: String(settings[field]) }));
-    const added = settings.allowedDomains.filter(domain => !current.allowedDomains.includes(domain));
-    const removed = current.allowedDomains.filter(domain => !settings.allowedDomains.includes(domain));
-    if (added.length || removed.length) {
-      diff.push({ field: 'allowedDomains', added, removed });
+    for (const field of ['allowedDomains', 'twoFactorRoleIds'] as const) {
+      const added = settings[field].filter(item => !current[field].includes(item));
+      const removed = current[field].filter(item => !settings[field].includes(item));
+      if (added.length || removed.length) {
+        diff.push({ field, added, removed });
+      }
     }
     if (diff.length) {
       this.log(actor.id, 'settings.updated', 'Settings', undefined, diff);
@@ -437,14 +483,14 @@ export class LocalAdminApi extends AdminApi {
   /* Two-step sign-in */
 
   async startTwoFactor(): Promise<TwoFactorSetup> {
-    const actor = this.actor();
+    const actor = this.actor(undefined, true);
     const secret = createSecret();
     this.data.pendingTwoFactor = { ...this.data.pendingTwoFactor, [actor.id]: secret };
     return this.respond({ secret, uri: otpauthUri(secret, actor.email, ISSUER) });
   }
 
   async confirmTwoFactor(code: string): Promise<User> {
-    const actor = this.actor();
+    const actor = this.actor(undefined, true);
     const secret = this.data.pendingTwoFactor?.[actor.id];
     if (!secret || !(await verifyTotp(secret, String(code ?? '')))) {
       await this.respond(undefined);
@@ -460,6 +506,9 @@ export class LocalAdminApi extends AdminApi {
 
   async disableTwoFactor(code: string): Promise<User> {
     const actor = this.actor();
+    if (this.data.settings.twoFactorRoleIds.includes(actor.roleId)) {
+      throw new AdminApiError('two_factor_mandatory');
+    }
     const secret = this.data.twoFactorSecrets?.[actor.id];
     if (!secret || !(await verifyTotp(secret, String(code ?? '')))) {
       await this.respond(undefined);
@@ -573,15 +622,36 @@ export class LocalAdminApi extends AdminApi {
       await this.respond(undefined);
       throw new AdminApiError('invalid_token');
     }
-    if (password.length < NEW_PASSWORD_LENGTH) {
-      throw new AdminApiError('weak_password');
-    }
+    await this.checkNewPassword(user.id, password);
     const setPassword = async () => {
       const { [token]: _, ...links } = this.data.links!;
       this.data.links = links;
-      this.data.passwords = { ...this.data.passwords, [user.id]: await sha256(password) };
+      await this.savePassword(user.id, password);
     };
     return { user, setPassword };
+  }
+
+  /** The password rules in the settings: long enough, and not one of the person's most recent passwords */
+  private async checkNewPassword(userId: string, password: string) {
+    const { passwordMinLength, passwordHistory } = this.data.settings;
+    if (password.length < passwordMinLength) {
+      throw new AdminApiError('weak_password');
+    }
+    const current = this.data.passwords?.[userId];
+    const recent = [...(current ? [current] : []), ...(this.data.passwordHistory?.[userId] ?? [])].slice(0, passwordHistory);
+    if (recent.includes(await sha256(password))) {
+      throw new AdminApiError('password_reused');
+    }
+  }
+
+  /** Saves a new password, keeping the one it replaces in the history */
+  private async savePassword(userId: string, password: string) {
+    const current = this.data.passwords?.[userId];
+    if (current) {
+      const history = [current, ...(this.data.passwordHistory?.[userId] ?? [])].slice(0, HISTORY_KEPT);
+      this.data.passwordHistory = { ...this.data.passwordHistory, [userId]: history };
+    }
+    this.data.passwords = { ...this.data.passwords, [userId]: await sha256(password) };
   }
 
   private async passwordMatches(userId: string, password: string): Promise<boolean> {
@@ -597,8 +667,11 @@ export class LocalAdminApi extends AdminApi {
     return session && user?.status === 'active' ? { session, user } : undefined;
   }
 
-  /** Who is making the request; refuses it when nobody is signed in or their role lacks the permission */
-  private actor(permission?: Permission): User {
+  /**
+   * Who is making the request; refuses it when nobody is signed in or their role lacks the permission. Someone whose
+   * role requires two-step sign-in and who has not turned it on gets only what setting it up needs (setupAllowed).
+   */
+  private actor(permission?: Permission, setupAllowed = false): User {
     // Another tab may have changed the data or signed out
     this.data = this.read();
     const current = this.currentSession();
@@ -609,6 +682,9 @@ export class LocalAdminApi extends AdminApi {
     const now = new Date();
     if (now.getTime() - new Date(session.lastSeenAt).getTime() > SEEN_EVERY_MS) {
       this.data.sessions = this.data.sessions.map(item => item.id === session.id ? { ...item, lastSeenAt: now.toISOString() } : item);
+    }
+    if (!setupAllowed && !user.twoFactor && this.data.settings.twoFactorRoleIds.includes(user.roleId)) {
+      throw new AdminApiError('two_factor_mandatory');
     }
     if (permission && !this.permissions(user).has(permission)) {
       throw new AdminApiError('forbidden');
@@ -689,9 +765,12 @@ export class LocalAdminApi extends AdminApi {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const data = JSON.parse(saved) as AdminData;
-        // Saved before settings and sessions existed
-        data.settings ??= { ...DEFAULT_SETTINGS };
+        // Saved before settings, sessions or the newer settings existed
+        data.settings = { ...DEFAULT_SETTINGS, ...data.settings };
         data.sessions ??= createMockSessions(data.users);
+        // Activity older than the settings keep is gone, as the server deletes it every night
+        const kept = new Date(Date.now() - data.settings.activityRetentionDays * DAY_MS).toISOString();
+        data.activity = data.activity.filter(entry => entry.at >= kept);
         return data;
       }
     } catch {
@@ -750,13 +829,22 @@ function roleChanges(input: unknown): Partial<RoleDraft> {
   return changes as Partial<RoleDraft>;
 }
 
+/** The whole numbers each settings field accepts */
+const SETTINGS_RANGES: Record<string, [min: number, max: number]> = {
+  inviteExpiryDays: [0, 365],
+  sessionTimeoutMinutes: [0, 10080],
+  passwordMinLength: [8, 64],
+  passwordHistory: [0, 24],
+  activityRetentionDays: [30, 3650],
+};
+
 function settingsChanges(input: unknown): Partial<AdminSettings> {
-  const changes = fields(input, ['defaultRoleId', 'allowedDomains', 'inviteExpiryDays', 'sessionTimeoutMinutes']);
+  const changes = fields(input, ['defaultRoleId', 'allowedDomains', 'twoFactorRoleIds', ...Object.keys(SETTINGS_RANGES)]);
   check(changes['defaultRoleId'] === undefined || typeof changes['defaultRoleId'] === 'string');
-  check(changes['allowedDomains'] === undefined
-    || (Array.isArray(changes['allowedDomains']) && changes['allowedDomains'].every(domain => typeof domain === 'string')));
-  check(['inviteExpiryDays', 'sessionTimeoutMinutes'].every(field =>
-    changes[field] === undefined || (Number.isInteger(changes[field]) && (changes[field] as number) >= 0)));
+  check(['allowedDomains', 'twoFactorRoleIds'].every(field => changes[field] === undefined
+    || (Array.isArray(changes[field]) && (changes[field] as unknown[]).every(item => typeof item === 'string'))));
+  check(Object.entries(SETTINGS_RANGES).every(([field, [min, max]]) => changes[field] === undefined
+    || (Number.isInteger(changes[field]) && (changes[field] as number) >= min && (changes[field] as number) <= max)));
   return changes as Partial<AdminSettings>;
 }
 

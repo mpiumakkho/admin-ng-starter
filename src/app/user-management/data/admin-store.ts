@@ -2,7 +2,9 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 
 import { AdminApi, AdminApiError } from './admin-api';
 import { DEFAULT_SETTINGS } from './catalog';
-import { Activity, AdminSettings, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus } from './models';
+import {
+  Activity, ActivityRange, AdminSettings, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
+} from './models';
 
 /** How long to wait for more changes before loading again, as one action can change several things */
 const REFRESH_DELAY_MS = 300;
@@ -23,6 +25,11 @@ export class AdminStore {
   readonly loaded = signal(false);
   /** Set when the server answers that the session has ended; Session then sends the user to sign in */
   readonly sessionEnded = signal(false);
+  /**
+   * Set when the signed-in user's role requires two-step sign-in and it is off (two_factor_mandatory). Until they turn
+   * it on, only the roles and the settings load, and Session keeps them on the page for setting it up.
+   */
+  readonly twoFactorSetupRequired = signal(false);
   /** Goes up each time the data is loaded again, so a page can reload what it fetched itself */
   readonly revision = signal(0);
 
@@ -42,8 +49,25 @@ export class AdminStore {
   });
 
   async load(): Promise<void> {
-    const [users, roles, activity, settings] = await this.call(() =>
-      Promise.all([this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings()]));
+    let loaded: [User[], Role[], Activity[], AdminSettings];
+    try {
+      loaded = await this.call(() =>
+        Promise.all([this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings()]));
+    } catch (error) {
+      if (!(error instanceof AdminApiError && error.code === 'two_factor_mandatory')) {
+        throw error;
+      }
+      // Only what setting up two-step sign-in needs
+      const [roles, settings] = await this.call(() => Promise.all([this.api.listRoles(), this.api.getSettings()]));
+      this.clear();
+      this.roles.set(roles);
+      this.settings.set(settings);
+      this.twoFactorSetupRequired.set(true);
+      this.loaded.set(true);
+      return;
+    }
+    const [users, roles, activity, settings] = loaded;
+    this.twoFactorSetupRequired.set(false);
     this.users.set(users);
     this.roles.set(roles);
     this.activity.set(activity);
@@ -85,6 +109,7 @@ export class AdminStore {
     this.settings.set(DEFAULT_SETTINGS);
     this.loaded.set(false);
     this.sessionEnded.set(false);
+    this.twoFactorSetupRequired.set(false);
   }
 
   isEmailTaken(email: string, exceptId?: string): boolean {
@@ -121,6 +146,14 @@ export class AdminStore {
     const byId = new Map(changed.map(user => [user.id, user]));
     this.users.update(users => users.map(user => byId.get(user.id) ?? user));
     await this.refreshActivity();
+  }
+
+  async setUsersRole(ids: string[], roleId: string): Promise<User[]> {
+    const changed = await this.call(() => this.api.setUsersRole(ids, roleId));
+    const byId = new Map(changed.map(user => [user.id, user]));
+    this.users.update(users => users.map(user => byId.get(user.id) ?? user));
+    await this.refreshActivity();
+    return changed;
   }
 
   async deleteUsers(ids: string[]): Promise<void> {
@@ -170,6 +203,13 @@ export class AdminStore {
     return settings;
   }
 
+  /* Activity */
+
+  /** A part of the activity log straight from the server, beyond what the pages keep loaded */
+  activityBetween(range: ActivityRange): Promise<Activity[]> {
+    return this.call(() => this.api.listActivity(range));
+  }
+
   /* Signed-in devices and two-step sign-in */
 
   listSessions(userId: string): Promise<UserSession[]> {
@@ -195,7 +235,8 @@ export class AdminStore {
   }
 
   async disableTwoFactor(code: string): Promise<User> {
-    return this.afterUserChange(await this.call(() => this.api.disableTwoFactor(code)));
+    // Refused with two_factor_mandatory when the role requires it: two-step sign-in stays on, nothing to set up
+    return this.afterUserChange(await this.call(() => this.api.disableTwoFactor(code), false));
   }
 
   async resetTwoFactor(userId: string): Promise<User> {
@@ -212,13 +253,19 @@ export class AdminStore {
     this.activity.set(await this.call(() => this.api.listActivity()));
   }
 
-  /** Runs a request, noting when it failed because the session has ended */
-  private async call<T>(request: () => Promise<T>): Promise<T> {
+  /**
+   * Runs a request, noting when it failed because the session has ended, or because two-step sign-in has to be set up
+   * first (unless the request can only be refused for the other reason two_factor_mandatory has)
+   */
+  private async call<T>(request: () => Promise<T>, setupMayBeRequired = true): Promise<T> {
     try {
       return await request();
     } catch (error) {
       if (error instanceof AdminApiError && error.code === 'unauthenticated') {
         this.sessionEnded.set(true);
+      }
+      if (setupMayBeRequired && error instanceof AdminApiError && error.code === 'two_factor_mandatory') {
+        this.twoFactorSetupRequired.set(true);
       }
       throw error;
     }

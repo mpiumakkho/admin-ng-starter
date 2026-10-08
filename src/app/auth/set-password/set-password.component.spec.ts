@@ -7,10 +7,14 @@ import { SetPasswordComponent } from './set-password.component';
 
 describe('SetPasswordComponent', () => {
   let fixture: ComponentFixture<SetPasswordComponent>;
-  let api: { acceptInvitation: ReturnType<typeof vi.fn>; confirmPasswordReset: ReturnType<typeof vi.fn> };
+  let api: {
+    acceptInvitation: ReturnType<typeof vi.fn>;
+    confirmPasswordReset: ReturnType<typeof vi.fn>;
+    getPasswordPolicy: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(async () => {
-    api = { acceptInvitation: vi.fn(), confirmPasswordReset: vi.fn() };
+    api = { acceptInvitation: vi.fn(), confirmPasswordReset: vi.fn(), getPasswordPolicy: vi.fn().mockResolvedValue({ minLength: 8, history: 0 }) };
     await TestBed.configureTestingModule({
       imports: [SetPasswordComponent],
       providers: [provideRouter([]), provideTranslateService(), { provide: AdminApi, useValue: api }],
@@ -44,6 +48,20 @@ describe('SetPasswordComponent', () => {
     fill('first-password-1', 'first-password-1');
     await fixture.whenStable();
     expect(api.acceptInvitation).toHaveBeenCalledWith('invite-token', 'first-password-1');
+  });
+
+  it('asks for the shortest password the settings allow', async () => {
+    api.getPasswordPolicy.mockResolvedValue({ minLength: 12, history: 0 });
+    fixture.componentRef.setInput('token', 'invite-token');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain('atLeastCharacters');
+
+    fill('eleven-char', 'eleven-char');
+    await fixture.whenStable();
+    expect(api.acceptInvitation).not.toHaveBeenCalled();
+    fill('twelve-chars', 'twelve-chars');
+    await fixture.whenStable();
+    expect(api.acceptInvitation).toHaveBeenCalledWith('invite-token', 'twelve-chars');
   });
 
   it('offers a new link when a reset link no longer works', async () => {

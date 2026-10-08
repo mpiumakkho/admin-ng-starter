@@ -3,7 +3,7 @@ import { ActivatedRouteSnapshot, CanActivateFn, RedirectCommand, Router, RouterS
 
 import { AdminStore } from '../data/admin-store';
 import { Permission } from '../data/models';
-import { Session, SIGN_IN_PATH, SIGNING_OUT } from './session';
+import { Session, SIGN_IN_PATH, SIGNING_OUT, TWO_FACTOR_SETUP_PATH } from './session';
 
 /*
  * Route guards. A page someone may not open shows the no-access page at the same address, so the address bar
@@ -11,7 +11,19 @@ import { Session, SIGN_IN_PATH, SIGNING_OUT } from './session';
  */
 
 /** Lets signed-in people through; sends everyone else to sign in, and back here afterwards */
-export const signedIn: CanActivateFn = (_route, state) => inject(Session).signedIn() || toSignIn(state);
+export const signedIn: CanActivateFn = (_route, state) => {
+  const session = inject(Session);
+  return !session.signedIn() ? toSignIn(state) : session.twoFactorSetupRequired() ? toTwoFactorSetup() : true;
+};
+
+/** For the two-step sign-in setup page: only while the role requires it and it is off */
+export const settingUpTwoFactor: CanActivateFn = (_route, state) => {
+  const session = inject(Session);
+  if (!session.signedIn()) {
+    return toSignIn(state);
+  }
+  return session.twoFactorSetupRequired() || inject(Router).parseUrl(session.homeUrl());
+};
 
 /** For the sign-in page: someone already signed in goes to their first page instead, unless they are signing out */
 export const signedOut: CanActivateFn = () => {
@@ -27,6 +39,9 @@ export function requirePermission(...permissions: Permission[]): CanActivateFn {
     if (!session.signedIn()) {
       return toSignIn(state);
     }
+    if (session.twoFactorSetupRequired()) {
+      return toTwoFactorSetup();
+    }
     return permissions.every(permission => session.can(permission)) || noAccess(state);
   };
 }
@@ -36,6 +51,9 @@ export const canViewUser: CanActivateFn = (route, state) => {
   const session = inject(Session);
   if (!session.signedIn()) {
     return toSignIn(state);
+  }
+  if (session.twoFactorSetupRequired()) {
+    return toTwoFactorSetup();
   }
   return route.paramMap.get('id') === session.userId() || session.can('users.view') || noAccess(state);
 };
@@ -49,6 +67,9 @@ export const canEditUser: CanActivateFn = (route: ActivatedRouteSnapshot, state)
   if (!session.signedIn()) {
     return toSignIn(state);
   }
+  if (session.twoFactorSetupRequired()) {
+    return toTwoFactorSetup();
+  }
   const user = inject(AdminStore).usersById().get(route.paramMap.get('id') ?? '');
   // An unknown id is let through to editors: the form shows "user not found"
   return (user ? session.canEditProfile(user) : session.can('users.edit')) || noAccess(state);
@@ -57,6 +78,10 @@ export const canEditUser: CanActivateFn = (route: ActivatedRouteSnapshot, state)
 function toSignIn(state: RouterStateSnapshot) {
   const router = inject(Router);
   return router.createUrlTree([inject(SIGN_IN_PATH)], { queryParams: { returnUrl: state.url } });
+}
+
+function toTwoFactorSetup() {
+  return inject(Router).parseUrl(TWO_FACTOR_SETUP_PATH);
 }
 
 /** Shows the no-access page while the address bar keeps the address that was asked for */

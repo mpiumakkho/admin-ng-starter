@@ -20,6 +20,9 @@ const IDLE_WARNING_MS = 60_000;
 /** When the app was last used in any tab of this browser, so tabs share one idle timer and a reload does not reset it */
 const LAST_ACTIVE_KEY = 'admin-last-active';
 
+/** Where someone goes whose role requires two-step sign-in while it is off; nothing else opens until it is on */
+export const TWO_FACTOR_SETUP_PATH = '/setup-two-factor';
+
 /** Navigation state that lets a signed-in user onto the sign-in page while signing out */
 export const SIGNING_OUT = 'signingOut';
 
@@ -57,6 +60,8 @@ export class Session {
     return user ? this.store.rolesById().get(user.roleId) : undefined;
   });
   readonly permissions = computed<ReadonlySet<Permission>>(() => new Set(this.role()?.permissions ?? []));
+  /** The role requires two-step sign-in and it is off: only the setup page opens (API.md, "Roles that must use…") */
+  readonly twoFactorSetupRequired = computed(() => this.signedIn() && this.store.twoFactorSetupRequired());
 
   /** When the signed-in user last used the app in this tab, and when that was last shared with other tabs */
   private lastActive = Date.now();
@@ -67,6 +72,13 @@ export class Session {
     effect(() => {
       if (this.store.sessionEnded() && untracked(this.signedIn)) {
         untracked(() => this.expire('ended'));
+      }
+    });
+
+    // The settings came to require two-step sign-in for this role while the app was open: set it up first
+    effect(() => {
+      if (this.twoFactorSetupRequired()) {
+        untracked(() => this.router.navigateByUrl(TWO_FACTOR_SETUP_PATH));
       }
     });
 
@@ -125,6 +137,9 @@ export class Session {
   homeUrl(): string {
     if (!this.signedIn()) {
       return this.signInPath;
+    }
+    if (this.twoFactorSetupRequired()) {
+      return TWO_FACTOR_SETUP_PATH;
     }
     if (this.can('users.view')) {
       return '/overview';

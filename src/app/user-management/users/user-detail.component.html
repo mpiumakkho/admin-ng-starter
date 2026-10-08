@@ -123,7 +123,9 @@
               {{ (user.twoFactor ? 'Signing in needs a code from their phone.' : 'Signing in needs only the password.') | translate }}
             </span>
             @if (isSelf()) {
-              @if (user.twoFactor) {
+              @if (user.twoFactor && twoFactorRequired()) {
+                <span class="security-note">{{ 'Your role requires it.' | translate }}</span>
+              } @else if (user.twoFactor) {
                 <button uiButton variant="secondary" size="sm" type="button" (click)="openTwoFactor('disable')">{{ 'Turn off' | translate }}</button>
               } @else {
                 <button uiButton size="sm" type="button" (click)="openTwoFactor('enable')">{{ 'Turn on' | translate }}</button>

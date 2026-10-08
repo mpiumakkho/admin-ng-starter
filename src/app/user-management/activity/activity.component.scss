@@ -58,6 +58,17 @@
   }
 }
 
+.date-range {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  color: var(--ui-muted);
+
+  input {
+    width: auto;
+  }
+}
+
 .toolbar-select {
   width: auto;
   min-width: 150px;

@@ -3,7 +3,7 @@ import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, Validatio
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import { AdminApiError } from '../data/admin-api';
-import { NEW_PASSWORD_LENGTH } from '../data/access-rules';
+import { AdminStore } from '../data/admin-store';
 import { errorMessage } from '../shared/errors';
 import { translationsChanged } from '../shared/i18n';
 import { UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput, UiToastService } from '../ui';
@@ -22,7 +22,7 @@ import { Session } from './session';
         <ui-form-field [label]="'Current password' | translate" [for]="ids.current" required [errors]="errors()">
           <input uiInput [id]="ids.current" type="password" formControlName="current" autocomplete="current-password" />
         </ui-form-field>
-        <ui-form-field [label]="'New password' | translate" [for]="ids.next" required [errors]="errors()" [hint]="'At least 8 characters.' | translate">
+        <ui-form-field [label]="'New password' | translate" [for]="ids.next" required [errors]="errors()" [hint]="'atLeastCharacters' | translate: { count: minLength() }">
           <input uiInput [id]="ids.next" type="password" formControlName="next" autocomplete="new-password" />
         </ui-form-field>
         <ui-form-field [label]="'Repeat the new password' | translate" [for]="ids.repeat" required [errors]="errors()">
@@ -40,6 +40,9 @@ import { Session } from './session';
 export class ChangePasswordDialog {
   private static nextId = 0;
   protected readonly session = inject(Session);
+  private readonly store = inject(AdminStore);
+  /** The shortest password the settings allow */
+  protected readonly minLength = computed(() => this.store.settings().passwordMinLength);
   private readonly translate = inject(TranslateService);
   private readonly toast = inject(UiToastService);
   private readonly i18n = translationsChanged();
@@ -50,7 +53,7 @@ export class ChangePasswordDialog {
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     current: ['', Validators.required],
-    next: ['', [Validators.required, Validators.minLength(NEW_PASSWORD_LENGTH)]],
+    next: ['', [Validators.required, (control: AbstractControl) => this.longEnough(control)]],
     repeat: ['', [Validators.required, (control: AbstractControl) => this.matches(control)]],
   });
 
@@ -58,7 +61,7 @@ export class ChangePasswordDialog {
     this.i18n();
     return {
       required: this.translate.instant('This field is required.'),
-      minlength: this.translate.instant('Use at least 8 characters.'),
+      minlength: this.translate.instant('useAtLeastCharacters', { count: this.minLength() }),
       mismatch: this.translate.instant('The passwords do not match.'),
       wrong: this.translate.instant('The current password is not right.'),
     };
@@ -90,6 +93,10 @@ export class ChangePasswordDialog {
 
   protected reset() {
     this.form.reset();
+  }
+
+  private longEnough(control: AbstractControl): ValidationErrors | null {
+    return control.value && control.value.length < this.minLength() ? { minlength: true } : null;
   }
 
   private matches(control: AbstractControl): ValidationErrors | null {

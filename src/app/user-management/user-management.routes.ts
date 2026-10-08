@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { requirePermission } from './access/guards';
+import { requirePermission, settingUpTwoFactor } from './access/guards';
 import { NoAccessComponent } from './access/no-access.component';
 
 /**
@@ -16,4 +16,6 @@ export const USER_MANAGEMENT_ROUTES: Routes = [
   { path: 'settings', loadChildren: () => import('./settings/settings.routes').then(m => m.SETTINGS_ROUTES) },
   // Where the guards send people whose role does not allow a page
   { path: 'no-access', component: NoAccessComponent },
+  // Where the guards send people whose role requires two-step sign-in while it is off
+  { path: 'setup-two-factor', canActivate: [settingUpTwoFactor], loadComponent: () => import('./access/two-factor-setup.component').then(m => m.TwoFactorSetupComponent) },
 ];

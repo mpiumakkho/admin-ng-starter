@@ -80,6 +80,26 @@ export interface AdminSettings {
   inviteExpiryDays: number;
   /** Signs people out after this long without using the app; 0 keeps them signed in */
   sessionTimeoutMinutes: number;
+  /** Roles whose holders must use two-step sign-in before they can do anything else */
+  twoFactorRoleIds: string[];
+  /** The shortest password someone can set */
+  passwordMinLength: number;
+  /** How many of someone's most recent passwords, the current one included, they cannot choose again; 0 allows any */
+  passwordHistory: number;
+  /** Activity older than this is deleted */
+  activityRetentionDays: number;
+}
+
+/** What a new password must be, from the settings; readable before signing in, for the links in emails */
+export interface PasswordPolicy {
+  minLength: number;
+  history: number;
+}
+
+/** A part of the activity log, from one moment up to (not including) another; either end may be left open */
+export interface ActivityRange {
+  from?: string;
+  to?: string;
 }
 
 export type ActivityAction =

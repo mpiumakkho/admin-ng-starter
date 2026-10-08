@@ -7,15 +7,16 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
-import { INVITE_EXPIRY_DAYS, SESSION_TIMEOUT_MINUTES } from '../data/catalog';
+import { ACTIVITY_RETENTION_DAYS, INVITE_EXPIRY_DAYS, PASSWORD_HISTORY, PASSWORD_MIN_LENGTHS, SESSION_TIMEOUT_MINUTES } from '../data/catalog';
 import { AdminSettings } from '../data/models';
 import { errorMessage } from '../shared/errors';
-import { idleTimeoutLabel } from '../shared/formatting';
+import { idleTimeoutLabel, passwordHistoryLabel, retentionLabel } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import {
   UiAlert,
   UiButton,
   UiCard,
+  UiCheckbox,
   UiCardFooter,
   UiConfirmService,
   UiFormField,
@@ -40,7 +41,10 @@ function validDomains(control: AbstractControl): ValidationErrors | null {
 /** How new accounts and sign-ins work. Anyone with settings.view can read it; settings.manage can change it. */
 @Component({
   selector: 'app-settings',
-  imports: [ReactiveFormsModule, NgIcon, TranslatePipe, UiPageHeader, UiAlert, UiCard, UiCardFooter, UiButton, UiFormField, UiInput, UiSegmented],
+  imports: [
+    ReactiveFormsModule, NgIcon, TranslatePipe, UiPageHeader, UiAlert, UiCard, UiCardFooter, UiButton, UiCheckbox, UiFormField, UiInput,
+    UiSegmented,
+  ],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -61,6 +65,10 @@ export class SettingsComponent implements OnInit {
     allowedDomains: ['', validDomains],
     inviteExpiryDays: [7],
     sessionTimeoutMinutes: [0],
+    twoFactorRoleIds: [[] as string[]],
+    passwordMinLength: [8],
+    passwordHistory: [0],
+    activityRetentionDays: [730],
   });
 
   protected readonly expiryOptions = computed<UiOption<number>[]>(() => {
@@ -71,6 +79,21 @@ export class SettingsComponent implements OnInit {
   protected readonly timeoutOptions = computed(() => {
     this.i18n();
     return SESSION_TIMEOUT_MINUTES.map(minutes => ({ value: minutes, label: idleTimeoutLabel(this.translate, minutes) }));
+  });
+
+  protected readonly passwordLengthOptions = computed(() => {
+    this.i18n();
+    return PASSWORD_MIN_LENGTHS.map(count => ({ value: count, label: this.translate.instant('characterCount', { count }) }));
+  });
+
+  protected readonly historyOptions = computed(() => {
+    this.i18n();
+    return PASSWORD_HISTORY.map(count => ({ value: count, label: passwordHistoryLabel(this.translate, count) }));
+  });
+
+  protected readonly retentionOptions = computed(() => {
+    this.i18n();
+    return ACTIVITY_RETENTION_DAYS.map(days => ({ value: days, label: retentionLabel(this.translate, days) }));
   });
 
   protected readonly errorMessages = computed<Record<string, string>>(() => {
@@ -108,6 +131,14 @@ export class SettingsComponent implements OnInit {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  /** Ticks or unticks a role in the list that must use two-step sign-in */
+  protected toggleTwoFactorRole(roleId: string, required: boolean) {
+    const control = this.form.controls.twoFactorRoleIds;
+    const others = control.value.filter(id => id !== roleId);
+    control.setValue(required ? [...others, roleId] : others);
+    control.markAsDirty();
   }
 
   /** Asks before leaving with unsaved changes */

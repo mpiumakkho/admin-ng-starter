@@ -191,6 +191,39 @@ describe('HttpAdminApi', () => {
     });
   });
 
+  describe('account rules', () => {
+    it('reads the password rules without a token', async () => {
+      const policy = api.getPasswordPolicy();
+      const request = await sent('GET', '/auth/password-policy');
+      expect(request.request.headers.has('Authorization')).toBe(false);
+      request.flush({ minLength: 12, history: 3 });
+      await expect(policy).resolves.toEqual({ minLength: 12, history: 3 });
+    });
+
+    it('changes several roles at once and reads a part of the activity log', async () => {
+      await signIn();
+      const changed = api.setUsersRole(['u-1', 'u-2'], 'viewer');
+      const role = await sent('POST', '/users/role');
+      expect(role.request.body).toEqual({ ids: ['u-1', 'u-2'], roleId: 'viewer' });
+      role.flush([user]);
+      await expect(changed).resolves.toEqual([user]);
+
+      const part = api.listActivity({ from: '2026-10-01T00:00:00.000Z', to: '2026-10-02T00:00:00.000Z' });
+      (await sent('GET', '/activity?from=2026-10-01T00%3A00%3A00.000Z&to=2026-10-02T00%3A00%3A00.000Z')).flush([]);
+      await expect(part).resolves.toEqual([]);
+    });
+
+    it('reads the new refusals', async () => {
+      await signIn();
+      const users = api.listUsers();
+      (await sent('GET', '/users')).flush({ code: 'two_factor_mandatory' }, { status: 403, statusText: 'Forbidden' });
+      await expect(users).rejects.toEqual(new AdminApiError('two_factor_mandatory'));
+      const change = api.changePassword('old-password', 'new-password');
+      (await sent('POST', '/me/password')).flush({ code: 'password_reused' }, { status: 422, statusText: 'Unprocessable Content' });
+      await expect(change).rejects.toEqual(new AdminApiError('password_reused'));
+    });
+  });
+
   describe('links in emails', () => {
     it('sends them without a token or the cookie, and never refreshes for them', async () => {
       const accept = api.acceptInvitation('invite-token', 'new-password-1');
