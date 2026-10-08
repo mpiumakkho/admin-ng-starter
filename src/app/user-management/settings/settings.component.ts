@@ -41,6 +41,9 @@ function validDomains(control: AbstractControl): ValidationErrors | null {
 /** How new accounts and sign-ins work. Anyone with settings.view can read it; settings.manage can change it. */
 @Component({
   selector: 'app-settings',
+  // Fills the window on desktop, the buttons at the bottom as on the pages with tables; the settings scroll inside
+  // the card when they are taller than the window
+  host: { class: 'page-fit' },
   imports: [
     ReactiveFormsModule, NgIcon, TranslatePipe, UiPageHeader, UiAlert, UiCard, UiCardFooter, UiButton, UiCheckbox, UiFormField, UiInput,
     UiSegmented,

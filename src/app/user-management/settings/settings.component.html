@@ -1,41 +1,42 @@
 <ui-page-header [title]="'Settings' | translate" [subtitle]="'How new accounts and sign-ins work.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]" />
 
 <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-  <ui-card>
+  <ui-card fill>
     @if (!canManage()) {
       <ui-alert class="settings-note" tone="info">{{ 'Your role can view the settings but not change them.' | translate }}</ui-alert>
     }
 
-    <section class="form-section">
-      <div class="form-section-intro">
-        <h2>{{ 'New users' | translate }}</h2>
-        <p>{{ 'What people start with when an admin adds or invites them.' | translate }}</p>
-      </div>
-      <div class="field-stack">
-        <ui-form-field [label]="'Default role' | translate" for="defaultRoleId" required [errors]="errorMessages()" [hint]="'Picked in advance on the Add user form.' | translate">
-          <select uiInput id="defaultRoleId" formControlName="defaultRoleId">
-            @for (role of store.roles(); track role.id) {
-              <option [value]="role.id">{{ role.name }}</option>
-            }
-          </select>
-        </ui-form-field>
+    <!-- Two columns of sections on a wide page, so all of it shows at once; one column when narrow -->
+    <div class="settings-grid">
+      <section class="settings-section">
+        <div class="section-intro">
+          <h2>{{ 'New users' | translate }}</h2>
+          <p>{{ 'What people start with when an admin adds or invites them.' | translate }}</p>
+        </div>
+        <div class="field-row">
+          <ui-form-field class="field-fit" [label]="'Default role' | translate" for="defaultRoleId" required [errors]="errorMessages()" [hint]="'Picked in advance on the Add user form.' | translate">
+            <select uiInput id="defaultRoleId" formControlName="defaultRoleId" class="role-select">
+              @for (role of store.roles(); track role.id) {
+                <option [value]="role.id">{{ role.name }}</option>
+              }
+            </select>
+          </ui-form-field>
+          <ui-form-field class="field-fit" [label]="'Invitations expire after' | translate" [hint]="'Expired invitations show on the overview, ready to send again.' | translate">
+            <ui-segmented [options]="expiryOptions()" formControlName="inviteExpiryDays" [ariaLabel]="'Invitations expire after' | translate" />
+          </ui-form-field>
+        </div>
         <ui-form-field [label]="'Allowed email domains' | translate" for="allowedDomains" [errors]="errorMessages()" [hint]="'Separate domains with commas. Leave empty to allow any email.' | translate">
-          <input uiInput id="allowedDomains" formControlName="allowedDomains" placeholder="example.com, example.co.th" autocomplete="off" />
+          <input uiInput class="domains-input" id="allowedDomains" formControlName="allowedDomains" placeholder="example.com, example.co.th" autocomplete="off" />
         </ui-form-field>
-        <ui-form-field [label]="'Invitations expire after' | translate" [hint]="'Expired invitations show on the overview, ready to send again.' | translate">
-          <ui-segmented [options]="expiryOptions()" formControlName="inviteExpiryDays" [ariaLabel]="'Invitations expire after' | translate" />
-        </ui-form-field>
-      </div>
-    </section>
+      </section>
 
-    <section class="form-section">
-      <div class="form-section-intro">
-        <h2>{{ 'Sign-in' | translate }}</h2>
-        <p>{{ 'Keeps accounts safe on shared or unattended computers.' | translate }}</p>
-      </div>
-      <div class="field-stack">
+      <section class="settings-section">
+        <div class="section-intro">
+          <h2>{{ 'Sign-in' | translate }}</h2>
+          <p>{{ 'Keeps accounts safe on shared or unattended computers.' | translate }}</p>
+        </div>
         <ui-form-field [label]="'Sign out when idle' | translate" for="sessionTimeoutMinutes" [hint]="'Signs people out after this long without a click, key press or scroll.' | translate">
-          <select uiInput id="sessionTimeoutMinutes" formControlName="sessionTimeoutMinutes" class="timeout-select">
+          <select uiInput id="sessionTimeoutMinutes" formControlName="sessionTimeoutMinutes" class="select-input">
             @for (option of timeoutOptions(); track option.value) {
               <option [ngValue]="option.value">{{ option.label }}</option>
             }
@@ -52,47 +53,45 @@
         @if (holdsBackSelf()) {
           <ui-alert tone="warning">{{ 'twoFactorSelfWarning' | translate }}</ui-alert>
         }
-      </div>
-    </section>
+      </section>
 
-    <section class="form-section">
-      <div class="form-section-intro">
-        <h2>{{ 'Passwords' | translate }}</h2>
-        <p>{{ 'Rules for new passwords. They apply the next time someone sets one.' | translate }}</p>
-      </div>
-      <div class="field-stack">
-        <ui-form-field [label]="'Shortest password' | translate" for="passwordMinLength">
-          <select uiInput id="passwordMinLength" formControlName="passwordMinLength" class="timeout-select">
-            @for (option of passwordLengthOptions(); track option.value) {
-              <option [ngValue]="option.value">{{ option.label }}</option>
-            }
-          </select>
-        </ui-form-field>
-        <ui-form-field [label]="'Recent passwords not allowed again' | translate" for="passwordHistory" [hint]="'Stops people from going back to a password they used recently.' | translate">
-          <select uiInput id="passwordHistory" formControlName="passwordHistory" class="timeout-select">
-            @for (option of historyOptions(); track option.value) {
-              <option [ngValue]="option.value">{{ option.label }}</option>
-            }
-          </select>
-        </ui-form-field>
-      </div>
-    </section>
+      <section class="settings-section">
+        <div class="section-intro">
+          <h2>{{ 'Passwords' | translate }}</h2>
+          <p>{{ 'Rules for new passwords. They apply the next time someone sets one.' | translate }}</p>
+        </div>
+        <div class="field-row">
+          <ui-form-field class="field-short" [label]="'Shortest password' | translate" for="passwordMinLength">
+            <select uiInput id="passwordMinLength" formControlName="passwordMinLength">
+              @for (option of passwordLengthOptions(); track option.value) {
+                <option [ngValue]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          </ui-form-field>
+          <ui-form-field class="field-long" [label]="'Recent passwords not allowed again' | translate" for="passwordHistory" [hint]="'Stops people from going back to a password they used recently.' | translate">
+            <select uiInput id="passwordHistory" formControlName="passwordHistory">
+              @for (option of historyOptions(); track option.value) {
+                <option [ngValue]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          </ui-form-field>
+        </div>
+      </section>
 
-    <section class="form-section">
-      <div class="form-section-intro">
-        <h2>{{ 'Activity log' | translate }}</h2>
-        <p>{{ 'How long each change stays in the log.' | translate }}</p>
-      </div>
-      <div class="field-stack">
+      <section class="settings-section">
+        <div class="section-intro">
+          <h2>{{ 'Activity log' | translate }}</h2>
+          <p>{{ 'How long each change stays in the log.' | translate }}</p>
+        </div>
         <ui-form-field [label]="'Keep activity for' | translate" for="activityRetentionDays" [hint]="'Older entries are deleted every night. Export them first if you need them.' | translate">
-          <select uiInput id="activityRetentionDays" formControlName="activityRetentionDays" class="timeout-select">
+          <select uiInput id="activityRetentionDays" formControlName="activityRetentionDays" class="select-input">
             @for (option of retentionOptions(); track option.value) {
               <option [ngValue]="option.value">{{ option.label }}</option>
             }
           </select>
         </ui-form-field>
-      </div>
-    </section>
+      </section>
+    </div>
 
     @if (canManage()) {
       <div uiCardFooter>

@@ -81,6 +81,19 @@
   display: contents;
 }
 
+// Grows to the height its parent gives it, in a column flex parent or a grid row; the body takes the space
+// between header and footer and scrolls when its content is taller
+.ui-card-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  > .ui-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
 .ui-card-fit {
   min-height: 0;
 

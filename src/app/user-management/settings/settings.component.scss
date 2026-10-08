@@ -2,27 +2,51 @@
   margin-bottom: 1rem;
 }
 
-// Section title and description on the left, fields on the right, as on the user form
-.form-section {
+// The card's width decides between one column of sections and two. On a page-fit page the form takes the
+// height below the header and the card fills it
+form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.settings-grid {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: 1rem 2rem;
-  padding: 1.5rem 0;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 2.5rem;
+}
+
+// Each section has its title above its fields
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: .875rem;
+  padding: 1rem 0;
   border-top: 1px solid var(--ui-border);
 
-  &:first-of-type {
+  &:first-child {
     padding-top: .25rem;
     border-top: 0;
   }
+}
 
-  @media (max-width: 991px) {
-    grid-template-columns: 1fr;
+// Two sections side by side: the first row has no line above it
+@container (min-width: 900px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-section:nth-child(2) {
+    padding-top: .25rem;
+    border-top: 0;
   }
 }
 
-.form-section-intro {
+.section-intro {
   h2 {
-    margin: 0 0 .25rem;
+    margin: 0 0 .125rem;
     color: var(--ui-heading);
     font-size: .9375rem;
     font-weight: 600;
@@ -36,15 +60,47 @@
   }
 }
 
-.field-stack {
+// Fields side by side, wrapping onto the next line when they do not fit
+.field-row {
   display: flex;
-  flex-direction: column;
-  gap: 1.125rem;
-  max-width: 560px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
 }
 
-.timeout-select {
-  max-width: 240px;
+// Each control as wide as what it holds, not the whole column; hints wrap to the same width
+.field-short {
+  width: 11rem;
+}
+
+// Room for a label such as "Recent passwords not allowed again" on one line
+.field-long {
+  width: 15rem;
+}
+
+.field-fit {
+  width: min-content;
+}
+
+// As wide as the longest role name, within limits; the field and its hint follow
+.role-select {
+  width: auto;
+  min-width: 11rem;
+  max-width: 16rem;
+}
+
+// As tall as the select beside it, so the hints under both start on the same line
+.field-fit ui-segmented {
+  min-height: 40px;
+  align-items: center;
+}
+
+.select-input {
+  max-width: 15rem;
+}
+
+.domains-input {
+  max-width: 22rem;
 }
 
 .role-checks {
