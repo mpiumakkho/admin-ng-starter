@@ -66,7 +66,9 @@ Users, roles and permissions, and the activity log for an Angular 22 app, in one
 
    The guards send people who are not signed in to `/login`; pass `signInPath` to `provideUserManagement()` to use another address.
 
-   The links in emails lead to two more pages, `/activate` and `/reset-password`, and the sign-in page's "Forgot password?" to `/forgot-password`. This project's are in `src/app/auth/set-password` and `src/app/auth/forgot-password`; they call `AdminApi.acceptInvitation()`, `confirmPasswordReset()` and `requestPasswordReset()` (API.md, "Links in emails").
+   The links in emails lead to two more pages, `/activate` and `/reset-password`, and the sign-in page's "Forgot password?" to `/forgot-password`. This project's are in `src/app/auth/set-password` and `src/app/auth/forgot-password`; they call `AdminApi.acceptInvitation()`, `confirmPasswordReset()` and `requestPasswordReset()` (API.md, "Links in emails"), and read the shortest password allowed from `getPasswordPolicy()`.
+
+   Someone whose role must use two-step sign-in while theirs is off is kept on `/setup-two-factor` (`TWO_FACTOR_SETUP_PATH`), which comes with `USER_MANAGEMENT_ROUTES`. It is a page of its own, like sign-in: show it without the navbar and sidebar (this project lists it in `AUTH_PAGES` in `src/app/app.component.ts`).
 
 7. Put the pages in the app's menu. `USER_MANAGEMENT_MENU` is one group, "User management", with a link per page and the permission each needs; show a link only when `Session.can(link.permission)`, and the group only when it has a link to show. This project's sidebar (`src/app/layout/sidebar`) shows it as a dropdown.
 
@@ -109,7 +111,10 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 - the role the Add user form picks first;
 - which email domains new users may have;
 - how long invitations last before the overview lists them as expired;
-- how long someone can leave the app idle before `Session` signs them out.
+- how long someone can leave the app idle before `Session` signs them out;
+- which roles must turn on two-step sign-in before anything else (the guards then keep them on `/setup-two-factor`);
+- the password rules: the shortest password and how many recent passwords may not be used again;
+- how long the activity log keeps each entry.
 
 `AdminStore.settings` holds them for any page that needs them.
 
