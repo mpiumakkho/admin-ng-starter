@@ -31,7 +31,14 @@ test('a role that must use two-step sign-in: nothing else opens until it is on',
   await start(page);
   await signInAs(page, 'Administrator');
   await page.goto('/settings');
-  await page.getByRole('group', { name: 'Two-step sign-in required for' }).getByRole('checkbox', { name: 'Viewer' }).check();
+  const roles = page.getByRole('group', { name: 'Two-step sign-in required for' });
+  // Ticking your own role while yours is off would hold you back too: the page says so before saving
+  const warning = page.locator('ui-alert', { hasText: 'Your own role is ticked' });
+  await roles.getByRole('checkbox', { name: 'Administrator' }).check();
+  await expect(warning).toBeVisible();
+  await roles.getByRole('checkbox', { name: 'Administrator' }).uncheck();
+  await expect(warning).toHaveCount(0);
+  await roles.getByRole('checkbox', { name: 'Viewer' }).check();
   await saveSettings(page);
   await signOut(page);
 

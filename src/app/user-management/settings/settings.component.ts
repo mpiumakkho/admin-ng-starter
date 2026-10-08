@@ -141,6 +141,12 @@ export class SettingsComponent implements OnInit {
     control.markAsDirty();
   }
 
+  /** Saving would hold the signed-in administrator back until they turn on two-step sign-in themselves (API.md) */
+  protected holdsBackSelf(): boolean {
+    const me = this.session.user();
+    return !!me && !me.twoFactor && this.form.controls.twoFactorRoleIds.value.includes(me.roleId);
+  }
+
   /** Asks before leaving with unsaved changes */
   canLeave(): boolean | Promise<boolean> {
     // After the session ended there is nothing to save to, so leave without asking

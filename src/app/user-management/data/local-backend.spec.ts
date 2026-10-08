@@ -151,6 +151,7 @@ describe('HttpAdminApi against localBackend', () => {
     // A part of the activity log
     expect(await api.listActivity({ from: new Date(Date.now() + 60_000).toISOString() })).toEqual([]);
     expect((await api.listActivity({ from: new Date(Date.now() - 60_000).toISOString() })).length).toBeGreaterThan(0);
+    await expect(api.listActivity({ from: '2026-10-01' })).rejects.toEqual(new AdminApiError('invalid_request'));
 
     // Kept for 30 days to 10 years
     expect((await api.updateSettings({ activityRetentionDays: 30 })).activityRetentionDays).toBe(30);

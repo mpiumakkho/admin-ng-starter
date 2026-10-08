@@ -49,6 +49,9 @@
             }
           </div>
         </ui-form-field>
+        @if (holdsBackSelf()) {
+          <ui-alert tone="warning">{{ 'twoFactorSelfWarning' | translate }}</ui-alert>
+        }
       </div>
     </section>
 

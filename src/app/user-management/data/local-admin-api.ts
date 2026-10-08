@@ -390,7 +390,7 @@ export class LocalAdminApi extends AdminApi {
   async listActivity(range: ActivityRange = {}): Promise<Activity[]> {
     const actor = this.actor();
     const { from, to } = range;
-    check([from, to].every(value => value === undefined || (typeof value === 'string' && !Number.isNaN(Date.parse(value)))));
+    check([from, to].every(value => value === undefined || isInstant(value)));
     if (!this.permissions(actor).has('activity.view')) {
       return this.respond([]);
     }
@@ -782,6 +782,12 @@ export class LocalAdminApi extends AdminApi {
   private write() {
     writeStore(localStorage, STORAGE_KEY, JSON.stringify(this.data));
   }
+}
+
+/** An ISO 8601 instant with Z or an offset, as API.md asks of GET /activity's from and to */
+function isInstant(value: unknown): boolean {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(value)
+    && !Number.isNaN(Date.parse(value));
 }
 
 /*

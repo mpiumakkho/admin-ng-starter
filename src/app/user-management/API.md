@@ -88,9 +88,9 @@ Codes are TOTP (RFC 6238): SHA-1, 30-second steps, 6 digits; accept one step eit
 
 ### Roles that must use two-step sign-in
 
-The settings can require it for some roles (`twoFactorRoleIds`). Someone who holds one of them and has not turned it on can still sign in, but until they turn it on the server answers every request with `403` `two_factor_mandatory`, except the ones they need to do it: `GET /me`, `GET /settings`, `GET /roles`, `POST /me/two-factor` and `POST /me/two-factor/confirm` (and `/auth/*`, which need no access token). `POST /me/two-factor/disable` is refused with `two_factor_mandatory` while their role requires it. An administrator can still turn it off for them with `POST /users/:id/two-factor/reset`; they then have to turn it on again before anything else.
+The settings can require it for some roles (`twoFactorRoleIds`). Someone who holds one of them and has not turned it on can still sign in, but until they turn it on the server answers every request with `403` `two_factor_mandatory`, `GET /events` included, except the ones they need to do it: `GET /me`, `GET /settings`, `GET /roles`, `POST /me/two-factor` and `POST /me/two-factor/confirm` (and `/auth/*`, which need no access token). This applies at once, from the next request: an administrator who adds their own role while their two-step sign-in is off is held back too. `POST /me/two-factor/disable` is refused with `two_factor_mandatory` while their role requires it. An administrator can still turn it off for them with `POST /users/:id/two-factor/reset`; they then have to turn it on again before anything else.
 
-The app checks the same thing after signing in, and whenever a request answers `two_factor_mandatory`, and sends the person to `/setup-two-factor` until it is on.
+The app checks the same thing after signing in, and whenever a request answers `two_factor_mandatory`, and sends the person to `/setup-two-factor` until it is on. The settings page warns an administrator who is about to add their own role that way.
 
 ## Live updates
 
@@ -112,7 +112,7 @@ The server sends `data: changed` after each change and a `: ping` comment every 
 | `POST /users/:id/reset-password` | | Nothing | `users.edit` |
 | `POST /users/:id/resend-invite` | | Nothing; `not_invited` unless the status is `invited` | `users.create` |
 
-`POST /users/role` gives several people the same role at once: `not_found` for an unknown role, `forbidden` for a role that grants more than the actor holds or for someone the actor may not manage, `self_change` when the list includes the actor. Log one `user.updated` entry per person whose role changed, with the `roleId` change.
+`POST /users/role` gives several people the same role at once: `not_found` for an unknown role, `forbidden` for a role that grants more than the actor holds or for someone the actor may not manage, `self_change` when the list includes the actor, `not_found` for an unknown user. Nothing changes unless every check passes. Repeated ids count once, and people who already hold the role are left out of the answer and the log: log one `user.updated` entry per person whose role changed, with the `roleId` change.
 
 The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status `invited` gets an invitation email. Refuse an email someone else has with `email_taken`. When the settings list allowed domains, refuse a new or changed email outside them with `email_domain`.
 
@@ -129,7 +129,7 @@ The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status 
 
 | Request | Answer | Permission |
 | --- | --- | --- |
-| `GET /activity?from=&to=` | `Activity[]`, newest first, at most 10,000. `from` and `to` (ISO 8601, both optional) keep the entries at or after `from` and before `to` | `activity.view`; without it, an empty list |
+| `GET /activity?from=&to=` | `Activity[]`, newest first, at most 10,000. `from` and `to` (both optional) keep the entries at or after `from` and before `to`. Each is an ISO 8601 instant with `Z` or an offset, such as `2026-10-01T00:00:00.000Z` or `2026-10-01T07:00:00+07:00`; a date alone or a time without an offset is `invalid_request` | `activity.view`; without it, an empty list |
 
 The server writes the log itself, one entry per change, with `actorId` from the session and `ip`, `browser` and `os` from the request. `changes` lists the fields that changed; see `Activity` in `data/models.ts` and how `data/local-admin-api.ts` fills it. Entries older than the settings' `activityRetentionDays` are deleted every night.
 
