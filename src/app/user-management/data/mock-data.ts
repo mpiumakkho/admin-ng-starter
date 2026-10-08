@@ -16,6 +16,14 @@ export interface AdminData {
    * of 6 or more characters.
    */
   passwords?: Record<string, string>;
+  /** Links in emails that still work, by token: an invitation to set a first password, or a password reset */
+  links?: Record<string, EmailLink>;
+}
+
+export interface EmailLink {
+  userId: string;
+  kind: 'invite' | 'reset';
+  expiresAt: string;
 }
 
 

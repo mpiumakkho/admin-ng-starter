@@ -20,8 +20,8 @@ export interface UserManagementOptions {
  * What user management needs from the app: where its data comes from, and the session picked up before the
  * first screen, so the guards know who is signed in.
  *
- *   provideUserManagement()                                                    // sample data
- *   provideUserManagement({ api: HttpAdminApi, apiUrl: 'https://…/api' })      // your backend, see API.md
+ *   provideUserManagement()                                                              // sample data
+ *   provideUserManagement({ api: HttpAdminApi, apiUrl: '/api', liveUpdates: true })      // your backend, see API.md
  */
 export function provideUserManagement(options: UserManagementOptions = {}): EnvironmentProviders {
   return makeEnvironmentProviders([

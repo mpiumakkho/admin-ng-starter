@@ -30,7 +30,11 @@ export type AdminApiErrorCode =
   /** The password was right; now the code from the authenticator app is needed */
   | 'two_factor_required'
   /** The code from the authenticator app is wrong or too old */
-  | 'invalid_code';
+  | 'invalid_code'
+  /** A link from an email that has expired, was used already, or never existed */
+  | 'invalid_token'
+  /** Too many sign-in, refresh or reset attempts from one address; try again later */
+  | 'too_many_requests';
 
 export class AdminApiError extends Error {
   constructor(readonly code: AdminApiErrorCode) {
@@ -58,6 +62,15 @@ export abstract class AdminApi {
   abstract signOut(): Promise<void>;
   /** Changes the signed-in user's own password; invalid_credentials when the current one is wrong */
   abstract changePassword(currentPassword: string, newPassword: string): Promise<void>;
+
+  /* Links in emails: nobody is signed in, the token from the link says who */
+
+  /** Sets the first password from an invitation and makes the account active; invalid_token for a dead link */
+  abstract acceptInvitation(token: string, password: string): Promise<void>;
+  /** "Forgot password?": emails a reset link if the address belongs to someone, and answers the same either way */
+  abstract requestPasswordReset(email: string): Promise<void>;
+  /** Sets a new password from a reset link and ends the user's sessions; invalid_token for a dead link */
+  abstract confirmPasswordReset(token: string, password: string): Promise<void>;
 
   /* Users */
 

@@ -20,7 +20,7 @@ import { LanguageService } from './layout/language.service';
 import { SidebarComponent } from './layout/sidebar/sidebar.component';
 import { SpinnerComponent } from './layout/spinner/spinner.component';
 
-const AUTH_PAGES = ['/login'];
+const AUTH_PAGES = ['/login', '/forgot-password', '/activate', '/reset-password'];
 const ERROR_PAGES = ['/error-pages/404', '/error-pages/500'];
 
 @Component({

@@ -11,6 +11,10 @@
       <form class="login-form" [formGroup]="form" (ngSubmit)="signIn()" novalidate>
         @if (error()) {
           <ui-alert tone="danger">{{ error() | translate }}</ui-alert>
+        } @else if (password() === 'set') {
+          <ui-alert tone="success">{{ 'Your password is set. Sign in to start.' | translate }}</ui-alert>
+        } @else if (password() === 'changed') {
+          <ui-alert tone="success">{{ 'Your password has been changed. Sign in with the new one.' | translate }}</ui-alert>
         } @else if (expired() === 'idle') {
           <ui-alert tone="warning">{{ 'You were signed out after a while without activity. Sign in again to continue.' | translate }}</ui-alert>
         } @else if (expired()) {
@@ -31,7 +35,7 @@
             </div>
           </ui-form-field>
           <ui-form-field [label]="'Password' | translate" for="loginPassword" [errors]="errors()">
-            <a uiFieldAside href="javascript:void(0)" class="auth-link">{{ 'Forgot password?' | translate }}</a>
+            <a uiFieldAside routerLink="/forgot-password" class="auth-link">{{ 'Forgot password?' | translate }}</a>
             <div class="input-icon">
               <ng-icon name="lucideLockKeyhole" />
               <input uiInput id="loginPassword" [type]="showPassword() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" placeholder="••••••••">

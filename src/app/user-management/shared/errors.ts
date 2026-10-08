@@ -13,7 +13,9 @@ const MESSAGES: Partial<Record<AdminApiErrorCode, string>> = {
   weak_password: 'Use at least 8 characters.',
   default_role: 'New users get this role by default. Pick another default in the settings first.',
   invalid_code: 'That code is not right. Codes change every 30 seconds; try the newest one.',
+  invalid_token: 'This link has expired or was already used.',
   invalid_credentials: 'The current password is not right.',
+  too_many_requests: 'Too many attempts. Wait a few minutes and try again.',
 };
 
 /** The translation key that explains why a request failed */

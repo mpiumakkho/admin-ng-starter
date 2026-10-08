@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { canManageRole, holdsAll, NEW_PASSWORD_LENGTH, permissionsOf, SELF_EDITABLE_FIELDS } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
 import { ALL_PERMISSIONS, DEFAULT_SETTINGS, ROLE_TONES, STATUS_META } from './catalog';
-import { AdminData, createMockData, createMockSessions } from './mock-data';
+import { AdminData, createMockData, createMockSessions, EmailLink } from './mock-data';
 import {
   Activity, ActivityAction, ActivityChange, AdminSettings, fullName, Permission, Role, RoleDraft, TwoFactorSetup, User, UserDraft,
   UserSession, UserStatus,
@@ -21,6 +21,8 @@ const SEEN_EVERY_MS = 60_000;
 const LATENCY_MS = 250;
 /** The sample sign-in takes any password this long, until someone sets their own */
 const MIN_PASSWORD_LENGTH = 6;
+/** How long a password reset link works; invitations follow the settings */
+const RESET_LINK_MS = 60 * 60_000;
 
 /** User fields the activity log tracks, in the order it lists them; also every field a request may set */
 const USER_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'department', 'roleId', 'status', 'avatar'] as const;
@@ -103,6 +105,44 @@ export class LocalAdminApi extends AdminApi {
     const here = this.currentSession()?.session.id;
     this.data.sessions = this.data.sessions.filter(session => session.userId !== actor.id || session.id === here);
     this.log(actor.id, 'user.password_changed', fullName(actor), actor.id);
+    return this.respond(undefined);
+  }
+
+  /* Links in emails. There is no mail server here: each email is written to the browser console instead. */
+
+  async acceptInvitation(token: string, password: string): Promise<void> {
+    this.data = this.read();
+    const { user, setPassword } = await this.useLink(token, 'invite', password);
+    await setPassword();
+    this.log(user.id, 'user.password_changed', fullName(user), user.id);
+    if (user.status === 'invited') {
+      this.data.users = this.data.users.map(item => item.id === user.id ? { ...item, status: 'active' } : item);
+      this.log(user.id, 'user.activated', fullName(user), user.id, [{ field: 'status', from: 'invited', to: 'active' }]);
+    }
+    return this.respond(undefined);
+  }
+
+  /** Answers the same whether or not the email belongs to someone, so the answer gives nothing away */
+  async requestPasswordReset(email: string): Promise<void> {
+    this.data = this.read();
+    check(typeof email === 'string');
+    const user = this.data.users.find(item => item.email.toLowerCase() === email.trim().toLowerCase());
+    // Someone invited gets the invitation again; a suspended account gets nothing
+    if (user?.status === 'active') {
+      this.sendLink(user, 'reset');
+    } else if (user?.status === 'invited') {
+      this.sendLink(user, 'invite');
+    }
+    return this.respond(undefined);
+  }
+
+  async confirmPasswordReset(token: string, password: string): Promise<void> {
+    this.data = this.read();
+    const { user, setPassword } = await this.useLink(token, 'reset', password);
+    await setPassword();
+    // Whoever knew the old password is signed out everywhere
+    this.data.sessions = this.data.sessions.filter(session => session.userId !== user.id);
+    this.log(user.id, 'user.password_changed', fullName(user), user.id);
     return this.respond(undefined);
   }
 
@@ -216,7 +256,9 @@ export class LocalAdminApi extends AdminApi {
 
   async resetPassword(id: string): Promise<void> {
     const actor = this.actor('users.edit');
-    this.log(actor.id, 'user.password_reset', fullName(this.findManageable(actor, id)), id);
+    const user = this.findManageable(actor, id);
+    this.log(actor.id, 'user.password_reset', fullName(user), id);
+    this.sendLink(user, 'reset');
     // The old password stops working, so the sessions it opened end too
     if (id !== actor.id) {
       this.data.sessions = this.data.sessions.filter(session => session.userId !== id);
@@ -231,6 +273,7 @@ export class LocalAdminApi extends AdminApi {
       throw new AdminApiError('not_invited');
     }
     this.log(actor.id, 'user.invited', fullName(user), id);
+    this.sendLink(user, 'invite');
     return this.respond(undefined);
   }
 
@@ -494,7 +537,51 @@ export class LocalAdminApi extends AdminApi {
       { field: 'email', to: user.email },
       { field: 'status', to: user.status },
     ]);
+    if (user.status === 'invited') {
+      this.sendLink(user, 'invite');
+    }
     return user;
+  }
+
+  /**
+   * Makes a link that works once, until it expires, and "emails" it: there is no mail server here, so the email is
+   * written to the browser console. A newer link of the same kind replaces the older ones.
+   */
+  private sendLink(user: User, kind: EmailLink['kind']) {
+    const token = crypto.randomUUID().replaceAll('-', '');
+    const lifetime = kind === 'invite' ? this.data.settings.inviteExpiryDays * 24 * 60 * 60_000 : RESET_LINK_MS;
+    const links = Object.entries(this.data.links ?? {}).filter(([, link]) => link.userId !== user.id || link.kind !== kind);
+    this.data.links = {
+      ...Object.fromEntries(links),
+      [token]: { userId: user.id, kind, expiresAt: new Date(Date.now() + lifetime).toISOString() },
+    };
+    const origin = typeof location === 'undefined' ? '' : location.origin;
+    const [subject, path] = kind === 'invite' ? ["You're invited", 'activate'] : ['Set a new password', 'reset-password'];
+    console.info(`[sample email] To ${user.email}: ${subject}. ${origin}/${path}?token=${token}`);
+  }
+
+  /**
+   * Checks a link and the new password, in the order a server would: values of the right kind, a link that still
+   * works, a long enough password. Answers who the link is for, and setPassword, which uses the link up and saves
+   * the password.
+   */
+  private async useLink(token: string, kind: EmailLink['kind'], password: string) {
+    check(typeof token === 'string' && typeof password === 'string');
+    const link = this.data.links?.[token];
+    const user = link && this.data.users.find(item => item.id === link.userId);
+    if (!link || !user || link.kind !== kind || new Date(link.expiresAt).getTime() <= Date.now()) {
+      await this.respond(undefined);
+      throw new AdminApiError('invalid_token');
+    }
+    if (password.length < NEW_PASSWORD_LENGTH) {
+      throw new AdminApiError('weak_password');
+    }
+    const setPassword = async () => {
+      const { [token]: _, ...links } = this.data.links!;
+      this.data.links = links;
+      this.data.passwords = { ...this.data.passwords, [user.id]: await sha256(password) };
+    };
+    return { user, setPassword };
   }
 
   private async passwordMatches(userId: string, password: string): Promise<boolean> {

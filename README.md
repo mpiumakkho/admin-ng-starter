@@ -33,7 +33,7 @@ Any active user's email works too, with any password of 6 or more characters, un
 
 | Command | What it does |
 | --- | --- |
-| `npm start` | Runs the dev server |
+| `npm start` | Runs the dev server, forwarding `/api` to `http://localhost:8080` for a real API |
 | `npm run build` | Builds the app for production into `dist/admin-dashboard` |
 | `npm run watch` | Rebuilds the development bundle on change |
 | `npm test` | Runs the unit tests with Vitest |
@@ -51,6 +51,8 @@ Any active user's email works too, with any password of 6 or more characters, un
 | `/activity` | Every change as a table: when, who, what, the fields that changed, and the IP address and device. Filter by time range, person and type; open a row for the full record with before and after values; export to CSV. `?user=<id>` narrows it to what one person did or had done to them, as the account menu's "My activity" and a profile's "View in activity log" open it |
 | `/settings` | The default role for new users, allowed email domains, how long invitations last, and signing out when idle |
 | `/login` | Sign-in page. Every other page needs someone signed in, and opens only if their role allows it |
+| `/forgot-password` | "Forgot password?": asks for an email and has a reset link sent to it, answering the same whether or not the email belongs to someone |
+| `/activate`, `/reset-password` | Where the links in emails lead: set a first password from an invitation, or a new one from a reset link, then sign in with it. With the sample data the emails are written to the browser console |
 | `/ui-kit` | Every piece in `user-management/ui` with a usage snippet. It is not in the sidebar; open it from the account menu |
 
 ## Project layout
@@ -68,11 +70,13 @@ Any active user's email works too, with any password of 6 or more characters, un
 
 ## Connecting a real API
 
-Implement the endpoints in [src/app/user-management/API.md](src/app/user-management/API.md) on your server, then switch to `HttpAdminApi` in `src/app/app.config.ts`:
+`HttpAdminApi` calls the endpoints in [src/app/user-management/API.md](src/app/user-management/API.md). `../admin-api-starter`, next to this project, is a Spring Boot server that implements them; any other server that does works too. Start it on `http://localhost:8080`, then switch to `HttpAdminApi` in `src/app/app.config.ts`:
 
 ```ts
-provideUserManagement({ api: HttpAdminApi, apiUrl: 'https://admin.example.com/api' }),
+provideUserManagement({ api: HttpAdminApi, apiUrl: '/api', liveUpdates: true }),
 ```
+
+`npm start` forwards `/api` to `http://localhost:8080` (`proxy.conf.json`), so the API shares the app's origin and its cookie needs no CORS setup. Signing in gives a short-lived access token, which `HttpAdminApi` keeps in memory only and sends as `Authorization: Bearer …`, and an HttpOnly refresh cookie that gets a new token after a reload or when the old one runs out.
 
 Nothing else changes: the pages only talk to `AdminStore` and `Session`. The server keeps the session, checks every request against the signed-in user's permissions, and writes the activity log. API.md lists the rules it must check and the error codes the pages understand.
 

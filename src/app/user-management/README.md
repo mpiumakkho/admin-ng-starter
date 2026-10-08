@@ -66,6 +66,8 @@ Users, roles and permissions, and the activity log for an Angular 22 app, in one
 
    The guards send people who are not signed in to `/login`; pass `signInPath` to `provideUserManagement()` to use another address.
 
+   The links in emails lead to two more pages, `/activate` and `/reset-password`, and the sign-in page's "Forgot password?" to `/forgot-password`. This project's are in `src/app/auth/set-password` and `src/app/auth/forgot-password`; they call `AdminApi.acceptInvitation()`, `confirmPasswordReset()` and `requestPasswordReset()` (API.md, "Links in emails").
+
 7. Put the pages in the app's menu. `USER_MANAGEMENT_MENU` is one group, "User management", with a link per page and the permission each needs; show a link only when `Session.can(link.permission)`, and the group only when it has a link to show. This project's sidebar (`src/app/layout/sidebar`) shows it as a dropdown.
 
 The sample users' photos are in this project's `src/assets/images/faces`. Without them the avatars show initials instead.
@@ -117,11 +119,13 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 
 ## Using a real server
 
-Implement the endpoints in [API.md](API.md) and switch to `HttpAdminApi`:
+Implement the endpoints in [API.md](API.md), or run `admin-api-starter`, the Spring Boot server next to this project that implements them, and switch to `HttpAdminApi`:
 
 ```ts
-provideUserManagement({ api: HttpAdminApi, apiUrl: 'https://admin.example.com/api' })
+provideUserManagement({ api: HttpAdminApi, apiUrl: '/api', liveUpdates: true })
 ```
+
+Serve the API on the app's own origin: this project's `npm start` forwards `/api` to the server at `http://localhost:8080` with `proxy.conf.json`. `HttpAdminApi` keeps the short-lived access token in memory only and sends it as a bearer token; the HttpOnly refresh cookie gets a new one after a reload or when it runs out (see [API.md](API.md#signing-in-access-token-and-refresh-cookie)).
 
 The pages only talk to `AdminStore` and `Session`, so nothing else changes. For another kind of backend (GraphQL, Firebase, Supabase), write a class that extends `AdminApi` and pass it as `api`. Either way the server must check permissions itself: hiding a button never stops a request.
 

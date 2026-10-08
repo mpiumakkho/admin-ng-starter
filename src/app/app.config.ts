@@ -23,7 +23,8 @@ export const appConfig: ApplicationConfig = {
     // Lucide icons, drawn a little finer than their default 2px stroke
     provideNgIconsConfig({ strokeWidth: 1.75 }),
     // Users, roles and activity, from sample data kept in the browser; the session is picked up before the first screen.
-    // For a real backend: provideUserManagement({ api: HttpAdminApi, apiUrl: 'https://…/api' }), see user-management/API.md
+    // For a real backend, such as ../admin-api-starter on port 8080, which npm start reaches as /api (proxy.conf.json):
+    // provideUserManagement({ api: HttpAdminApi, apiUrl: '/api', liveUpdates: true }), see user-management/API.md
     provideUserManagement(),
   ],
 };

@@ -1,6 +1,6 @@
 import { afterNextRender, Component, computed, ElementRef, inject, Injector, input, signal, viewChild } from '@angular/core';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideEye, lucideEyeOff, lucideLockKeyhole, lucideMail } from '@ng-icons/lucide';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -19,11 +19,12 @@ const SIGN_IN_ERRORS: Record<string, string> = {
   account_suspended: 'This account is suspended. Ask an administrator to restore it.',
   invite_pending: 'This account has not been activated yet. Accept the invitation email first.',
   invalid_code: 'That code is not right. Codes change every 30 seconds; try the newest one.',
+  too_many_requests: 'Too many attempts. Wait a few minutes and try again.',
 };
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, NgIcon, TranslatePipe, AuthAsideComponent, UiAlert, UiButton, UiCheckbox, UiFormField, UiInput],
+  imports: [ReactiveFormsModule, RouterLink, NgIcon, TranslatePipe, AuthAsideComponent, UiAlert, UiButton, UiCheckbox, UiFormField, UiInput],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
   viewProviders: [provideIcons({ lucideEye, lucideEyeOff, lucideLockKeyhole, lucideMail })],
@@ -40,6 +41,8 @@ export class LoginComponent {
   readonly returnUrl = input<string>();
   /** ?expired=ended or ?expired=idle: why the session ended while the app was open */
   readonly expired = input<string>();
+  /** ?password=set or ?password=changed: back from a link in an email, with a new password to sign in with */
+  readonly password = input<string>();
 
   protected readonly showPassword = signal(false);
   protected readonly signingIn = signal(false);

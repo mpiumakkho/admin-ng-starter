@@ -375,6 +375,7 @@
     "Code":                         "รหัส",
     "Type the 6-digit code.":       "พิมพ์รหัส 6 หลัก",
     "That code is not right. Codes change every 30 seconds; try the newest one.": "รหัสไม่ถูกต้อง รหัสเปลี่ยนทุก 30 วินาที ลองใช้รหัสล่าสุด",
+    "Too many attempts. Wait a few minutes and try again.": "พยายามหลายครั้งเกินไป รอสักครู่แล้วลองอีกครั้ง",
     "action.auth.sessions_ended":   "ออกจากระบบอุปกรณ์",
     "activity.auth.sessions_ended": "{{actor}} ให้ {{target}} ออกจากระบบในอุปกรณ์",
     "action.auth.two_factor_on":    "เปิดยืนยันตัวตน 2 ขั้นตอน",
@@ -384,5 +385,6 @@
     "Devices":                      "อุปกรณ์",
     "activityOf":                   "การเปลี่ยนแปลงที่ {{name}} ทำ หรือที่เกิดกับ {{name}}",
     "Show everyone's activity":     "แสดงกิจกรรมของทุกคน",
-    "User management":              "การจัดการผู้ใช้"
+    "User management":              "การจัดการผู้ใช้",
+    "This link has expired or was already used.": "ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว"
 }

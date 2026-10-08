@@ -1,0 +1,19 @@
+// Forms on the sign-in pages that are not sign-in itself: set a password, forgot password
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.back {
+  align-self: center;
+  font-size: .8125rem;
+}
+
+.demo-note {
+  margin: 0;
+  color: var(--ui-subtle);
+  font-size: .75rem;
+  text-align: center;
+}
