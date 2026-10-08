@@ -68,8 +68,8 @@
   flex: 1 1 auto;
   min-height: 240px;
 
-  // Out of the flow, so the canvas follows the box instead of setting its height
-  canvas {
+  // Out of the flow, so the chart follows the box instead of setting its height
+  ui-chart {
     position: absolute;
     inset: 0;
   }

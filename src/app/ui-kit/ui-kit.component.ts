@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, viewChildren } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgIcon } from '@ng-icons/core';
 import {
@@ -15,8 +15,7 @@ import {
   lucideUsers,
   lucideWallet,
 } from '@ng-icons/lucide';
-import { ChartData, ChartOptions } from 'chart.js';
-import { BaseChartDirective } from 'ng2-charts';
+import type { ChartData, ChartOptions } from 'chart.js';
 
 import {
   UiAlert,
@@ -65,7 +64,8 @@ import {
   UiToastService,
   UiTrend,
 } from '../user-management/ui';
-import { areaFill, syncChartTheme, UI_CHART_PALETTE } from '../user-management/ui/charts';
+import { areaFill, UI_CHART_PALETTE } from '../user-management/ui/charts/chart-colors';
+import { UiChart } from '../user-management/ui/charts/chart.component';
 
 interface Sample {
   id: number;
@@ -83,7 +83,7 @@ interface Sample {
   imports: [
     ReactiveFormsModule,
     NgIcon,
-    BaseChartDirective,
+    UiChart,
     UiPageHeader, UiButton, UiCard, UiCardActions, UiCardFooter, UiBadge, UiTrend, UiIconChip, UiAlert,
     UiAvatar, UiPerson, UiStatCard,
     UiSegmented, UiFilterChips, UiSearchInput, UiPagination, UiFormField, UiInput, UiCheckbox, UiSwitch, UiChoiceCards,
@@ -96,16 +96,11 @@ interface Sample {
 export class UiKitComponent {
   private readonly toast = inject(UiToastService);
   private readonly confirm = inject(UiConfirmService);
-  private readonly charts = viewChildren(BaseChartDirective);
 
   protected readonly icons = {
     page: lucideBlocks, plus: lucidePlus, download: lucideDownload, settings: lucideSettings, more: lucideEllipsis,
     edit: lucidePencil, copy: lucideCopy, remove: lucideTrash2, users: lucideUsers, wallet: lucideWallet, bell: lucideBell, invite: lucideUserPlus,
   };
-
-  constructor() {
-    syncChartTheme(this.charts);
-  }
 
   /* Buttons */
   protected readonly variants = ['primary', 'secondary', 'soft', 'outline', 'ghost', 'danger', 'danger-soft'] as const;

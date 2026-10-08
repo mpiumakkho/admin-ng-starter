@@ -194,10 +194,14 @@
     </ui-card>
   </div>
 
-  <ui-card title="Chart helpers (ui/charts)" description="syncChartTheme keeps Chart.js in step with dark mode; areaFill draws the gradient.">
+  <ui-card title="Charts (ui/charts)" description="ui-chart follows dark mode and loads Chart.js inside @defer; areaFill draws the gradient.">
     <ui-chart-legend uiCardActions [items]="legend" />
     <div class="chart">
-      <canvas baseChart type="line" [data]="chartData()" [options]="chartOptions"></canvas>
+      @defer (on viewport) {
+        <ui-chart type="line" [data]="chartData()" [options]="chartOptions" label="Visits and sign-ups over the last 7 days" />
+      } @placeholder {
+        <div></div>
+      }
     </div>
   </ui-card>
 </div>

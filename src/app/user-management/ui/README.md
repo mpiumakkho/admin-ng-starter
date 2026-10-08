@@ -36,7 +36,7 @@ import { lucideUsers } from '@ng-icons/lucide';
 | Navigation and filters | `ui-segmented` (pills or underline tabs; an option's `ariaLabel` and `lang` let a short label such as "EN" be read as "English"), `ui-search-input` (`size="sm"` for toolbars), `ui-filter-chips`, `ui-pagination` |
 | Tables | `UiTableState` (search, filters, sort, paging and selection as signals; `selectable` limits which rows can be ticked, `pageSizeKey` remembers the reader's page size in the browser), `table[uiTable]` (`dense` for tighter rows), `ui-sort-header`, `ui-bulk-bar`, `ui-page-size` (the "1–10 of 48" button that picks rows per page). `[uiTableMinRows]` on `.ui-table-scroll` keeps a short last page as tall as a full one, and `[uiTableScrollReset]="table"` scrolls it back to the top when the page, page size, sort, search or filters change. Headers stay in view when the table scrolls inside `.ui-table-scroll` |
 | Forms | `ui-form-field` (label, hint, errors), `uiInput`, `ui-checkbox`, `ui-switch`, `ui-choice-cards` (a choice with `disabled` shows but cannot be picked), `ui-file-dropzone` (`compact` for one row) |
-| Charts (`charts/`) | `syncChartTheme()` keeps Chart.js colors in step with the theme, `UI_CHART_PALETTE`, `areaFill()` |
+| Charts (`charts/`) | `ui-chart` draws a Chart.js chart that follows the theme; put it in `@defer` and Chart.js loads only when the chart shows. `UI_CHART_PALETTE` and `areaFill()` (in `chart-colors.ts`) load no Chart.js |
 
 Form controls implement `ControlValueAccessor`, so they work with `formControlName` and `ngModel`. `ui-form-field` shows the errors of the control inside it once the control is touched or changed:
 

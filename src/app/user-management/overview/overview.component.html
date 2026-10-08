@@ -26,7 +26,12 @@
   <ui-card class="span-8 chart-card" [title]="'New users' | translate" [description]="'People who joined each month' | translate">
     <ui-segmented uiCardActions size="sm" [options]="rangeOptions()" [(value)]="months" [ariaLabel]="'Time range' | translate" />
     <div class="chart-box">
-      <canvas baseChart type="bar" [data]="signupData()" [options]="signupOptions" role="img" [attr.aria-label]="signupSummary()"></canvas>
+      <!-- Chart.js loads after the page opens -->
+      @defer (on viewport; prefetch on idle) {
+        <ui-chart type="bar" [data]="signupData()" [options]="signupOptions" [label]="signupSummary()" />
+      } @placeholder {
+        <div></div>
+      }
     </div>
   </ui-card>
 
@@ -38,7 +43,11 @@
       <div class="role-layout">
         <div class="donut">
           @if (total()) {
-            <canvas baseChart type="doughnut" [data]="roleData()" [options]="roleOptions" aria-hidden="true"></canvas>
+            @defer (on viewport; prefetch on idle) {
+              <ui-chart type="doughnut" [data]="roleData()" [options]="roleOptions" />
+            } @placeholder {
+              <div class="donut-empty"></div>
+            }
           } @else {
             <div class="donut-empty"></div>
           }

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, viewChildren } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import {
@@ -14,8 +14,7 @@ import {
   lucideUsers,
 } from '@ng-icons/lucide';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { ChartData, ChartOptions } from 'chart.js';
-import { BaseChartDirective } from 'ng2-charts';
+import type { ChartData, ChartOptions } from 'chart.js';
 
 import { ActivityDialog } from '../activity/activity-dialog.component';
 import {
@@ -39,7 +38,8 @@ import {
   UiToastService,
   UiTone,
 } from '../ui';
-import { areaFill, syncChartTheme, UI_CHART_PALETTE } from '../ui/charts';
+import { UI_CHART_PALETTE } from '../ui/charts/chart-colors';
+import { UiChart } from '../ui/charts/chart.component';
 import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_META, DEPARTMENTS, STATUS_META } from '../data/catalog';
@@ -67,7 +67,7 @@ const TONE_COLORS: Record<UiTone, string> = {
     RouterLink,
     NgIcon,
     TranslatePipe,
-    BaseChartDirective,
+    UiChart,
     UiPageHeader,
     UiButton,
     UiCard,
@@ -96,7 +96,6 @@ export class OverviewComponent {
   private readonly translate = inject(TranslateService);
   private readonly toast = inject(UiToastService);
   private readonly i18n = translationsChanged();
-  private readonly charts = viewChildren(BaseChartDirective);
 
   protected readonly icons = {
     page: lucideLayoutDashboard, users: lucideUsers, active: lucideActivity, joined: lucideUserPlus, invited: lucideMailCheck, arrow: lucideArrowRight,
@@ -104,10 +103,6 @@ export class OverviewComponent {
   };
   protected readonly activityMeta = ACTIVITY_META;
   protected readonly fullName = fullName;
-
-  constructor() {
-    syncChartTheme(this.charts);
-  }
 
   /* Summary numbers */
 
