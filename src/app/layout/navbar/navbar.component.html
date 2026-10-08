@@ -88,8 +88,9 @@
             </span>
           </button>
           <ng-template #accountMenu>
-            <ui-menu class="account-menu" [attr.aria-label]="'accountMenu' | translate: { name: fullName(me) }">
-              <div class="account-card">
+            <!-- A menu holds only items, so the card is read out as the menu's description instead -->
+            <ui-menu class="account-menu" [attr.aria-label]="'accountMenu' | translate: { name: fullName(me) }" aria-describedby="account-card">
+              <div class="account-card" id="account-card" aria-hidden="true">
                 <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="md" />
                 <div class="account-text">
                   <span class="account-name">{{ fullName(me) }}</span>

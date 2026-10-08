@@ -14,7 +14,8 @@
   --ui-font: "Sarabun", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --ui-font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
 
-  // Brand and status colors. *-soft is a tinted background, *-text the readable color on it.
+  // Brand and status colors. *-soft is a tinted background, *-text the readable color on it, at 4.5:1 even on a
+  // selected row
   --ui-primary: #4f46e5;
   --ui-primary-hover: #4338ca;
   --ui-primary-soft: rgba(79, 70, 229, .1);
@@ -23,26 +24,26 @@
 
   --ui-success: #10b981;
   --ui-success-soft: rgba(16, 185, 129, .12);
-  --ui-success-text: #047857;
+  --ui-success-text: #065f46;
 
   --ui-warning: #f59e0b;
   --ui-warning-soft: rgba(245, 158, 11, .14);
-  --ui-warning-text: #b45309;
+  --ui-warning-text: #92400e;
 
-  --ui-danger: #ef4444;
-  --ui-danger-hover: #dc2626;
+  --ui-danger: #dc2626;
+  --ui-danger-hover: #b91c1c;
   --ui-danger-soft: rgba(239, 68, 68, .1);
   --ui-danger-text: #b91c1c;
 
   --ui-info: #0ea5e9;
   --ui-info-soft: rgba(14, 165, 233, .12);
-  --ui-info-text: #0369a1;
+  --ui-info-text: #075985;
 
   --ui-neutral: #64748b;
   --ui-neutral-soft: #f1f5f9;
   --ui-neutral-text: #475569;
 
-  // Surfaces and text
+  // Surfaces and text. Muted and subtle text keep 4.5:1 against every surface and hover color (WCAG AA)
   --ui-bg: #f6f8fb;
   --ui-surface: #ffffff;
   --ui-surface-muted: #f8fafc;
@@ -52,8 +53,8 @@
   --ui-input-border: #dbe0e8;
   --ui-heading: #0f172a;
   --ui-text: #334155;
-  --ui-muted: #64748b;
-  --ui-subtle: #94a3b8;
+  --ui-muted: #5b6b80;
+  --ui-subtle: #617086;
 
   // Shape and depth
   --ui-radius-sm: 6px;
@@ -72,8 +73,9 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --ui-primary: #6366f1;
-  --ui-primary-hover: #818cf8;
+  // White text on primary buttons keeps 4.5:1
+  --ui-primary: #5b5ef0;
+  --ui-primary-hover: #4f46e5;
   --ui-primary-soft: rgba(129, 140, 248, .16);
   --ui-primary-text: #a5b4fc;
 
@@ -82,7 +84,7 @@
   --ui-warning-soft: rgba(245, 158, 11, .16);
   --ui-warning-text: #fbbf24;
   --ui-danger-soft: rgba(239, 68, 68, .16);
-  --ui-danger-text: #f87171;
+  --ui-danger-text: #fca5a5;
   --ui-info-soft: rgba(14, 165, 233, .16);
   --ui-info-text: #38bdf8;
   --ui-neutral-soft: rgba(148, 163, 184, .14);
@@ -97,8 +99,8 @@
   --ui-input-border: #475569;
   --ui-heading: #f1f5f9;
   --ui-text: #e2e8f0;
-  --ui-muted: #94a3b8;
-  --ui-subtle: #64748b;
+  --ui-muted: #9aa8bc;
+  --ui-subtle: #909db0;
 
   --ui-shadow-md: 0 10px 24px -10px rgba(0, 0, 0, .6);
   --ui-shadow-lg: 0 20px 40px -12px rgba(0, 0, 0, .7);

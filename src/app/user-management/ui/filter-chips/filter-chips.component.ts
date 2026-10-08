@@ -69,7 +69,8 @@ import { UiOption } from '../core/types';
       color: var(--ui-on-primary);
 
       .ui-chip-count {
-        background: rgba(255, 255, 255, .22);
+        // Darker than the chip, so the white count stays readable
+        background: rgba(15, 23, 42, .25);
         color: var(--ui-on-primary);
       }
     }

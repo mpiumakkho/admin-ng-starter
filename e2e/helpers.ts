@@ -1,18 +1,20 @@
 import { createHmac } from 'node:crypto';
 
+import AxeBuilder from '@axe-core/playwright';
 import { expect, Page } from '@playwright/test';
 
 export type SampleRole = 'Administrator' | 'Manager' | 'Support' | 'Viewer';
 
-/** Opens the app in English, with nothing saved from an earlier run */
-export async function start(page: Page, path = '/login') {
-  await page.addInitScript(() => {
+/** Opens the app in English, with nothing saved from an earlier run, in the light theme unless asked otherwise */
+export async function start(page: Page, path = '/login', theme: 'light' | 'dark' = 'light') {
+  await page.addInitScript(theme => {
     if (!sessionStorage.getItem('e2e-started')) {
       localStorage.clear();
       localStorage.setItem('language', 'en');
+      localStorage.setItem('theme', theme);
       sessionStorage.setItem('e2e-started', '1');
     }
-  });
+  }, theme);
   await page.goto(path);
 }
 
@@ -46,4 +48,17 @@ export function totp(secret: string, time = Date.now()): string {
   const hash = createHmac('sha1', key).update(counter).digest();
   const offset = hash[hash.length - 1] & 0x0f;
   return String((hash.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}
+
+/**
+ * Checks what is on screen against WCAG 2.2 AA with axe: names, roles, labels, contrast and the rest. Colors are read
+ * once transitions and entry animations have ended; endless ones, such as a spinner, are left running.
+ */
+export async function expectAccessible(page: Page, label = new URL(page.url()).pathname) {
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity))
+    .map(animation => animation.finished.catch(() => undefined))));
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  const found = violations.map(violation => `${violation.id}: ${violation.help} (${violation.nodes.map(node => node.target.join(' ')).join(', ')})`);
+  expect(found, `accessibility of ${label}`).toEqual([]);
 }

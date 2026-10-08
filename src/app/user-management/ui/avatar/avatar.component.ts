@@ -4,8 +4,8 @@ export type UiAvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 const SIZES: Record<UiAvatarSize, number> = { xs: 24, sm: 32, md: 40, lg: 56, xl: 80 };
 
-// Background colors for initials, picked from the name so a person keeps the same color
-const COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316'];
+// Background colors for initials, picked from the name so a person keeps the same color; each keeps white text at 4.5:1
+const COLORS = ['#4f46e5', '#0369a1', '#047857', '#b45309', '#be185d', '#6d28d9', '#0f766e', '#c2410c'];
 
 /**
  * A round photo, or the person's initials on a color when there is no photo (or it fails to load).

@@ -47,12 +47,13 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit
 | Route | Page |
 | --- | --- |
 | `/overview` | Totals, new users per month, users by role, department and status, recent activity |
-| `/users` | Search, filter, sort and page through users; select several to activate, suspend or delete them; export to CSV, or import many users from a CSV file, with every row checked before anything is saved |
+| `/users` | Search, filter, sort and page through users; select several to activate, suspend, delete them or give them all one role; export to CSV, or import many users from a CSV file, with every row checked before anything is saved |
 | `/users/new`, `/users/:id/edit` | Add or edit a user. Leaving with unsaved changes asks first |
 | `/users/:id` | A user's profile, permissions, activity and security: two-step sign-in, password and signed-in devices |
 | `/roles` | Create roles and choose their permissions. Built-in roles and roles that still have users cannot be deleted |
-| `/activity` | Every change as a table: when, who, what, the fields that changed, and the IP address and device. Filter by time range, person and type; open a row for the full record with before and after values; export to CSV. `?user=<id>` narrows it to what one person did or had done to them, as the account menu's "My activity" and a profile's "View in activity log" open it |
-| `/settings` | The default role for new users, allowed email domains, how long invitations last, and signing out when idle |
+| `/activity` | Every change as a table: when, who, what, the fields that changed, and the IP address and device. Filter by time range (or two dates), person and type; open a row for the full record with before and after values; export to CSV. `?user=<id>` narrows it to what one person did or had done to them, as the account menu's "My activity" and a profile's "View in activity log" open it |
+| `/settings` | The default role for new users, allowed email domains, how long invitations last, signing out when idle, which roles must use two-step sign-in, the password rules (shortest length, recent passwords not allowed again) and how long activity is kept |
+| `/setup-two-factor` | Where someone lands whose role must use two-step sign-in while theirs is off; nothing else opens until they turn it on |
 | `/login` | Sign-in page. Every other page needs someone signed in, and opens only if their role allows it |
 | `/forgot-password` | "Forgot password?": asks for an email and has a reset link sent to it, answering the same whether or not the email belongs to someone |
 | `/activate`, `/reset-password` | Where the links in emails lead: set a first password from an invitation, or a new one from a reset link, then sign in with it. With the sample data the emails are written to the browser console |
@@ -69,7 +70,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit
 - `src/app/layout` is the app around it: navbar, sidebar, footer and the language switch. The sidebar shows the groups in `src/app/layout/sidebar/menu.ts`: each part of the app is one dropdown (user management's comes from `USER_MANAGEMENT_MENU`), open on its own pages, with a chevron that turns clockwise as it opens. Pages the signed-in user's role does not allow are left out. In the icon-only layout a group opens as a flyout on hover.
 - `src/app/auth` is the sign-in page, `src/app/error-pages` the 404 and 500 pages, and `src/app/ui-kit` the component reference.
 - `src/styles.scss` holds the few global styles: the font, the base look of plain HTML elements and the rules for `<body>`. Everything else, the layout included, is styled in each component's own stylesheet with the `--ui-*` variables of user management's `ui` theme.
-- `e2e` holds the end-to-end tests: signing in, what each role can and cannot do, profiles, import and settings.
+- `e2e` holds the end-to-end tests: signing in, what each role can and cannot do, profiles, import and settings. `accessibility.spec.ts` checks every page, menu and dialog against WCAG 2.2 AA with axe, in the light and dark themes; `expectAccessible()` in `e2e/helpers.ts` does the same for any new page.
 
 ## Connecting a real API
 
