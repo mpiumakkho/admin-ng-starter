@@ -5,28 +5,47 @@
 </ui-page-header>
 
 <div class="roles-layout">
-  <!-- Role list -->
-  <nav class="role-list" [attr.aria-label]="'Roles' | translate">
-    @for (item of store.roles(); track item.id) {
-      <button type="button" class="role-item" [class.active]="item.id === selected()?.id" [attr.aria-current]="item.id === selected()?.id ? 'true' : null" (click)="select(item)">
-        <span class="role-dot" [class]="'role-dot tone-' + item.tone"></span>
-        <span class="role-text">
-          <span class="role-name">
-            {{ item.name }}
-            @if (item.system) {
-              <ng-icon [svg]="icons.locked" [title]="'Built-in role' | translate" />
-            }
-          </span>
-          <span class="role-description">{{ item.description }}</span>
-        </span>
-        <span class="role-count"><ng-icon [svg]="icons.users" /> {{ store.roleCounts().get(item.id) ?? 0 }}</span>
-      </button>
+  <!-- Wide screens: every role in a card beside the editor, searchable once there are many -->
+  <ui-card class="role-panel" flush fit [title]="'Roles' | translate" [description]="'roleTotal' | translate: { count: store.roles().length }">
+    @if (searchable()) {
+      <div class="role-search">
+        <ui-search-input size="sm" [(value)]="query" [placeholder]="'Search roles' | translate" [ariaLabel]="'Search roles' | translate" [clearLabel]="'Clear search' | translate" />
+      </div>
     }
-  </nav>
+    <nav #roleList class="role-list" [attr.aria-label]="'Roles' | translate">
+      @for (item of shownRoles(); track item.id) {
+        <button type="button" class="role-item" [class.active]="item.id === selected()?.id" [attr.aria-current]="item.id === selected()?.id ? 'true' : null" (click)="select(item)">
+          <span class="role-dot" [class]="'role-dot tone-' + item.tone"></span>
+          <span class="role-text">
+            <span class="role-name">
+              {{ item.name }}
+              @if (item.system) {
+                <ng-icon [svg]="icons.locked" [title]="'Built-in role' | translate" />
+              }
+            </span>
+            <span class="role-description" [title]="item.description">{{ item.description }}</span>
+          </span>
+          <span class="role-count"><ng-icon [svg]="icons.users" /> {{ store.roleCounts().get(item.id) ?? 0 }}</span>
+        </button>
+      } @empty {
+        <p class="role-empty">{{ 'No roles match your search.' | translate }}</p>
+      }
+    </nav>
+  </ui-card>
+
+  <!-- Narrow screens: a dropdown right above the editor -->
+  <ui-form-field class="role-picker" [label]="'Role' | translate" for="rolePicker">
+    <select uiInput id="rolePicker" (change)="pick($any($event.target))">
+      <!-- Each option marks itself selected: a value on the select is set before the options exist -->
+      @for (item of store.roles(); track item.id) {
+        <option [value]="item.id" [selected]="item.id === selected()?.id">{{ 'roleOption' | translate: { name: item.name, count: store.roleCounts().get(item.id) ?? 0 } }}</option>
+      }
+    </select>
+  </ui-form-field>
 
   <!-- Editor -->
   @if (selected(); as current) {
-    <ui-card #editor class="editor" [title]="(roleEditable() ? 'Edit role' : 'Role') | translate" [description]="'userCount' | translate: { count: userCount() }">
+    <ui-card class="editor" fill [title]="(roleEditable() ? 'Edit role' : 'Role') | translate" [description]="'userCount' | translate: { count: userCount() }">
       @if (current.system) {
         <ui-badge uiCardActions tone="neutral"><ng-icon [svg]="icons.locked" /> {{ 'Built-in role' | translate }}</ui-badge>
       }

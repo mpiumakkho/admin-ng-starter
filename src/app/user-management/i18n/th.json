@@ -255,7 +255,7 @@
     "Your role can view the settings but not change them.": "บทบาทของคุณดูการตั้งค่าได้ แต่แก้ไขไม่ได้",
     "What people start with when an admin adds or invites them.": "สิ่งที่ผู้ใช้ได้รับเมื่อผู้ดูแลเพิ่มหรือเชิญเข้ามา",
     "Default role":                 "บทบาทเริ่มต้น",
-    "Picked in advance on the Add user form.": "เลือกไว้ให้ล่วงหน้าในฟอร์มเพิ่มผู้ใช้",
+    "Picked in advance on the Add user form.": "เลือกไว้ล่วงหน้าในฟอร์มเพิ่มผู้ใช้",
     "Allowed email domains":        "โดเมนอีเมลที่อนุญาต",
     "Separate domains with commas. Leave empty to allow any email.": "คั่นแต่ละโดเมนด้วยจุลภาค เว้นว่างไว้เพื่ออนุญาตทุกอีเมล",
     "Enter domains such as example.com, separated by commas.": "ใส่โดเมน เช่น example.com คั่นด้วยจุลภาค",
@@ -420,5 +420,10 @@
     "Change role":                   "เปลี่ยนบทบาท",
     "toast.roleChanged":             "เปลี่ยนบทบาทของผู้ใช้ {{count}} คนแล้ว",
     "Your role requires it.":     "บทบาทของคุณกำหนดให้ต้องเปิดไว้",
-    "twoFactorSelfWarning":       "บทบาทของคุณเองถูกเลือกไว้ แต่คุณยังไม่ได้เปิดการยืนยันตัวตน 2 ขั้นตอน เมื่อบันทึกแล้ว คุณต้องเปิดก่อนจึงจะทำอย่างอื่นต่อได้"
+    "twoFactorSelfWarning":       "บทบาทของคุณเองถูกเลือกไว้ แต่คุณยังไม่ได้เปิดการยืนยันตัวตน 2 ขั้นตอน เมื่อบันทึกแล้ว คุณต้องเปิดก่อนจึงจะทำอย่างอื่นต่อได้",
+    "roleTotal":                    "{{count}} บทบาท",
+    "Search roles":                 "ค้นหาบทบาท",
+    "No roles match your search.":  "ไม่พบบทบาทที่ตรงกับคำค้นหา",
+    "roleOption":                   "{{name}} · {{count}} คน",
+    "otherRoles":                   "บทบาทอื่น {{count}} บทบาท"
 }

@@ -5,45 +5,116 @@
   gap: 1.5rem;
   margin-bottom: 1.5rem;
 
+  // One column: the dropdown takes the list's place, right above the editor
   @media (max-width: 991px) {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+// Where the page fills the window (page-fit), both cards reach the bottom and scroll inside
+@media (min-width: 992px) and (min-height: 600px) {
+  .roles-layout {
+    flex: 1 1 0;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+    margin-bottom: 0;
+  }
+
+  .role-panel,
+  .editor {
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 991px) {
+  .role-panel {
+    display: none;
+  }
+}
+
+@media (min-width: 992px) {
+  .role-picker {
+    display: none;
   }
 }
 
 /* Role list */
+// Lined up with the card title
+.role-search {
+  padding: 0 1.5rem .75rem;
+}
+
+// Rows like a table's, edge to edge; a shadow at the top or bottom edge shows there is more to scroll to
 .role-list {
+  --role-list-shadow: rgba(15, 23, 42, .12);
+
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: .5rem;
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--ui-border);
+  border-radius: 0 0 var(--ui-radius-lg) var(--ui-radius-lg);
+  background:
+    linear-gradient(var(--ui-surface) 30%, transparent) center top / 100% 2.5rem no-repeat local,
+    linear-gradient(transparent, var(--ui-surface) 70%) center bottom / 100% 2.5rem no-repeat local,
+    linear-gradient(var(--role-list-shadow), transparent) center top / 100% .875rem no-repeat scroll,
+    linear-gradient(transparent, var(--role-list-shadow)) center bottom / 100% .875rem no-repeat scroll var(--ui-surface);
+  overscroll-behavior: contain;
+
+  :host-context(.theme-dark) &,
+  :host-context([data-theme="dark"]) & {
+    --role-list-shadow: rgba(0, 0, 0, .4);
+  }
 }
 
 .role-item {
   display: flex;
+  flex-shrink: 0;
   align-items: flex-start;
   gap: .75rem;
   width: 100%;
-  padding: .875rem 1rem;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-lg);
-  background: var(--ui-surface);
+  padding: .75rem 1.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--ui-border);
+  background: transparent;
   color: inherit;
   text-align: start;
   cursor: pointer;
-  transition: border-color .15s ease, box-shadow .15s ease;
+  transition: background-color .15s ease;
 
   &:hover {
-    border-color: var(--ui-border-strong);
+    background: var(--ui-hover);
   }
 
+  // Inside the scrolling list an outer ring would be cut off, so the focus ring is drawn inside the row
   &:focus-visible {
     outline: none;
-    box-shadow: var(--ui-ring);
+    box-shadow: inset 0 0 0 2px var(--ui-primary);
   }
 
   &.active {
-    border-color: var(--ui-primary);
-    box-shadow: 0 0 0 1px var(--ui-primary);
+    background: var(--ui-primary-soft);
+    box-shadow: inset 3px 0 0 var(--ui-primary);
   }
+
+  &.active:focus-visible {
+    box-shadow: inset 3px 0 0 var(--ui-primary), inset 0 0 0 2px var(--ui-primary);
+  }
+
+  // The card's own edge closes the list
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.role-empty {
+  margin: 0;
+  padding: 1.5rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  text-align: center;
 }
 
 .role-dot {
@@ -75,10 +146,14 @@
   }
 }
 
+// One line each, so the list stays even; the whole description is in the row's tooltip and the editor
 .role-description {
+  overflow: hidden;
   color: var(--ui-muted);
   font-size: .75rem;
   line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .role-count {
@@ -104,15 +179,33 @@
   margin-bottom: 1rem;
 }
 
+// Name, description and color share a row as the editor's own width allows, not the window's: beside the role
+// list on a mid-sized screen the editor is much narrower than the window
 .editor-fields {
   display: grid;
-  grid-template-columns: 1fr 1.6fr auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
 
-  @media (max-width: 767px) {
-    grid-template-columns: 1fr;
+@container editor (min-width: 440px) {
+  .editor-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  }
+
+  .tone-field {
+    grid-column: 1 / -1;
+  }
+}
+
+@container editor (min-width: 680px) {
+  .editor-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto;
+  }
+
+  .tone-field {
+    grid-column: auto;
   }
 }
 
@@ -202,7 +295,7 @@
 
 // Clear of the fixed navbar when scrolled into view on smaller screens
 .editor {
-  scroll-margin-top: calc(64px + 1rem);
+  container: editor / inline-size;
 }
 
 .editor-footer .delete {

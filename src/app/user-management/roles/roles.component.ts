@@ -1,4 +1,4 @@
-import { Component, computed, DOCUMENT, ElementRef, inject, input, linkedSignal, signal, viewChild } from '@angular/core';
+import { afterRenderEffect, Component, computed, ElementRef, inject, input, linkedSignal, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
@@ -18,6 +18,7 @@ import {
   UiFormField,
   UiInput,
   UiPageHeader,
+  UiSearchInput,
   UiToastService,
   UiTone,
 } from '../ui';
@@ -26,6 +27,9 @@ import { AdminStore } from '../data/admin-store';
 import { PERMISSION_GROUPS, PermissionGroup, ROLE_TONES, TONE_NAMES } from '../data/catalog';
 import { Permission, Role } from '../data/models';
 import { errorMessage } from '../shared/errors';
+
+/** More roles than this, and the list gets a search box */
+const SEARCH_FROM = 6;
 
 @Component({
   selector: 'app-roles',
@@ -44,9 +48,13 @@ import { errorMessage } from '../shared/errors';
     UiDialogFooter,
     UiFormField,
     UiInput,
+    UiSearchInput,
   ],
   templateUrl: './roles.component.html',
   styleUrl: './roles.component.scss',
+  // Fills the window on desktop, the editor's buttons at the bottom as on the pages with tables; the permissions and
+  // a long role list scroll inside
+  host: { class: 'page-fit' },
 })
 export class RolesComponent {
   protected readonly store = inject(AdminStore);
@@ -55,8 +63,7 @@ export class RolesComponent {
   private readonly translate = inject(TranslateService);
   private readonly confirm = inject(UiConfirmService);
   private readonly toast = inject(UiToastService);
-  private readonly window = inject(DOCUMENT).defaultView;
-  private readonly editor = viewChild('editor', { read: ElementRef });
+  private readonly roleList = viewChild<ElementRef<HTMLElement>>('roleList');
 
   /** ?role=… picks the role to edit */
   readonly role = input<string>();
@@ -69,6 +76,18 @@ export class RolesComponent {
 
   protected readonly selected = computed<Role | undefined>(() =>
     this.store.rolesById().get(this.role() ?? '') ?? this.store.roles()[0]);
+
+  /* Role list */
+
+  /** The list gets a search box once there are more roles than fit at a glance */
+  protected readonly searchable = computed(() => this.store.roles().length > SEARCH_FROM);
+  protected readonly query = signal('');
+  protected readonly shownRoles = computed(() => {
+    const query = this.searchable() ? this.query().trim().toLowerCase() : '';
+    return query
+      ? this.store.roles().filter(role => `${role.name} ${role.description}`.toLowerCase().includes(query))
+      : this.store.roles();
+  });
 
   // Editable copies of the selected role; they reset whenever another role is picked or saved
   protected readonly name = linkedSignal(() => this.selected()?.name ?? '');
@@ -104,22 +123,47 @@ export class RolesComponent {
 
   protected readonly userCount = computed(() => this.store.roleCounts().get(this.selected()?.id ?? '') ?? 0);
 
+  constructor() {
+    // The role being edited stays in sight in a long list, as after creating one or opening ?role=…
+    afterRenderEffect(() => {
+      this.selected();
+      this.shownRoles();
+      const list = this.roleList()?.nativeElement;
+      const row = list?.querySelector<HTMLElement>('.role-item.active');
+      if (list && row) {
+        const listBox = list.getBoundingClientRect();
+        const rowBox = row.getBoundingClientRect();
+        // Only the list scrolls, never the page around it
+        if (rowBox.top < listBox.top) {
+          list.scrollTop -= listBox.top - rowBox.top;
+        } else if (rowBox.bottom > listBox.bottom) {
+          list.scrollTop += rowBox.bottom - listBox.bottom;
+        }
+      }
+    });
+  }
+
   /** Picks another role through ?role=…, keeping the scroll position */
   private switchTo(roleId: string | null) {
     return this.router.navigate([], { queryParams: { role: roleId }, scroll: 'manual' });
   }
 
-  protected select(role: Role) {
+  /** Opens a role in the editor; false, with a reminder, while the editor has unsaved changes */
+  protected select(role: Role): boolean {
     if (this.dirty()) {
       this.toast.show(this.translate.instant('Save or discard your changes first.'), 'info');
-      return;
+      return false;
     }
-    this.switchTo(role.id).then(() => {
-      // Below 992px the editor sits under the list, out of sight: bring it up
-      if (this.window?.matchMedia('(max-width: 991.98px)').matches) {
-        this.editor()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    });
+    this.switchTo(role.id);
+    return true;
+  }
+
+  /** The dropdown on narrow screens; it goes back to the role being edited when that cannot change yet */
+  protected pick(field: HTMLSelectElement) {
+    const role = this.store.rolesById().get(field.value);
+    if (role && !this.select(role)) {
+      field.value = this.selected()?.id ?? '';
+    }
   }
 
   /* Permission matrix */

@@ -420,5 +420,10 @@
     "Change role":                   "Change role",
     "toast.roleChanged":             "Changed the role of {{count}} user(s)",
     "Your role requires it.":     "Your role requires it.",
-    "twoFactorSelfWarning":       "Your own role is ticked and your two-step sign-in is off. Once you save, you will have to turn it on before you can do anything else."
+    "twoFactorSelfWarning":       "Your own role is ticked and your two-step sign-in is off. Once you save, you will have to turn it on before you can do anything else.",
+    "roleTotal":                    "{{count}} roles",
+    "Search roles":                 "Search roles",
+    "No roles match your search.":  "No roles match your search.",
+    "roleOption":                   "{{name}} · {{count}} users",
+    "otherRoles":                   "{{count}} other roles"
 }
