@@ -425,5 +425,12 @@
     "Search roles":                 "ค้นหาบทบาท",
     "No roles match your search.":  "ไม่พบบทบาทที่ตรงกับคำค้นหา",
     "roleOption":                   "{{name}} · {{count}} คน",
-    "otherRoles":                   "บทบาทอื่น {{count}} บทบาท"
+    "otherRoles":                   "บทบาทอื่น {{count}} บทบาท",
+    "Copy":                         "คัดลอก",
+    "Print":                        "พิมพ์",
+    "Browser":                      "เบราว์เซอร์",
+    "OS":                           "ระบบปฏิบัติการ",
+    "toast.copied":                 "คัดลอก {{count}} แถวไปยังคลิปบอร์ดแล้ว",
+    "Could not copy to the clipboard.": "คัดลอกไปยังคลิปบอร์ดไม่ได้",
+    "printSummary":                 "{{count}} แถว พิมพ์เมื่อ {{date}}"
 }

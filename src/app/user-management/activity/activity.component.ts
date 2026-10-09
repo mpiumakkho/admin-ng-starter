@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, input, linkedSignal, resource, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
-import { lucideChevronRight, lucideDownload, lucideHistory, lucideMonitor, lucideSearchX, lucideSmartphone, lucideX } from '@ng-icons/lucide';
+import { lucideChevronRight, lucideHistory, lucideMonitor, lucideSearchX, lucideSmartphone, lucideX } from '@ng-icons/lucide';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import {
@@ -23,13 +23,13 @@ import {
   UiTableMinRows,
   UiTableScrollReset,
   UiTableState,
-  UiToastService,
 } from '../ui';
 import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_KINDS, ACTIVITY_META, ActivityKind } from '../data/catalog';
 import { Activity, fullName, User } from '../data/models';
-import { downloadText, toCsv } from '../shared/csv';
+import { ExportMenu } from '../shared/export-menu.component';
+import { TableExport } from '../shared/table-export';
 import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import { ActivityDialog } from './activity-dialog.component';
@@ -58,6 +58,7 @@ const DAY = 24 * 60 * 60 * 1000;
     RouterLink,
     NgIcon,
     TranslatePipe,
+    ExportMenu,
     UiPageHeader,
     UiCard,
     UiButton,
@@ -89,11 +90,10 @@ export class ActivityComponent {
   private readonly router = inject(Router);
   private readonly format = inject(ActivityFormat);
   private readonly translate = inject(TranslateService);
-  private readonly toast = inject(UiToastService);
   private readonly i18n = translationsChanged();
 
   protected readonly icons = {
-    page: lucideHistory, export: lucideDownload, empty: lucideSearchX, open: lucideChevronRight, desktop: lucideMonitor, phone: lucideSmartphone,
+    page: lucideHistory, empty: lucideSearchX, open: lucideChevronRight, desktop: lucideMonitor, phone: lucideSmartphone,
     clear: lucideX,
   };
   protected readonly fullName = fullName;
@@ -269,16 +269,31 @@ export class ActivityComponent {
     this.selected.set(row);
   }
 
-  /** Downloads the filtered log, in the order shown, as a CSV file */
-  protected exportCsv() {
-    const header = ['Time', 'Done by', 'Email', 'Action', 'Description', 'Details', 'IP address', 'Browser', 'OS', 'Event ID'];
-    const rows = this.table.sorted().map(row => [
-      row.entry.at, row.actorName, row.actor?.email ?? '', row.entry.action, this.format.sentence(row.entry), row.summary,
-      row.entry.ip, row.entry.browser, row.entry.os, row.entry.id,
-    ]);
-    downloadText('activity.csv', toCsv([header, ...rows]));
-    this.toast.show(this.translate.instant('toast.exported', { count: rows.length }));
-  }
+  /** The filtered log, in the order shown, for the Export menu */
+  protected readonly exportTable = (): TableExport => {
+    const t = this.translate;
+    const rows = this.table.sorted();
+    return {
+      fileName: 'activity',
+      title: t.instant('Activity log'),
+      columns: [
+        { header: t.instant('Time'), date: 'time' }, { header: t.instant('Done by') }, { header: t.instant('Email') },
+        { header: t.instant('Action') }, { header: t.instant('Description') }, { header: t.instant('Details') },
+        { header: t.instant('IP address') }, { header: t.instant('Browser') }, { header: t.instant('OS') }, { header: t.instant('Event ID') },
+      ],
+      rows: rows.map(row => [
+        new Date(row.entry.at), row.actorName, row.actor?.email ?? '', row.action, this.format.sentence(row.entry), row.summary,
+        row.entry.ip, row.entry.browser, row.entry.os, row.entry.id,
+      ]),
+      csv: [
+        ['Time', 'Done by', 'Email', 'Action', 'Description', 'Details', 'IP address', 'Browser', 'OS', 'Event ID'],
+        ...rows.map(row => [
+          row.entry.at, row.actorName, row.actor?.email ?? '', row.entry.action, this.format.sentence(row.entry), row.summary,
+          row.entry.ip, row.entry.browser, row.entry.os, row.entry.id,
+        ]),
+      ],
+    };
+  };
 
   /** The earliest time a period includes, as an ISO string, or null for all time (and for a range, read already cut) */
   private since(period: Period): string | null {

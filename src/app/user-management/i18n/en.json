@@ -425,5 +425,12 @@
     "Search roles":                 "Search roles",
     "No roles match your search.":  "No roles match your search.",
     "roleOption":                   "{{name}} · {{count}} users",
-    "otherRoles":                   "{{count}} other roles"
+    "otherRoles":                   "{{count}} other roles",
+    "Copy":                         "Copy",
+    "Print":                        "Print",
+    "Browser":                      "Browser",
+    "OS":                           "OS",
+    "toast.copied":                 "Copied {{count}} rows to the clipboard",
+    "Could not copy to the clipboard.": "Could not copy to the clipboard.",
+    "printSummary":                 "{{count}} rows, printed {{date}}"
 }

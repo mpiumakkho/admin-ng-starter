@@ -7,7 +7,7 @@ Users, roles and permissions, and the activity log for an Angular 22 app, in one
 | `overview/`, `users/`, `roles/`, `activity/`, `settings/` | The pages |
 | `access/` | `Session` (who is signed in and what their role allows), the route guards and the no-access page |
 | `data/` | Types, `AdminApi` (the contract with the server), `LocalAdminApi` (sample data in the browser), `HttpAdminApi` (a real server, see [API.md](API.md)), `AdminStore` (signals the pages read) and the permission rules |
-| `shared/` | Pieces several pages use: role and status badges, the activity sentence, date pipes, error messages |
+| `shared/` | Pieces several pages use: role and status badges, the activity sentence, date pipes, error messages, CSV, and the Export menu (copy, Excel, CSV, print) with its own small .xlsx writer |
 | `ui/` | The building blocks: cards, tables, forms, menus, charts and the theme. See [ui/README.md](ui/README.md) |
 | `i18n/` | The text in Thai and English, as translation files |
 | `index.ts` | What an app imports: routes, menu, `provideUserManagement()`, `Session`, guards, the APIs and the types |

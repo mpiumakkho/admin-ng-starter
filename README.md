@@ -47,11 +47,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit
 | Route | Page |
 | --- | --- |
 | `/overview` | Totals, new users per month, users by role, department and status, recent activity |
-| `/users` | Search, filter, sort and page through users; select several to activate, suspend, delete them or give them all one role; export to CSV, or import many users from a CSV file, with every row checked before anything is saved |
+| `/users` | Search, filter, sort and page through users; select several to activate, suspend, delete them or give them all one role; export what the list shows (copy, Excel, CSV or print), or import many users from a CSV file, with every row checked before anything is saved |
 | `/users/new`, `/users/:id/edit` | Add or edit a user. Leaving with unsaved changes asks first |
 | `/users/:id` | A user's profile, permissions, activity and security: two-step sign-in, password and signed-in devices |
 | `/roles` | Create roles and choose their permissions. Built-in roles and roles that still have users cannot be deleted |
-| `/activity` | Every change as a table: when, who, what, the fields that changed, and the IP address and device. Filter by time range (or two dates), person and type; open a row for the full record with before and after values; export to CSV. `?user=<id>` narrows it to what one person did or had done to them, as the account menu's "My activity" and a profile's "View in activity log" open it |
+| `/activity` | Every change as a table: when, who, what, the fields that changed, and the IP address and device. Filter by time range (or two dates), person and type; open a row for the full record with before and after values; export what the log shows (copy, Excel, CSV or print). `?user=<id>` narrows it to what one person did or had done to them, as the account menu's "My activity" and a profile's "View in activity log" open it |
 | `/settings` | The default role for new users, allowed email domains, how long invitations last, signing out when idle, which roles must use two-step sign-in, the password rules (shortest length, recent passwords not allowed again) and how long activity is kept |
 | `/setup-two-factor` | Where someone lands whose role must use two-step sign-in while theirs is off; nothing else opens until they turn it on |
 | `/login` | Sign-in page. Every other page needs someone signed in, and opens only if their role allows it |

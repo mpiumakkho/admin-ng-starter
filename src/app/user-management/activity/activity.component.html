@@ -1,6 +1,6 @@
 <ui-page-header [title]="'Activity log' | translate" [subtitle]="subject() ? ('activityOf' | translate: { name: subjectName() }) : ('Every change made in the admin, newest first.' | translate)" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
   @if (session.can('activity.export')) {
-    <button uiButton variant="secondary" type="button" (click)="exportCsv()"><ng-icon [svg]="icons.export" /> {{ 'Export' | translate }}</button>
+    <app-export-menu [source]="exportTable" />
   }
 </ui-page-header>
 

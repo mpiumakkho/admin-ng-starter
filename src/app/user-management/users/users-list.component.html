@@ -1,5 +1,5 @@
 <ui-page-header [title]="'Users' | translate" [subtitle]="'Everyone who can sign in to the admin.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
-  <button uiButton variant="secondary" type="button" (click)="exportCsv()"><ng-icon [svg]="icons.export" /> {{ 'Export' | translate }}</button>
+  <app-export-menu [source]="exportTable" />
   @if (session.can('users.create')) {
     <button uiButton variant="secondary" type="button" (click)="importing.set(true)"><ng-icon [svg]="icons.import" /> {{ 'Import' | translate }}</button>
     <a uiButton routerLink="/users/new"><ng-icon [svg]="icons.add" /> {{ 'Add user' | translate }}</a>

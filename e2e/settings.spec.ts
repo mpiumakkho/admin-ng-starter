@@ -131,6 +131,7 @@ test('the activity log between two dates, and exporting just that part', async (
 
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export' }).click();
+  await page.getByRole('menuitem', { name: 'CSV' }).click();
   expect((await download).suggestedFilename()).toBe('activity.csv');
   await expect(page.locator('ui-toaster')).toContainText(/Exported \d+ rows/);
   expect(count).toBeGreaterThan(0);

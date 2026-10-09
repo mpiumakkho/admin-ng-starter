@@ -55,7 +55,12 @@ export function toCsv(rows: readonly (readonly string[])[]): string {
 
 /** Saves text as a file. The byte order mark keeps Thai readable when Excel opens a CSV. */
 export function downloadText(fileName: string, text: string, type = 'text/csv;charset=utf-8;') {
-  const url = URL.createObjectURL(new Blob(['﻿' + text], { type }));
+  downloadBlob(fileName, new Blob(['﻿' + text], { type }));
+}
+
+/** Saves a file the page made, such as an Excel workbook */
+export function downloadBlob(fileName: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;

@@ -3,7 +3,6 @@ import { Router, RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import {
   lucideBan,
-  lucideDownload,
   lucideEllipsis,
   lucideEye,
   lucideKeyRound,
@@ -49,7 +48,8 @@ import { AdminStore } from '../data/admin-store';
 import { STATUS_META } from '../data/catalog';
 import { fullName, User, UserStatus } from '../data/models';
 import { RoleBadge, StatusBadge } from '../shared/badges';
-import { downloadText, toCsv } from '../shared/csv';
+import { ExportMenu } from '../shared/export-menu.component';
+import { TableExport } from '../shared/table-export';
 import { errorMessage } from '../shared/errors';
 import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
@@ -64,6 +64,7 @@ type SortKey = 'name' | 'role' | 'department' | 'lastActive' | 'created';
     RouterLink,
     NgIcon,
     TranslatePipe,
+    ExportMenu,
     UiPageHeader,
     UiButton,
     UiCard,
@@ -105,7 +106,7 @@ export class UsersListComponent {
   private readonly toast = inject(UiToastService);
 
   protected readonly icons = {
-    page: lucideUsers, add: lucideUserPlus, export: lucideDownload, more: lucideEllipsis, view: lucideEye, edit: lucidePencil,
+    page: lucideUsers, add: lucideUserPlus, more: lucideEllipsis, view: lucideEye, edit: lucidePencil,
     suspend: lucideBan, activate: lucideUserCheck, reset: lucideKeyRound, remove: lucideTrash2, empty: lucideSearchX,
     import: lucideUpload, role: lucideShield,
   };
@@ -297,15 +298,31 @@ export class UsersListComponent {
     this.toast.show(this.translate.instant(errorMessage(error)), 'error');
   }
 
-  /** Downloads the filtered list as a CSV file */
-  protected exportCsv() {
-    // The same first columns as an import file, so an export can be edited and imported elsewhere
-    const header = ['First name', 'Last name', 'Email', 'Phone', 'Department', 'Role', 'Status', 'Joined', 'Last active'];
-    const rows = this.table.sorted().map(user => [
-      user.firstName, user.lastName, user.email, user.phone, user.department, this.store.rolesById().get(user.roleId)?.name ?? '',
-      user.status, user.createdAt.slice(0, 10), user.lastActiveAt?.slice(0, 10) ?? '',
-    ]);
-    downloadText('users.csv', toCsv([header, ...rows]));
-    this.toast.show(this.translate.instant('toast.exported', { count: rows.length }));
-  }
+  /** The filtered list, in the order shown, for the Export menu */
+  protected readonly exportTable = (): TableExport => {
+    const t = this.translate;
+    const users = this.table.sorted();
+    const roleName = (roleId: string) => this.store.rolesById().get(roleId)?.name ?? '';
+    return {
+      fileName: 'users',
+      title: t.instant('Users'),
+      columns: [
+        { header: t.instant('First name') }, { header: t.instant('Last name') }, { header: t.instant('Email') }, { header: t.instant('Phone') },
+        { header: t.instant('Department') }, { header: t.instant('Role') }, { header: t.instant('Status') },
+        { header: t.instant('Joined'), date: 'day' }, { header: t.instant('Last active'), date: 'time' },
+      ],
+      rows: users.map(user => [
+        user.firstName, user.lastName, user.email, user.phone, t.instant(user.department), roleName(user.roleId),
+        t.instant(STATUS_META[user.status].label), new Date(user.createdAt), user.lastActiveAt ? new Date(user.lastActiveAt) : null,
+      ]),
+      // The same first columns as an import file, so an export can be edited and imported elsewhere
+      csv: [
+        ['First name', 'Last name', 'Email', 'Phone', 'Department', 'Role', 'Status', 'Joined', 'Last active'],
+        ...users.map(user => [
+          user.firstName, user.lastName, user.email, user.phone, user.department, roleName(user.roleId),
+          user.status, user.createdAt.slice(0, 10), user.lastActiveAt?.slice(0, 10) ?? '',
+        ]),
+      ],
+    };
+  };
 }
