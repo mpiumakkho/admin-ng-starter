@@ -1,5 +1,6 @@
 import { ALL_PERMISSIONS, DEFAULT_SETTINGS, DEPARTMENTS } from './catalog';
 import { Activity, ActivityAction, ActivityChange, AdminSettings, fullName, Role, User, UserSession, UserStatus } from './models';
+import { uuidV7 } from './uuid';
 
 export interface AdminData {
   users: User[];
@@ -197,7 +198,9 @@ export function createMockData(now = Date.now()): AdminData {
     }
   };
 
-  const activity: Activity[] = Array.from({ length: 60 }, (_, index) => {
+  // Ids from a generator of their own, so the rest of the sample stays as it was
+  const idRandom = random(20261009);
+  const activity: Activity[] = Array.from({ length: 60 }, () => {
     const action = pick(actions);
     const actor = pick(admins);
     // Anyone but the owner, whose account the sample keeps untouched
@@ -206,9 +209,10 @@ export function createMockData(now = Date.now()): AdminData {
     const isRole = action.startsWith('role.');
     const isSignIn = action === 'auth.sign_in';
     const device = devices.get(actor.id)!;
+    const at = now - Math.pow(next(), 1.4) * 30 * DAY;
     return {
-      id: `a-${index + 1}`,
-      at: new Date(now - Math.pow(next(), 1.4) * 30 * DAY).toISOString(),
+      id: uuidV7(at, bytes => bytes.forEach((_, byte) => bytes[byte] = Math.floor(idRandom() * 256))),
+      at: new Date(at).toISOString(),
       actorId: actor.id,
       action,
       targetLabel: isSignIn ? fullName(actor) : isRole ? role.name : fullName(user),

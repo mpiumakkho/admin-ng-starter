@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
-import { lucideMonitor, lucideSmartphone } from '@ng-icons/lucide';
-import { TranslatePipe } from '@ngx-translate/core';
+import { lucideCopy, lucideMonitor, lucideSmartphone } from '@ng-icons/lucide';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
-import { UiBadge, UiDetailItem, UiDetailList, UiIconChip, UiPerson, UiTable } from '../ui';
+import { UiBadge, UiButton, UiDetailItem, UiDetailList, UiIconChip, UiPerson, UiTable, UiToastService } from '../ui';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_KINDS, ACTIVITY_META } from '../data/catalog';
 import { Activity } from '../data/models';
@@ -18,7 +18,7 @@ type ChangeKind = 'value' | 'list' | 'tone' | 'changed';
 /** Everything recorded about one activity entry: who, what, where from, and each field it changed */
 @Component({
   selector: 'app-activity-details',
-  imports: [RouterLink, NgIcon, TranslatePipe, UiBadge, UiDetailList, UiDetailItem, UiIconChip, UiPerson, UiTable, ActivityText, LocalDatePipe, TimeAgoPipe],
+  imports: [RouterLink, NgIcon, TranslatePipe, UiBadge, UiButton, UiDetailList, UiDetailItem, UiIconChip, UiPerson, UiTable, ActivityText, LocalDatePipe, TimeAgoPipe],
   templateUrl: './activity-details.component.html',
   styleUrl: './activity-details.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,8 +27,12 @@ export class ActivityDetails {
   private readonly store = inject(AdminStore);
   private readonly format = inject(ActivityFormat);
   private readonly i18n = translationsChanged();
+  private readonly translate = inject(TranslateService);
+  private readonly toast = inject(UiToastService);
 
   readonly entry = input.required<Activity>();
+
+  protected readonly icons = { copy: lucideCopy };
 
   protected readonly meta = computed(() => ACTIVITY_META[this.entry().action]);
   protected readonly kind = computed(() => ACTIVITY_KINDS[this.meta().kind]);
@@ -66,4 +70,14 @@ export class ActivityDetails {
     : this.entry().action === 'user.invited' ? 'Invitation sent again by email.'
     : this.entry().action === 'auth.sign_in' ? 'Signed in. No data was changed.'
     : 'No changes were recorded.');
+
+  /** The id, for quoting the entry to someone or finding it in the server's logs */
+  protected async copyId() {
+    try {
+      await navigator.clipboard.writeText(this.entry().id);
+      this.toast.show(this.translate.instant('Event ID copied.'));
+    } catch {
+      this.toast.show(this.translate.instant('Could not copy to the clipboard.'), 'error');
+    }
+  }
 }

@@ -53,3 +53,30 @@ test('export: copy, Excel, CSV and print the users the list shows', async ({ pag
   expect(printed).toContain(`${shown} rows, printed`);
   expect(printed).toContain('Suspended');
 });
+
+test("the activity log: the event id is left off paper, and copied from an entry's details", async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.addInitScript(() => {
+    if (window !== window.parent) {
+      window.print = () => {
+        (window.parent as unknown as { printed: string }).printed = document.querySelector('thead')!.textContent!;
+      };
+    }
+  });
+  await start(page);
+  await signInAs(page, 'Administrator');
+  await page.goto('/activity');
+
+  await page.getByRole('button', { name: 'Export' }).click();
+  await page.getByRole('menuitem', { name: 'Print' }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { printed?: string }).printed ?? '')).toContain('Action');
+  const printedHeader = await page.evaluate(() => (window as unknown as { printed: string }).printed);
+  expect(printedHeader).not.toContain('Event ID');
+  expect(printedHeader).not.toContain('Action code');
+
+  await page.locator('.log tbody tr').first().click();
+  await page.locator('dialog[open]').getByRole('button', { name: 'Copy event ID' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Event ID copied.');
+  // The same kind of id as the API server gives: a UUID version 7
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+});

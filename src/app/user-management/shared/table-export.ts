@@ -5,10 +5,15 @@ import { XlsxCell } from './xlsx';
  * CSV, which keeps the plain values an import reads back).
  */
 
+/** The formats that show the rows as people read them; CSV has its own columns */
+export type ExportFormat = 'copy' | 'excel' | 'print';
+
 export interface ExportColumn {
   header: string;
   /** The column holds dates: shown as a day, or with the time */
   date?: 'day' | 'time';
+  /** Formats that leave the column out, such as an id nobody reads on paper */
+  skip?: readonly ExportFormat[];
 }
 
 export interface TableExport {
@@ -20,6 +25,15 @@ export interface TableExport {
   rows: readonly (readonly XlsxCell[])[];
   /** The CSV file, header first */
   csv: readonly (readonly string[])[];
+}
+
+/** The table with only the columns a format carries */
+export function forFormat(table: TableExport, format: ExportFormat): TableExport {
+  const kept = table.columns.flatMap((column, index) => column.skip?.includes(format) ? [] : [index]);
+  if (kept.length === table.columns.length) {
+    return table;
+  }
+  return { ...table, columns: kept.map(index => table.columns[index]), rows: table.rows.map(row => kept.map(index => row[index])) };
 }
 
 /** How a cell reads in a copy or a printout */

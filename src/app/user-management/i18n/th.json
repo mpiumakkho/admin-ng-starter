@@ -432,5 +432,8 @@
     "OS":                           "ระบบปฏิบัติการ",
     "toast.copied":                 "คัดลอก {{count}} แถวไปยังคลิปบอร์ดแล้ว",
     "Could not copy to the clipboard.": "คัดลอกไปยังคลิปบอร์ดไม่ได้",
-    "printSummary":                 "{{count}} แถว พิมพ์เมื่อ {{date}}"
+    "printSummary":                 "{{count}} แถว พิมพ์เมื่อ {{date}}",
+    "Action code":                  "รหัสการกระทำ",
+    "Copy event ID":                "คัดลอกรหัสเหตุการณ์",
+    "Event ID copied.":             "คัดลอกรหัสเหตุการณ์แล้ว"
 }

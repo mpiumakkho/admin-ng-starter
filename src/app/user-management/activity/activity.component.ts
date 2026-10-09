@@ -278,11 +278,16 @@ export class ActivityComponent {
       title: t.instant('Activity log'),
       columns: [
         { header: t.instant('Time'), date: 'time' }, { header: t.instant('Done by') }, { header: t.instant('Email') },
-        { header: t.instant('Action') }, { header: t.instant('Description') }, { header: t.instant('Details') },
-        { header: t.instant('IP address') }, { header: t.instant('Browser') }, { header: t.instant('OS') }, { header: t.instant('Event ID') },
+        { header: t.instant('Action') },
+        // The same in every language, as the API and the CSV name it, for filtering a sheet
+        { header: t.instant('Action code'), skip: ['copy', 'print'] },
+        { header: t.instant('Description') }, { header: t.instant('Details') },
+        { header: t.instant('IP address') }, { header: t.instant('Browser') }, { header: t.instant('OS') },
+        // For finding the one entry again; nobody reads it on paper
+        { header: t.instant('Event ID'), skip: ['print'] },
       ],
       rows: rows.map(row => [
-        new Date(row.entry.at), row.actorName, row.actor?.email ?? '', row.action, this.format.sentence(row.entry), row.summary,
+        new Date(row.entry.at), row.actorName, row.actor?.email ?? '', row.action, row.entry.action, this.format.sentence(row.entry), row.summary,
         row.entry.ip, row.entry.browser, row.entry.os, row.entry.id,
       ]),
       csv: [

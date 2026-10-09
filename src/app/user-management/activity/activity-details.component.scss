@@ -119,3 +119,11 @@
   color: var(--ui-muted);
   font-size: .875rem;
 }
+
+// The id and its copy button on one line, the button pulled in so it does not make the row taller
+.event-id {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  margin-block: -.375rem;
+}

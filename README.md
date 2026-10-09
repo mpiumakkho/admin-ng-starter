@@ -16,7 +16,7 @@ npm start
 
 Then open `http://localhost:4200/`. The app reloads when a source file changes.
 
-The app runs on sample data saved in the browser, so you can add, edit and delete freely. To start over, clear the `admin-data-v4` key in `localStorage`.
+The app runs on sample data saved in the browser, so you can add, edit and delete freely. To start over, clear the `admin-data-v5` key in `localStorage`.
 
 Sign in with one of the sample accounts the sign-in page offers, one per role. Each sees only what its role allows:
 

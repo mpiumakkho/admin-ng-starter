@@ -6,7 +6,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { UiButton, UiMenu, UiMenuItem, UiMenuTrigger, UiToastService } from '../ui';
 import { downloadBlob, downloadText, toCsv } from './csv';
 import { intlLocale } from './formatting';
-import { copyText, printHtml, printPage, TableExport } from './table-export';
+import { copyText, forFormat, printHtml, printPage, TableExport } from './table-export';
 import { toXlsx } from './xlsx';
 
 /**
@@ -54,7 +54,7 @@ export class ExportMenu {
   }
 
   protected async copy() {
-    const table = this.source()();
+    const table = forFormat(this.source()(), 'copy');
     try {
       await navigator.clipboard.writeText(copyText(table, intlLocale(this.language())));
       this.toast.show(this.translate.instant('toast.copied', { count: table.rows.length }));
@@ -64,7 +64,7 @@ export class ExportMenu {
   }
 
   protected excel() {
-    const table = this.source()();
+    const table = forFormat(this.source()(), 'excel');
     const bytes = toXlsx({
       name: table.title,
       title: table.title,
@@ -83,7 +83,7 @@ export class ExportMenu {
   }
 
   protected print() {
-    const table = this.source()();
+    const table = forFormat(this.source()(), 'print');
     const locale = intlLocale(this.language());
     const printed = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date());
     printPage(this.document, printHtml(table, {

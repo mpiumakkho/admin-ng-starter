@@ -432,5 +432,8 @@
     "OS":                           "OS",
     "toast.copied":                 "Copied {{count}} rows to the clipboard",
     "Could not copy to the clipboard.": "Could not copy to the clipboard.",
-    "printSummary":                 "{{count}} rows, printed {{date}}"
+    "printSummary":                 "{{count}} rows, printed {{date}}",
+    "Action code":                  "Action code",
+    "Copy event ID":                "Copy event ID",
+    "Event ID copied.":             "Event ID copied."
 }

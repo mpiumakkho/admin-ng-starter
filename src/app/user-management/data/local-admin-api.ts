@@ -9,8 +9,9 @@ import {
   TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
 } from './models';
 import { createSecret, otpauthUri, verifyTotp } from './totp';
+import { uuidV7 } from './uuid';
 
-const STORAGE_KEY = 'admin-data-v4';
+const STORAGE_KEY = 'admin-data-v5';
 /** This browser's session id: kept in sessionStorage, or in localStorage with "Keep me signed in" */
 const SESSION_KEY = 'admin-session';
 /** The name authenticator apps show next to the codes */
@@ -34,7 +35,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /**
  * AdminApi backed by localStorage, seeded with sample data on first use. It plays the server's part: it knows
  * who is signed in, checks their permissions (see access-rules.ts) and writes the activity log.
- * Clear the "admin-data-v4" key in the browser to start over.
+ * Clear the "admin-data-v5" key in the browser to start over.
  */
 @Injectable()
 export class LocalAdminApi extends AdminApi {
@@ -741,7 +742,7 @@ export class LocalAdminApi extends AdminApi {
 
   private log(actorId: string, action: ActivityAction, targetLabel: string, targetId?: string, changes?: ActivityChange[]) {
     const entry: Activity = {
-      id: `a-${crypto.randomUUID().slice(0, 8)}`,
+      id: uuidV7(),
       at: new Date().toISOString(),
       actorId,
       action,

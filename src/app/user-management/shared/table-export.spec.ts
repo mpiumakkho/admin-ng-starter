@@ -1,4 +1,4 @@
-import { copyText, printHtml, TableExport } from './table-export';
+import { copyText, forFormat, printHtml, TableExport } from './table-export';
 import { columnName, crc32, toXlsx } from './xlsx';
 
 /** The files in a ZIP made by zip(), read back from its central directory, with their CRC checked */
@@ -64,6 +64,18 @@ describe('table export', () => {
     expect(sheet).toContain('<t xml:space="preserve">=HYPERLINK(&quot;x&quot;)</t>');
     expect(sheet).not.toContain('r="B4"');
     expect(sheet).toContain('<pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/>');
+  });
+
+  it('leaves out the columns a format skips', () => {
+    const withIds: TableExport = {
+      ...table,
+      columns: [{ header: 'Name' }, { header: 'Code', skip: ['copy', 'print'] }, { header: 'ID', skip: ['print'] }],
+      rows: [['Somchai', 'user.updated', 'id-1']],
+    };
+    expect(forFormat(withIds, 'excel').columns.map(column => column.header)).toEqual(['Name', 'Code', 'ID']);
+    expect(forFormat(withIds, 'copy').rows).toEqual([['Somchai', 'id-1']]);
+    expect(forFormat(withIds, 'print').columns.map(column => column.header)).toEqual(['Name']);
+    expect(forFormat(withIds, 'print').rows).toEqual([['Somchai']]);
   });
 
   it('names columns as Excel does', () => {

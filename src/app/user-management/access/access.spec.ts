@@ -287,14 +287,14 @@ describe('Session and permissions', () => {
       await signInAs('admin');
       const revision = store.revision();
 
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v4' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v5' }));
       await vi.waitFor(() => expect(store.revision()).toBe(revision + 1), { timeout: 3000 });
 
       // Another tab signs this browser's session out
-      const data = JSON.parse(localStorage.getItem('admin-data-v4')!);
+      const data = JSON.parse(localStorage.getItem('admin-data-v5')!);
       data.sessions = data.sessions.filter((item: { userId: string }) => item.userId !== session.userId());
-      localStorage.setItem('admin-data-v4', JSON.stringify(data));
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v4' }));
+      localStorage.setItem('admin-data-v5', JSON.stringify(data));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v5' }));
       await vi.waitFor(() => expect(session.signedIn()).toBe(false), { timeout: 3000 });
     });
   });
