@@ -69,3 +69,17 @@ test('how long the app waits before signing out is said once, and in the account
   await page.locator('.user-button').click();
   await expect(page.locator('.account-card')).toContainText('You are signed out after 15 minutes without activity.');
 });
+
+test('the tabs of a profile never scroll up and down, and their focus ring is whole', async ({ page }) => {
+  await start(page);
+  await signInAs(page, 'Administrator');
+  await page.goto('/users/u-002');
+  const tabs = page.locator('.profile .tabs');
+  await expect(tabs).toBeVisible();
+  expect(await tabs.evaluate(element => element.scrollHeight - element.clientHeight)).toBe(0);
+
+  // The ring is drawn inside the tab, where the row's sideways scrolling does not cut it off
+  await page.getByRole('button', { name: /^Details/ }).focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: /^Permissions/ })).toHaveCSS('outline-offset', '-2px');
+});

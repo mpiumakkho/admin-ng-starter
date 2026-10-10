@@ -112,18 +112,27 @@ import { UiOption } from '../core/types';
       }
     }
 
-    /* Underline: tabs along a rule */
+    /*
+     * Underline: tabs along a rule. The row scrolls sideways when the tabs do not fit, which clips anything outside
+     * it, so everything stays inside: the rule is a shadow under the tabs, which the chosen tab's line covers, and the
+     * focus ring is drawn just inside each tab. Nothing reaches below the row, so it never scrolls up and down.
+     */
     .ui-segmented-underline {
-      gap: 1.25rem;
+      gap: .5rem;
       overflow-x: auto;
-      border-bottom: 1px solid var(--ui-border);
+      overflow-y: hidden;
+      box-shadow: inset 0 -1px 0 var(--ui-border);
 
       .ui-seg-option {
         height: 40px;
-        margin-bottom: -1px;
-        padding: 0 .125rem;
+        padding: 0 .5rem;
         border-bottom: 2px solid transparent;
         border-radius: 0;
+
+        &:focus-visible {
+          outline-offset: -2px;
+          box-shadow: none;
+        }
       }
 
       .ui-seg-active {
