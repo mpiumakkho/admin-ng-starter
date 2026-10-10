@@ -156,10 +156,23 @@ ui-page-header {
 }
 
 /* Security tab */
+// Two-step sign-in and the password side by side when there is room (one card spans the row alone); the devices
+// below, across the whole row
 .security {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
   gap: 1.5rem;
+
+  > .devices {
+    grid-column: 1 / -1;
+  }
+}
+
+// Four columns of details on a wide screen: three short rows instead of five
+@media (min-width: 1200px) {
+  .details {
+    --ui-detail-columns: 4 !important;
+  }
 }
 
 .security-row {

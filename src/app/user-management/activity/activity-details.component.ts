@@ -75,7 +75,7 @@ export class ActivityDetails {
   protected async copyId() {
     try {
       await navigator.clipboard.writeText(this.entry().id);
-      this.toast.show(this.translate.instant('Event ID copied.'));
+      this.toast.show(this.translate.instant('Event reference copied.'));
     } catch {
       this.toast.show(this.translate.instant('Could not copy to the clipboard.'), 'error');
     }

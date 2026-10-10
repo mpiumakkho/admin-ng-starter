@@ -71,12 +71,12 @@ test("the activity log: the event id is left off paper, and copied from an entry
   await page.getByRole('menuitem', { name: 'Print' }).click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { printed?: string }).printed ?? '')).toContain('Action');
   const printedHeader = await page.evaluate(() => (window as unknown as { printed: string }).printed);
-  expect(printedHeader).not.toContain('Event ID');
+  expect(printedHeader).not.toContain('Event reference');
   expect(printedHeader).not.toContain('Action code');
 
   await page.locator('.log tbody tr').first().click();
-  await page.locator('dialog[open]').getByRole('button', { name: 'Copy event ID' }).click();
-  await expect(page.locator('ui-toaster')).toContainText('Event ID copied.');
+  await page.locator('dialog[open]').getByRole('button', { name: 'Copy event reference' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Event reference copied.');
   // The same kind of id as the API server gives: a UUID version 7
   expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 });

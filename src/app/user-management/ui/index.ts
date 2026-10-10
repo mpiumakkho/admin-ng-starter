@@ -5,6 +5,7 @@
 
 export * from './core/types';
 export * from './theme/theme.service';
+export * from './theme/accessible-view.service';
 
 // Actions and surfaces
 export * from './button/button.component';

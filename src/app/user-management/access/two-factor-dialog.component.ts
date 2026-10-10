@@ -32,7 +32,7 @@ import { UiAlert, UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput, UiTo
               <p>{{ 'Scan this code with an authenticator app, such as Google Authenticator or Microsoft Authenticator.' | translate }}</p>
               <div class="qr">
                 @if (qr(); as image) {
-                  <img [src]="image" width="176" height="176" [alt]="'QR code for your authenticator app' | translate" />
+                  <img [src]="image" width="176" height="176" [alt]="'Code to scan with your authenticator app' | translate" />
                 } @else if (failed()) {
                   <ui-alert tone="danger">{{ 'Could not start. Close this and try again.' | translate }}</ui-alert>
                 } @else {

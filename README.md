@@ -2,6 +2,8 @@
 
 A user management admin built with Angular 22: an overview, users, roles and permissions, and an activity log. It is one Angular app: copy the project to start another admin. User management itself (its pages, data layer and UI) is one folder, `src/app/user-management`, which can also be copied into an existing app; [its README](src/app/user-management/README.md) lists the steps.
 
+**API contract:** [`src/app/user-management/API.md`](src/app/user-management/API.md) says what a server must do for the app: every request, its permission, and the errors it may answer. The server in [admin-api-starter](https://github.com/mpiumakkho/admin-api-starter) does all of it; its [API coverage](https://github.com/mpiumakkho/admin-api-starter/blob/main/docs/API-COVERAGE.md) lists each request beside the code and the tests that answer it.
+
 ## Requirements
 
 - Node.js `^22.22.3`, `^24.15.0` or `>=26.0.0`
@@ -57,7 +59,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit
 | `/login` | Sign-in page. Every other page needs someone signed in, and opens only if their role allows it |
 | `/forgot-password` | "Forgot password?": asks for an email and has a reset link sent to it, answering the same whether or not the email belongs to someone |
 | `/activate`, `/reset-password` | Where the links in emails lead: set a first password from an invitation, or a new one from a reset link, then sign in with it. With the sample data the emails are written to the browser console |
-| `/ui-kit` | Every piece in `user-management/ui` with a usage snippet. It is not in the sidebar; open it from the account menu |
+| `/ui-kit` | The component gallery: every piece in `user-management/ui` with a usage snippet. It is not in the sidebar; open it from the account menu |
 
 ## Project layout
 
@@ -70,7 +72,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit
 - `src/app/layout` is the app around it: navbar, sidebar, footer and the language switch. The sidebar shows the groups in `src/app/layout/sidebar/menu.ts`: each part of the app is one dropdown (user management's comes from `USER_MANAGEMENT_MENU`), open on its own pages, with a chevron that turns clockwise as it opens. Pages the signed-in user's role does not allow are left out. In the icon-only layout a group opens as a flyout on hover.
 - `src/app/auth` is the sign-in page, `src/app/error-pages` the 404 and 500 pages, and `src/app/ui-kit` the component reference.
 - `src/styles.scss` holds the few global styles: the font, the base look of plain HTML elements and the rules for `<body>`. Everything else, the layout included, is styled in each component's own stylesheet with the `--ui-*` variables of user management's `ui` theme.
-- `e2e` holds the end-to-end tests: signing in, what each role can and cannot do, profiles, import and settings. `accessibility.spec.ts` checks every page, menu and dialog against WCAG 2.2 AA with axe, in the light and dark themes; `expectAccessible()` in `e2e/helpers.ts` does the same for any new page.
+- `e2e` holds the end-to-end tests: signing in, what each role can and cannot do, profiles, import and settings. `accessibility.spec.ts` checks every page, menu and dialog against WCAG 2.2 AA with axe, in the light and dark themes, and `expectAccessible()` in `e2e/helpers.ts` does the same for any new page; `accessible-view.spec.ts` checks the accessible view against AAA (see [Accessibility](#accessibility)).
 
 ## Connecting a real API
 
@@ -88,7 +90,7 @@ Nothing else changes: the pages only talk to `AdminStore` and `Session`. The ser
 
 The UI supports Thai (`th`, the default) and English (`en`). Each part keeps its own translation files, and the app loads both:
 
-- `src/assets/i18n/th.json` and `en.json` for the app around user management: navbar, sign-in, error pages, UI kit.
+- `src/assets/i18n/th.json` and `en.json` for the app around user management: navbar, sign-in, error pages, component gallery.
 - `src/app/user-management/i18n/th.json` and `en.json` for user management. `angular.json` publishes them as `assets/i18n/user-management/`.
 
 The Thai and English files of each part must have the same keys. Keys are the English text, except for messages with values such as `toast.deleted` or `activity.user.created`.
@@ -100,6 +102,26 @@ In templates, translate text with the pipe:
 ```
 
 The `ui` components never translate on their own: pass them translated text through their inputs. To add a language, add its JSON file and an entry in `LANGUAGES` in `src/app/layout/language.service.ts`. The language a visitor picks is stored in `localStorage`.
+
+## Accessibility
+
+The app meets WCAG 2.2 AA as it is, and AAA through the **accessible view**, which WCAG allows as a "conforming alternate version" since every page leads to it. Turn it on with the switch at the top right of the sign-in, email-link and error pages, or with "Accessible view" in the account menu. `UiAccessibleViewService` sets `ui-aaa` on `<body>` and remembers the choice in `localStorage`; `src/index.html` sets the class before the first paint, as with the theme.
+
+The usual view stays compact. The accessible view, in both themes:
+
+- makes every button, link and field at least 44 by 44 pixels, and spaces checkboxes in a list so they do not overlap (2.5.5);
+- gives all text a contrast of at least 7:1, or 4.5:1 for large text, chart labels included (1.4.6);
+- spaces lines 1.5 and paragraphs further (1.4.8), and moves nothing, charts included (2.3.3);
+- writes each bar's number on the bar chart, rather than only in a tooltip on hover (2.1.3);
+- keeps messages until they are dismissed, above the page rather than over it (2.2.3, 2.4.12);
+- holds changes made elsewhere, such as in another tab, until "Show the changes" (2.2.4);
+- keeps the page and what was typed when the session ends, and asks for the password again over it, rather than opening the sign-in page (2.2.5, 3.2.5). A role that comes to require two-step sign-in is announced with a link to set it up, rather than opening the setup page (3.2.5).
+
+In both views focus is a 2px ring that the navbar, a table's header row or the show-password button never covers (2.4.11 to 2.4.13); the header, menu, page and footer are landmarks (1.3.6); links say where they lead (2.4.9); abbreviations such as IP and CSV say what they stand for, and the others are written out (3.1.4); the idle timeout is said once after signing in and in the account menu (2.2.6); and with forced colors (Windows contrast themes) the chosen option, the current page, ticked boxes and switches use the system's highlight.
+
+**Exception: 2.2.3.** Signing out after a set time idle, and links in emails that stop working after a while, are time limits kept for security, which 2.2.3 does not allow. The app meets AAA except 2.2.3 for these two. Choosing "Never" under "Sign out when idle" in the settings removes the first.
+
+Tools check what they can: `e2e/accessible-view.spec.ts` runs axe's AAA rules and a 44-pixel target check on every page, and covers the behaviour above. Criteria that only a person can judge, such as plain wording (3.1.5) and help next to the fields (3.3.5), rest on review.
 
 ## Font
 

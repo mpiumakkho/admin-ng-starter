@@ -1,7 +1,7 @@
 @if (state.open()) {
   <div class="sidebar-backdrop" (click)="state.close()" aria-hidden="true"></div>
 }
-<nav class="sidebar sidebar-offcanvas" id="sidebar" [class.active]="state.open()">
+<nav class="sidebar sidebar-offcanvas" id="sidebar" [class.active]="state.open()" [attr.aria-label]="'Main menu' | translate">
   <ul class="menu">
     <li class="nav-item navbar-brand-mini-wrapper">
       <a class="nav-link navbar-brand brand-logo-mini" routerLink="/"><img src="assets/images/logo-mini.svg" alt="logo" /></a>

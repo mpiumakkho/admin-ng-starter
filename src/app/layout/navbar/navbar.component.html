@@ -1,4 +1,5 @@
-<nav class="navbar">
+<!-- The banner landmark; the sidebar is the navigation -->
+<header class="navbar">
   <div class="navbar-brand-wrapper">
     <!-- Below 992px: the menu button first, then the logo, as most apps place them -->
     <button class="menu-toggle icon-button" type="button" (click)="sidebar.toggle()" aria-controls="sidebar" [attr.aria-expanded]="sidebar.open()" [attr.aria-label]="(sidebar.open() ? 'Close menu' : 'Open menu') | translate">
@@ -16,13 +17,44 @@
   <div class="navbar-menu-wrapper">
     <!-- Search on the left, where it is found first. On phones the search button opens it over the bar. -->
     @if (session.can('users.view')) {
-      <form class="search-form" [class.search-open]="searchOpen()" role="search" (submit)="$event.preventDefault(); searchUsers(search.value); search.value = ''">
+      <!-- People show as you type (an ARIA combobox): arrow keys pick one, Enter opens it, or the whole list when none is picked -->
+      <form class="search-form" [class.search-open]="searchOpen()" role="search" (submit)="$event.preventDefault(); submitSearch()" (focusout)="searchFocusOut($event)">
         <ng-icon name="lucideSearch" class="search-icon" />
-        <input #search type="search" class="search-input" [placeholder]="'Search users' | translate" [attr.aria-label]="'Search users' | translate" [attr.aria-keyshortcuts]="searchShortcutKeys" (keydown.escape)="closeSearch()">
-        <kbd class="search-shortcut" aria-hidden="true">{{ searchShortcutLabel }}</kbd>
+        <input #search type="search" class="search-input" role="combobox" aria-autocomplete="list" aria-controls="quick-search-results"
+          [attr.aria-expanded]="resultsShown()" [attr.aria-activedescendant]="activeIndex() >= 0 ? 'quick-search-' + activeIndex() : null"
+          [placeholder]="'Search users' | translate" [attr.aria-label]="'Search users' | translate" [attr.aria-keyshortcuts]="searchShortcutKeys"
+          [value]="query()" (input)="typed($any($event.target).value)" (focus)="searchFocused.set(true)" (keydown)="searchKey($event)" autocomplete="off">
+        <kbd class="search-shortcut" aria-hidden="true" [title]="'searchShortcut' | translate: { keys: searchShortcutName }">{{ searchShortcutLabel }}</kbd>
         <button type="button" class="icon-button search-close" (click)="closeSearch()" [attr.aria-label]="'Close' | translate">
           <ng-icon name="lucideX" />
         </button>
+        @if (searchFocused() && query().trim()) {
+          <div class="search-results">
+            <div id="quick-search-results" role="listbox" [attr.aria-label]="'Search users' | translate">
+              @for (user of results(); track user.id; let index = $index) {
+                <a class="search-result" role="option" tabindex="-1" [id]="'quick-search-' + index" [attr.aria-selected]="index === activeIndex()"
+                  [class.active]="index === activeIndex()" [routerLink]="['/users', user.id]" (mousedown)="$event.preventDefault()" (click)="finishSearch()">
+                  <ui-avatar [name]="fullName(user)" [src]="user.avatar" size="sm" />
+                  <span class="search-result-text">
+                    <span class="search-result-name">{{ fullName(user) }}</span>
+                    <span class="search-result-detail">{{ user.email }}</span>
+                  </span>
+                  <app-role-badge [roleId]="user.roleId" />
+                </a>
+              }
+              @if (matches().length) {
+                <a class="search-result search-all" role="option" tabindex="-1" [id]="'quick-search-' + results().length" [attr.aria-selected]="activeIndex() === results().length"
+                  [class.active]="activeIndex() === results().length" routerLink="/users" [queryParams]="{ q: query().trim() }" (mousedown)="$event.preventDefault()" (click)="finishSearch()">
+                  {{ 'seeAllResults' | translate: { count: matches().length } }}
+                </a>
+              }
+            </div>
+            @if (!matches().length) {
+              <p class="search-empty">{{ 'No users found' | translate }}</p>
+            }
+          </div>
+        }
+        <span class="ui-sr-only" aria-live="polite">{{ searchFocused() && query().trim() ? ('searchResultCount' | translate: { count: matches().length }) : '' }}</span>
       </form>
     }
 
@@ -59,7 +91,7 @@
                 <p class="activity-empty">{{ 'No activity yet' | translate }}</p>
               }
               <hr uiMenuDivider />
-              <a uiMenuItem routerLink="/activity" [icon]="icons.history">{{ 'View all' | translate }}</a>
+              <a uiMenuItem routerLink="/activity" [icon]="icons.history">{{ 'View all' | translate }}<span class="ui-sr-only"> {{ 'Activity log' | translate }}</span></a>
             </ui-menu>
           </ng-template>
         </li>
@@ -96,6 +128,9 @@
                   <span class="account-name">{{ fullName(me) }}</span>
                   <span class="account-email">{{ me.email }}</span>
                   <app-role-badge class="account-role" [roleId]="me.roleId" />
+                  @if (idleTimeout(); as time) {
+                    <span class="account-idle">{{ 'idleNotice' | translate: { time } }}</span>
+                  }
                 </div>
               </div>
               <hr uiMenuDivider />
@@ -111,7 +146,8 @@
               @if (session.can('activity.view')) {
                 <a uiMenuItem [icon]="icons.activity" routerLink="/activity" [queryParams]="{ user: me.id }">{{ 'My activity' | translate }}</a>
               }
-              <a uiMenuItem [icon]="icons.blocks" routerLink="/ui-kit">{{ 'UI kit' | translate }}</a>
+              <button uiMenuItemCheckbox [icon]="icons.accessible" [checked]="accessibleView.on()" (triggered)="accessibleView.toggle()">{{ 'Accessible view' | translate }}</button>
+              <a uiMenuItem [icon]="icons.blocks" routerLink="/ui-kit">{{ 'Component gallery' | translate }}</a>
               <hr uiMenuDivider />
               <button uiMenuItem tone="danger" [icon]="icons.signOut" (triggered)="signOut()">{{ 'Sign Out' | translate }}</button>
             </ui-menu>
@@ -120,6 +156,6 @@
       }
     </ul>
   </div>
-</nav>
+</header>
 
 <app-activity-dialog [entry]="selectedEntry()" (closed)="selectedEntry.set(null)" />

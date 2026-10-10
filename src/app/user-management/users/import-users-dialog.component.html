@@ -1,5 +1,5 @@
 <ui-dialog [(open)]="open" (openChange)="!$event && chooseAgain()" size="lg" [title]="'Import users' | translate"
-  [description]="'Add many people at once from a spreadsheet saved as CSV.' | translate" [closeLabel]="'Close' | translate">
+  [description]="'Add many people at once from a spreadsheet saved as CSV (comma-separated values).' | translate" [closeLabel]="'Close' | translate">
   @if (result(); as checked) {
     <div class="file-bar">
       <ng-icon [svg]="icons.file" class="file-icon" />

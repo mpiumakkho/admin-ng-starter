@@ -152,8 +152,11 @@ export class UserDetailComponent {
     return !!user && this.store.settings().twoFactorRoleIds.includes(user.roleId);
   });
 
+  /** Everything done by or to this person; the tab counts it all */
   protected readonly activity = computed(() =>
-    this.store.activity().filter(entry => entry.actorId === this.id() || entry.targetId === this.id()).slice(0, 30));
+    this.store.activity().filter(entry => entry.actorId === this.id() || entry.targetId === this.id()));
+  /** The latest ten, shown on the tab; the card links to the whole log for this person */
+  protected readonly recentActivity = computed(() => this.activity().slice(0, 10));
 
   protected readonly tab = signal<Tab>('details');
   protected readonly tabs = computed<UiOption<Tab>[]>(() => {

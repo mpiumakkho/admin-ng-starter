@@ -142,9 +142,12 @@ export class UsersListComponent {
 
   private readonly i18n = translationsChanged();
 
+  /** Counted within the search and the role picked, so each number is what the list shows after a click */
   protected readonly statusOptions = computed<UiOption<UserStatus | 'all'>[]>(() => {
     this.i18n();
-    const users = this.store.users();
+    const query = this.table.query().trim().toLowerCase();
+    const role = this.roleFilter();
+    const users = this.store.users().filter(user => (role === 'all' || user.roleId === role) && (!query || matchesSearch(user, query)));
     return [
       { value: 'all', label: this.translate.instant('All'), count: users.length },
       ...(Object.keys(STATUS_META) as UserStatus[]).map(status => ({
@@ -165,8 +168,7 @@ export class UsersListComponent {
     selectable: user => this.canSelect() && this.session.canManage(user) && !this.session.isSelf(user),
     pageSize: this.pageSizes[0],
     pageSizeKey: 'users-page-size',
-    search: (user, query) =>
-      fullName(user).toLowerCase().includes(query) || user.email.toLowerCase().includes(query) || user.phone.includes(query),
+    search: matchesSearch,
     filter: computed(() => {
       const status = this.status();
       const role = this.roleFilter();
@@ -325,4 +327,9 @@ export class UsersListComponent {
       ],
     };
   };
+}
+
+/** Name, email or phone, as the search box says; the query is already lower case */
+function matchesSearch(user: User, query: string): boolean {
+  return fullName(user).toLowerCase().includes(query) || user.email.toLowerCase().includes(query) || user.phone.includes(query);
 }

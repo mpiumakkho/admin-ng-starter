@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, ViewEncapsulation } from '@angular/core';
+
+import { UiAccessibleViewService } from '../theme/accessible-view.service';
 
 export type UiAvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -6,6 +8,8 @@ const SIZES: Record<UiAvatarSize, number> = { xs: 24, sm: 32, md: 40, lg: 56, xl
 
 // Background colors for initials, picked from the name so a person keeps the same color; each keeps white text at 4.5:1
 const COLORS = ['#4f46e5', '#0369a1', '#047857', '#b45309', '#be185d', '#6d28d9', '#0f766e', '#c2410c'];
+// The same hues, deep enough for 7:1 in the accessible view
+const AAA_COLORS = ['#3730a3', '#0c4a6e', '#064e3b', '#78350f', '#831843', '#4c1d95', '#134e4a', '#7c2d12'];
 
 /**
  * A round photo, or the person's initials on a color when there is no photo (or it fails to load).
@@ -71,11 +75,14 @@ export class UiAvatar {
     return letters.toUpperCase();
   });
 
+  private readonly accessibleView = inject(UiAccessibleViewService);
+
   protected readonly color = computed(() => {
     let hash = 0;
     for (const char of this.name()) {
       hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
     }
-    return COLORS[hash % COLORS.length];
+    const colors = this.accessibleView.on() ? AAA_COLORS : COLORS;
+    return colors[hash % colors.length];
   });
 }

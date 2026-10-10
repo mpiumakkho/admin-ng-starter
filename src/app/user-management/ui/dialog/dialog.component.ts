@@ -35,7 +35,7 @@ export class UiDialogFooter {}
   selector: 'ui-dialog',
   imports: [NgIcon, UiButton],
   template: `
-    <dialog #dialog class="ui-dialog" [class]="'ui-dialog ui-dialog-' + size()" [attr.aria-labelledby]="titleId" (close)="open.set(false)" (click)="closeOnBackdrop($event)">
+    <dialog #dialog class="ui-dialog" [class]="'ui-dialog ui-dialog-' + size()" [attr.aria-labelledby]="titleId" (cancel)="cancel($event)" (close)="closed()" (click)="closeOnBackdrop($event)">
       <div class="ui-dialog-panel">
         <header class="ui-dialog-head">
           <div>
@@ -44,9 +44,11 @@ export class UiDialogFooter {}
               <p class="ui-dialog-description">{{ description() }}</p>
             }
           </div>
-          <button uiButton variant="ghost" size="sm" iconOnly type="button" [attr.aria-label]="closeLabel()" (click)="open.set(false)">
-            <ng-icon [svg]="closeIcon" />
-          </button>
+          @if (dismissible()) {
+            <button uiButton variant="ghost" size="sm" iconOnly type="button" [attr.aria-label]="closeLabel()" (click)="open.set(false)">
+              <ng-icon [svg]="closeIcon" />
+            </button>
+          }
         </header>
         <div class="ui-dialog-body">
           <ng-content />
@@ -71,7 +73,10 @@ export class UiDialog {
   readonly description = input('');
   readonly size = input<'sm' | 'md' | 'lg'>('md');
   readonly closeLabel = input('Close');
-  /** Close when the dimmed area around the dialog is clicked */
+  /**
+   * Close with Escape, the close button or a click on the dimmed area around the dialog. Without it, only the
+   * dialog's own buttons close it, for a question that must be answered.
+   */
   readonly dismissible = input(true, { transform: booleanAttribute });
 
   protected readonly titleId = `ui-dialog-title-${UiDialog.nextId++}`;
@@ -88,6 +93,21 @@ export class UiDialog {
         element.close();
       }
     });
+  }
+
+  protected cancel(event: Event) {
+    if (!this.dismissible()) {
+      event.preventDefault();
+    }
+  }
+
+  protected closed() {
+    // The browser can still close a modal on a second Escape; one that must be answered opens again
+    if (!this.dismissible() && this.open()) {
+      this.dialog().nativeElement.showModal();
+    } else {
+      this.open.set(false);
+    }
   }
 
   protected closeOnBackdrop(event: MouseEvent) {

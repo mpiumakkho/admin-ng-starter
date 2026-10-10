@@ -57,6 +57,9 @@ const ROLE_CARDS_UP_TO = 6;
   ],
   templateUrl: './user-form.component.html',
   styleUrl: './user-form.component.scss',
+  // Fills the window on desktop, the buttons at the bottom as on the pages with tables; the fields scroll inside the
+  // card when they are taller than the window
+  host: { class: 'page-fit' },
 })
 export class UserFormComponent implements OnInit {
   private readonly store = inject(AdminStore);

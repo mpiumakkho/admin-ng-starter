@@ -102,6 +102,8 @@ People see their own Security tab; with `users.edit`, also that of the people th
 
 `AdminStore` loads its data again whenever `AdminApi.watch()` reports a change. With the sample data, that happens when another tab of the browser changes something, so two windows stay in step, and a session ended in one is noticed in the other. With `HttpAdminApi`, pass `liveUpdates: true` once the server streams change events (see [API.md](API.md#live-updates)).
 
+In the accessible view (`UiAccessibleViewService`) the page never changes by itself: `AdminStore.holdChanges` is on, so a change made elsewhere sets `changesWaiting` and waits for `showChanges()`, and a session that ends sets `Session.paused` instead of leaving for the sign-in page, for signing in again over the page with `Session.resume()`. Put `<app-session-notices />` above the page content and `<app-reauth-dialog />` in the app shell (see `src/app/app.component.html`); they show these to the person.
+
 Some rules go beyond single permissions, so nobody can raise their own access or lock everyone out: nobody gives out a role or permission they do not have, manages a person or edits a role that allows more than their own, or changes their own role, status or role permissions. `data/access-rules.ts` has them, and `LocalAdminApi` enforces them as a server would, taking only the fields each request may set.
 
 ## Settings

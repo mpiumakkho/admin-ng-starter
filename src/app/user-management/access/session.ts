@@ -6,7 +6,8 @@ import { canManageRole, holdsAll } from '../data/access-rules';
 import { AdminApi } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
 import { Permission, Role, User } from '../data/models';
-import { UiToastService } from '../ui';
+import { idleTimeoutLabel } from '../shared/formatting';
+import { UiAccessibleViewService, UiToastService } from '../ui';
 
 /** The app's sign-in page, where guards send people who are not signed in. Set by provideUserManagement(). */
 export const SIGN_IN_PATH = new InjectionToken<string>('SIGN_IN_PATH', { factory: () => '/login' });
@@ -45,6 +46,7 @@ export class Session {
   private readonly document = inject(DOCUMENT);
   private readonly toast = inject(UiToastService);
   private readonly translate = inject(TranslateService, { optional: true });
+  private readonly accessibleView = inject(UiAccessibleViewService);
 
   /** The account the server signed in. Once the data loads, the store's copy takes over, so edits show at once. */
   private readonly account = signal<User | null>(null);
@@ -62,6 +64,14 @@ export class Session {
   readonly permissions = computed<ReadonlySet<Permission>>(() => new Set(this.role()?.permissions ?? []));
   /** The role requires two-step sign-in and it is off: only the setup page opens (API.md, "Roles that must use…") */
   readonly twoFactorSetupRequired = computed(() => this.signedIn() && this.store.twoFactorSetupRequired());
+  /**
+   * In the accessible view, why the session ended while the page stays as it was, for signing in again over it
+   * (ReauthDialog, WCAG 2.2.5) rather than being taken to the sign-in page (3.2.5). Null while signed in.
+   */
+  readonly paused = signal<SessionEndReason | null>(null);
+
+  /** "Keep me signed in" at the last sign-in, for signing in again the same way */
+  private remember = false;
 
   /** When the signed-in user last used the app in this tab, and when that was last shared with other tabs */
   private lastActive = Date.now();
@@ -70,15 +80,25 @@ export class Session {
   constructor() {
     // The server said the session ended (signed out elsewhere, or the account was suspended): sign in again
     effect(() => {
-      if (this.store.sessionEnded() && untracked(this.signedIn)) {
+      if (this.store.sessionEnded() && untracked(this.signedIn) && !untracked(this.paused)) {
         untracked(() => this.expire('ended'));
       }
     });
 
-    // The settings came to require two-step sign-in for this role while the app was open: set it up first
+    // The settings came to require two-step sign-in for this role while the app was open: set it up first. The
+    // accessible view says so instead (NoticesComponent), and the next page opened is the setup page.
     effect(() => {
-      if (this.twoFactorSetupRequired()) {
+      if (this.twoFactorSetupRequired() && !untracked(this.accessibleView.on)) {
         untracked(() => this.router.navigateByUrl(TWO_FACTOR_SETUP_PATH));
+      }
+    });
+
+    // The accessible view holds changes made elsewhere until asked for; turned off, any that wait show at once
+    effect(() => {
+      const hold = this.accessibleView.on();
+      this.store.holdChanges.set(hold);
+      if (!hold && untracked(this.store.changesWaiting)) {
+        untracked(() => this.store.showChanges());
       }
     });
 
@@ -86,11 +106,27 @@ export class Session {
     effect(onCleanup => {
       const minutes = this.store.settings().sessionTimeoutMinutes;
       const view = this.document.defaultView;
-      if (!this.signedIn() || !minutes || !view) {
+      if (!this.signedIn() || this.paused() || !minutes || !view) {
         return;
       }
       this.markActive();
-      const touch = () => this.markActive();
+      // Once per sign-in: how long someone can leave the app before it signs them out (WCAG 2.2.6); the account
+      // menu says so too
+      const notice = `idle-notice:${this.userId()}:${minutes}`;
+      const translate = this.translate;
+      if (translate && !readSession(notice)) {
+        writeSession(notice);
+        this.toast.show(translate.instant('idleNotice', { time: idleTimeoutLabel(translate, minutes) }), 'info', 8000);
+      }
+      /** The warning that signing out is a minute away, taken back once the app is used again */
+      let warning: number | undefined;
+      const touch = () => {
+        this.markActive();
+        if (warning !== undefined) {
+          this.toast.dismiss(warning);
+          warning = undefined;
+        }
+      };
       ACTIVITY_EVENTS.forEach(type => this.document.addEventListener(type, touch, { capture: true, passive: true }));
       let warned = false;
       const timer = view.setInterval(() => {
@@ -102,7 +138,7 @@ export class Session {
           if (!warned) {
             warned = true;
             const message = 'You will be signed out in a minute. Click anywhere to stay signed in.';
-            this.toast.show(this.translate?.instant(message) ?? message, 'info', IDLE_WARNING_MS);
+            warning = this.toast.show(this.translate?.instant(message) ?? message, 'info', IDLE_WARNING_MS);
           }
         } else {
           warned = false;
@@ -110,6 +146,9 @@ export class Session {
       }, IDLE_CHECK_MS);
       onCleanup(() => {
         view.clearInterval(timer);
+        if (warning !== undefined) {
+          this.toast.dismiss(warning);
+        }
         ACTIVITY_EVENTS.forEach(type => this.document.removeEventListener(type, touch, { capture: true }));
       });
     });
@@ -180,9 +219,33 @@ export class Session {
   /** With two-step sign-in on, the first try fails with two_factor_required; try again with the code */
   async signIn(email: string, password: string, remember: boolean, code?: string): Promise<User> {
     const user = await this.api.signIn(email, password, remember, code);
+    this.remember = remember;
     this.account.set(user);
     await this.store.load();
     return user;
+  }
+
+  /**
+   * Signs the same person in again after the session ended in the accessible view. The page and what was typed on it
+   * stay; the data is not loaded again until they ask (AdminStore.showChanges), so nothing on it changes by itself.
+   */
+  async resume(password: string, code?: string): Promise<void> {
+    const email = this.user()?.email;
+    if (!email || !this.paused()) {
+      return;
+    }
+    const user = await this.api.signIn(email, password, this.remember, code);
+    this.account.set(user);
+    this.paused.set(null);
+    this.store.resume();
+  }
+
+  /** Leaves the page the session ended on for the sign-in page, as the usual view does at once */
+  leave(): void {
+    const reason = this.paused() ?? 'ended';
+    this.paused.set(null);
+    this.end();
+    this.router.navigate([this.signInPath], { queryParams: { expired: reason } });
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -234,7 +297,8 @@ export class Session {
   }
 
   // A session that ends (idle, signed out elsewhere, suspended) starts over at the first page after signing in
-  // again, as a first sign-in does; only a link opened while signed out leads back to that page
+  // again, as a first sign-in does; only a link opened while signed out leads back to that page. In the accessible
+  // view it waits on the same page instead (paused)
 
   private async signOutIdle() {
     try {
@@ -242,11 +306,19 @@ export class Session {
     } catch {
       // Already signed out on the server
     }
+    if (this.accessibleView.on()) {
+      this.paused.set('idle');
+      return;
+    }
     this.end();
     this.router.navigate([this.signInPath], { queryParams: { expired: 'idle' satisfies SessionEndReason } });
   }
 
   private expire(reason: SessionEndReason) {
+    if (this.accessibleView.on()) {
+      this.paused.set(reason);
+      return;
+    }
     this.end();
     this.router.navigate([this.signInPath], { queryParams: { expired: reason } });
   }
@@ -266,5 +338,21 @@ function writeNumber(key: string, value: number) {
     localStorage.setItem(key, String(value));
   } catch {
     // Not shared with other tabs
+  }
+}
+
+function readSession(key: string): boolean {
+  try {
+    return sessionStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeSession(key: string): void {
+  try {
+    sessionStorage.setItem(key, '1');
+  } catch {
+    // Storage unavailable: the notice may show again after a reload
   }
 }

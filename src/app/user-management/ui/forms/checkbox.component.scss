@@ -49,6 +49,7 @@
 
   ng-icon {
     --ng-icon__stroke-width: 3;
+    visibility: hidden;
   }
 }
 
@@ -61,6 +62,10 @@
   border-color: var(--ui-primary);
   background: var(--ui-primary);
   color: var(--ui-on-primary);
+
+  ng-icon {
+    visibility: visible;
+  }
 }
 
 .ui-check-input:focus-visible + .ui-check-box {

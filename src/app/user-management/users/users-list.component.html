@@ -21,7 +21,7 @@
         <option [value]="role.id" [selected]="roleFilter() === role.id">{{ role.name }}</option>
       }
     </select>
-    <ui-filter-chips class="toolbar-chips" [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" [ariaLabel]="'Status' | translate" />
+    <ui-filter-chips class="toolbar-chips" scroll [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" [ariaLabel]="'Status' | translate" />
   </div>
 
   @if (table.selectedIds().size) {
@@ -84,7 +84,7 @@
                   <ui-menu>
                     <button uiMenuItem [icon]="icons.view" (triggered)="open(user)">{{ 'View profile' | translate }}</button>
                     @if (session.canEditProfile(user)) {
-                      <a uiMenuItem [icon]="icons.edit" [routerLink]="['/users', user.id, 'edit']">{{ 'Edit' | translate }}</a>
+                      <a uiMenuItem [icon]="icons.edit" [routerLink]="['/users', user.id, 'edit']">{{ 'Edit' | translate }}<span class="ui-sr-only"> {{ fullName(user) }}</span></a>
                     }
                     <!-- Status and password reset are for other people; your own password is in the account menu -->
                     @if (canEdit() && manages(user) && !session.isSelf(user)) {

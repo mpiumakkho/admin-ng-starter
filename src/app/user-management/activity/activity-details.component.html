@@ -27,14 +27,14 @@
     <ui-badge [tone]="meta().tone">{{ action() }}</ui-badge>
   </ui-detail-item>
   <ui-detail-item [label]="'Type' | translate">{{ kind() | translate }}</ui-detail-item>
-  <ui-detail-item [label]="'IP address' | translate"><code class="mono">{{ entry().ip }}</code></ui-detail-item>
+  <ui-detail-item [label]="'IP address' | translate" [labelTitle]="'abbr.ip' | translate"><code class="mono">{{ entry().ip }}</code></ui-detail-item>
   <ui-detail-item [label]="'Device' | translate">
     <span class="device"><ng-icon [svg]="deviceIcon()" /> {{ entry().browser }} · {{ entry().os }}</span>
   </ui-detail-item>
-  <ui-detail-item [label]="'Event ID' | translate">
+  <ui-detail-item [label]="'Event reference' | translate">
     <span class="event-id">
       <code class="mono">{{ entry().id }}</code>
-      <button uiButton variant="ghost" size="sm" iconOnly type="button" [attr.aria-label]="'Copy event ID' | translate" [title]="'Copy event ID' | translate" (click)="copyId()">
+      <button uiButton variant="ghost" size="sm" iconOnly type="button" [attr.aria-label]="'Copy event reference' | translate" [title]="'Copy event reference' | translate" (click)="copyId()">
         <ng-icon [svg]="icons.copy" />
       </button>
     </span>

@@ -8,7 +8,7 @@ import { createMockData, DEMO_ACCOUNTS } from '../data/mock-data';
 import { totp } from '../data/totp';
 import { UserDraft } from '../data/models';
 import { canEditUser, canViewUser, requirePermission, signedIn, signedOut } from './guards';
-import { UiToastService } from '../ui';
+import { UiAccessibleViewService, UiToastService } from '../ui';
 import { Session } from './session';
 
 const email = (roleId: string) => DEMO_ACCOUNTS.find(account => account.roleId === roleId)!.email;
@@ -296,6 +296,63 @@ describe('Session and permissions', () => {
       localStorage.setItem('admin-data-v5', JSON.stringify(data));
       window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v5' }));
       await vi.waitFor(() => expect(session.signedIn()).toBe(false), { timeout: 3000 });
+    });
+  });
+
+  describe('the accessible view', () => {
+    beforeEach(() => {
+      TestBed.inject(UiAccessibleViewService).set(true);
+      TestBed.tick();
+    });
+    afterEach(() => document.body.classList.remove('ui-aaa'));
+
+    it('keeps changes made in another tab waiting until asked for', async () => {
+      await signInAs('admin');
+      const revision = store.revision();
+      const someone = userWithRole('viewer');
+
+      const data = JSON.parse(localStorage.getItem('admin-data-v5')!);
+      data.users.find((user: { id: string }) => user.id === someone.id).department = 'Elsewhere';
+      localStorage.setItem('admin-data-v5', JSON.stringify(data));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v5' }));
+      await vi.waitFor(() => expect(store.changesWaiting()).toBe(true), { timeout: 3000 });
+      expect(store.revision()).toBe(revision);
+      expect(store.usersById().get(someone.id)?.department).toBe(someone.department);
+
+      await store.showChanges();
+      expect(store.changesWaiting()).toBe(false);
+      expect(store.usersById().get(someone.id)?.department).toBe('Elsewhere');
+    });
+
+    it('keeps the page when the session ends, for signing in again over it', async () => {
+      await signInAs('admin');
+      sessionStorage.clear();
+
+      await expect(store.resetPassword(userWithRole('viewer').id)).rejects.toEqual(new AdminApiError('unauthenticated'));
+      TestBed.tick();
+      expect(session.paused()).toBe('ended');
+      expect(session.signedIn()).toBe(true);
+      expect(store.users().length).toBeGreaterThan(0);
+
+      await expect(session.resume('123')).rejects.toEqual(new AdminApiError('invalid_credentials'));
+      await session.resume('any-password');
+      expect(session.paused()).toBe(null);
+      expect(store.sessionEnded()).toBe(false);
+      await expect(store.resetPassword(userWithRole('viewer').id)).resolves.toBeUndefined();
+    });
+
+    it('keeps messages until they are dismissed', () => {
+      vi.useFakeTimers();
+      try {
+        const toasts = TestBed.inject(UiToastService);
+        const id = toasts.show('Saved');
+        vi.advanceTimersByTime(60_000);
+        expect(toasts.toasts().map(toast => toast.message)).toEqual(['Saved']);
+        toasts.dismiss(id);
+        expect(toasts.toasts()).toEqual([]);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

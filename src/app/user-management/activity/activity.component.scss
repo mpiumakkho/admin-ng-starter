@@ -2,13 +2,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: .75rem;
+  gap: .75rem .5rem;
   padding: .75rem 1.5rem;
   border-bottom: 1px solid var(--ui-border);
 }
 
+// Narrow enough that the search, both filters and the type chips fit one row on a wide screen
 .toolbar-search {
-  flex: 0 1 280px;
+  flex: 0 1 236px;
+  min-width: 160px;
 }
 
 // The person the log is narrowed to
@@ -69,12 +71,19 @@
   }
 }
 
+// As wide as the longest option, never narrower
 .toolbar-select {
+  flex-shrink: 0;
   width: auto;
-  min-width: 150px;
+}
+
+// Thai "any time" renders wider than the browser measures it, and would run into the arrow
+.toolbar-period {
+  min-width: 8.5rem;
 }
 
 .toolbar-chips {
+  min-width: 0;
   margin-inline-start: auto;
 }
 
@@ -190,7 +199,9 @@
     min-width: 0;
   }
 
+  // One row that scrolls sideways
   .toolbar-chips {
+    flex: 1 1 100%;
     margin-inline-start: 0;
   }
 }

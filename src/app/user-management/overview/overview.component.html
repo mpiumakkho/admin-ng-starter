@@ -37,7 +37,7 @@
 
   <ui-card class="span-4" [title]="'Users by role' | translate" [description]="'Who can do what' | translate">
     @if (session.can('roles.view')) {
-      <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/roles">{{ (session.can('roles.manage') ? 'Manage' : 'View all') | translate }} <ng-icon [svg]="icons.arrow" /></a>
+      <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/roles">{{ (session.can('roles.manage') ? 'Manage' : 'View all') | translate }}<span class="ui-sr-only"> {{ 'Roles & permissions' | translate }}</span> <ng-icon [svg]="icons.arrow" /></a>
     }
     <div class="role-body">
       <div class="role-layout">
@@ -64,7 +64,7 @@
   <!-- Without activity.view the log stays empty, so this card makes way for the next one -->
   @if (session.can('activity.view')) {
     <ui-card class="span-7" [title]="'Recent activity' | translate" [description]="'Latest changes made by admins' | translate">
-      <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/activity">{{ 'View all' | translate }} <ng-icon [svg]="icons.arrow" /></a>
+      <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/activity">{{ 'View all' | translate }}<span class="ui-sr-only"> {{ 'Activity log' | translate }}</span> <ng-icon [svg]="icons.arrow" /></a>
       @if (recentActivity().length) {
         <ui-timeline>
           @for (entry of recentActivity(); track entry.id) {
@@ -92,7 +92,7 @@
               <span class="attention-sub">{{ 'inviteExpiredHint' | translate: { days: store.settings().inviteExpiryDays } }}</span>
             </div>
             @if (staleInvites().length > 3) {
-              <a uiButton variant="ghost" size="sm" routerLink="/users" [queryParams]="{ status: 'invited' }">{{ 'View all' | translate }}</a>
+              <a uiButton variant="ghost" size="sm" routerLink="/users" [queryParams]="{ status: 'invited' }">{{ 'View all' | translate }}<span class="ui-sr-only"> {{ 'Pending invitations' | translate }}</span></a>
             }
           </li>
           @for (item of staleInvites().slice(0, 3); track item.user.id) {
@@ -113,7 +113,7 @@
               <span class="attention-title">{{ 'suspendedAccounts' | translate: { count: suspended() } }}</span>
               <span class="attention-sub">{{ 'Check whether they still need to be suspended.' | translate }}</span>
             </div>
-            <a uiButton variant="ghost" size="sm" routerLink="/users" [queryParams]="{ status: 'suspended' }">{{ 'See list' | translate }}</a>
+            <a uiButton variant="ghost" size="sm" routerLink="/users" [queryParams]="{ status: 'suspended' }">{{ 'See list' | translate }}<span class="ui-sr-only"> {{ 'suspendedAccounts' | translate: { count: suspended() } }}</span></a>
           </li>
         }
       </ul>
@@ -135,7 +135,7 @@
   </ui-card>
 
   <ui-card class="span-5 lower" [title]="'Recently joined' | translate" [description]="'The newest accounts' | translate" flush>
-    <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/users">{{ 'View all' | translate }} <ng-icon [svg]="icons.arrow" /></a>
+    <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/users">{{ 'View all' | translate }}<span class="ui-sr-only"> {{ 'Users' | translate }}</span> <ng-icon [svg]="icons.arrow" /></a>
     @if (recentlyJoined().length) {
       <ul class="person-list">
         @for (user of recentlyJoined(); track user.id) {

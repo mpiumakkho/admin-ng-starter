@@ -32,6 +32,13 @@ export class AdminStore {
   readonly twoFactorSetupRequired = signal(false);
   /** Goes up each time the data is loaded again, so a page can reload what it fetched itself */
   readonly revision = signal(0);
+  /**
+   * Changes made elsewhere wait for showChanges() rather than appearing by themselves, so the page never changes
+   * under someone (the accessible view, WCAG 2.2.4). Changes the person makes here show at once either way.
+   */
+  readonly holdChanges = signal(false);
+  /** Changes made elsewhere are waiting to be shown, while holdChanges is on */
+  readonly changesWaiting = signal(false);
 
   private stopWatching?: () => void;
   private refreshTimer?: ReturnType<typeof setTimeout>;
@@ -73,26 +80,67 @@ export class AdminStore {
     this.activity.set(activity);
     this.settings.set(settings);
     this.sessionEnded.set(false);
+    this.changesWaiting.set(false);
     this.loaded.set(true);
     this.revision.update(revision => revision + 1);
-    // Changes made elsewhere show up without a reload
-    this.stopWatching?.();
-    this.stopWatching = this.api.watch(() => {
-      clearTimeout(this.refreshTimer);
-      this.refreshTimer = setTimeout(() => this.refresh(), REFRESH_DELAY_MS);
-    });
+    this.watch();
+  }
+
+  /** Signed in again on the same page (Session.resume): what changed meanwhile shows, or waits (holdChanges) */
+  resume(): void {
+    this.sessionEnded.set(false);
+    this.update();
+    this.watch();
+  }
+
+  /** Shows the changes that were waiting */
+  async showChanges(): Promise<void> {
+    this.changesWaiting.set(false);
+    await this.refresh();
   }
 
   /** Loads everything again, quietly; a session that ended elsewhere is noticed here */
   async refresh(): Promise<void> {
     try {
-      const [users, roles, activity, settings] = await this.call(() =>
-        Promise.all([this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings()]));
+      const [users, roles, activity, settings] = await this.fetchAll();
       this.users.set(users);
       this.roles.set(roles);
       this.activity.set(activity);
       this.settings.set(settings);
       this.revision.update(revision => revision + 1);
+    } catch {
+      // Offline for a moment: the next change tries again
+    }
+  }
+
+  private fetchAll() {
+    return this.call(() =>
+      Promise.all([this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings()]));
+  }
+
+  /** Changes made elsewhere show up without a reload, or wait to be asked for (holdChanges) */
+  private watch() {
+    this.stopWatching?.();
+    this.stopWatching = this.api.watch(() => {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = setTimeout(() => this.update(), REFRESH_DELAY_MS);
+    });
+  }
+
+  /**
+   * Loads again, or, while holding changes, only looks: the data stays, and the notice shows when something differs.
+   * Either way a session that ended elsewhere is noticed.
+   */
+  private async update() {
+    if (!this.holdChanges()) {
+      return this.refresh();
+    }
+    try {
+      const latest = await this.fetchAll();
+      const shown = [this.users(), this.roles(), this.activity(), this.settings()];
+      if (JSON.stringify(latest) !== JSON.stringify(shown)) {
+        this.changesWaiting.set(true);
+      }
     } catch {
       // Offline for a moment: the next change tries again
     }
@@ -109,6 +157,7 @@ export class AdminStore {
     this.settings.set(DEFAULT_SETTINGS);
     this.loaded.set(false);
     this.sessionEnded.set(false);
+    this.changesWaiting.set(false);
     this.twoFactorSetupRequired.set(false);
   }
 

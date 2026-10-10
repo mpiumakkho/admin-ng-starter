@@ -162,7 +162,11 @@ export class UiDetailList {
 @Component({
   selector: 'ui-detail-item',
   template: `
-    <span class="ui-detail-label">{{ label() }}</span>
+    @if (labelTitle()) {
+      <abbr class="ui-detail-label" [title]="labelTitle()">{{ label() }}</abbr>
+    } @else {
+      <span class="ui-detail-label">{{ label() }}</span>
+    }
     <span class="ui-detail-value"><ng-content /></span>
   `,
   styles: `
@@ -191,6 +195,8 @@ export class UiDetailList {
 })
 export class UiDetailItem {
   readonly label = input.required<string>();
+  /** What an abbreviation in the label stands for, shown on hover and read by screen readers (WCAG 3.1.4) */
+  readonly labelTitle = input('');
 }
 
 /**

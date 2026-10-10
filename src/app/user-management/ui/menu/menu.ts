@@ -1,4 +1,4 @@
-import { CdkMenu, CdkMenuItem, CdkMenuItemRadio, CdkMenuTrigger } from '@angular/cdk/menu';
+import { CdkMenu, CdkMenuItem, CdkMenuItemCheckbox, CdkMenuItemRadio, CdkMenuTrigger } from '@angular/cdk/menu';
 import { ChangeDetectionStrategy, Component, Directive, input, ViewEncapsulation } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { lucideCheck } from '@ng-icons/lucide';
@@ -175,6 +175,28 @@ export class UiMenuItem {
   host: { class: 'ui-menu-item' },
 })
 export class UiMenuItemRadio {
+  protected readonly checkIcon = lucideCheck;
+}
+
+/** A menu item that is on or off, such as a setting; on, it shows a check mark */
+@Component({
+  selector: 'button[uiMenuItemCheckbox]',
+  imports: [NgIcon],
+  template: `
+    @if (icon(); as svg) {
+      <ng-icon [svg]="svg" />
+    }
+    <ng-content />
+    <ng-icon class="ui-menu-item-check" [svg]="checkIcon" />
+  `,
+  encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  hostDirectives: [{ directive: CdkMenuItemCheckbox, inputs: ['cdkMenuItemChecked: checked'], outputs: ['cdkMenuItemTriggered: triggered'] }],
+  host: { class: 'ui-menu-item' },
+})
+export class UiMenuItemCheckbox {
+  /** SVG markup, for example a Lucide icon */
+  readonly icon = input<string>();
   protected readonly checkIcon = lucideCheck;
 }
 

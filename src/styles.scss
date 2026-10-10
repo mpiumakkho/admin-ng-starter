@@ -15,6 +15,8 @@
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  // Whatever gets focus scrolls clear of the navbar fixed along the top (64 pixels), never under it (WCAG 2.4.12)
+  scroll-padding-top: calc(64px + 1rem);
 }
 
 body {
@@ -205,7 +207,7 @@ textarea {
 /* Focus: always visible from the keyboard, quiet for the mouse. Text fields draw their own ring. */
 
 :focus-visible:not(input, textarea, select) {
-  outline: 2px solid color-mix(in srgb, var(--ui-primary) 55%, transparent) !important;
+  outline: 2px solid var(--ui-focus) !important;
   outline-offset: 2px;
 }
 
@@ -248,7 +250,100 @@ textarea:focus,
   }
 }
 
-// Shown by index.html until the app starts
+// Shown by index.html until the app starts: the app's frame for someone signed in last time (body.booting-signed-in),
+// a spinner for everyone else. The sizes match the navbar and sidebar in app.component.scss.
+.boot-frame {
+  display: none;
+}
+
+body.booting-signed-in {
+  .main-spinner-wrapper {
+    display: none;
+  }
+
+  .boot-frame {
+    position: fixed;
+    inset: 0;
+    display: block;
+    background: var(--ui-bg);
+  }
+}
+
+.boot-navbar {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  height: 64px;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+}
+
+.boot-sidebar {
+  position: absolute;
+  inset: 64px auto 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 256px;
+  padding: 1.25rem 1rem;
+  border-inline-end: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+}
+
+.boot-main {
+  position: absolute;
+  inset: 64px 0 0 256px;
+  display: flex;
+  flex-direction: column;
+  gap: .625rem;
+  padding: 2.25rem 2rem;
+}
+
+.boot-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+}
+
+.boot-block {
+  display: block;
+  height: .875rem;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-border);
+  animation: boot-pulse 1s ease-in-out infinite alternate;
+}
+
+.boot-logo { width: 7rem; height: 1.5rem; }
+.boot-search { width: min(26rem, 40vw); height: 2.25rem; }
+.boot-avatar { width: 2.25rem; height: 2.25rem; margin-inline-start: auto; border-radius: 50%; }
+.boot-title { width: 14rem; height: 1.5rem; }
+.boot-subtitle { width: 20rem; max-width: 100%; }
+
+@keyframes boot-pulse {
+  to {
+    opacity: .55;
+  }
+}
+
+@media (max-width: 991px) {
+  .boot-sidebar {
+    display: none;
+  }
+
+  .boot-main {
+    inset-inline-start: 0;
+    padding: 1.5rem 1rem;
+  }
+}
+
 .main-spinner-wrapper {
   display: flex;
   align-items: center;
@@ -269,5 +364,86 @@ textarea:focus,
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* The accessible view (ui-aaa on <body>, see ui.scss): the app's own frame, at 44-pixel targets and 7:1 text */
+
+body.ui-aaa {
+  // The show-password button beside the field rather than over its end, so it covers none of the field (2.4.12)
+  .input-icon:has(> .input-action) {
+    display: flex;
+    gap: .5rem;
+
+    .ui-input {
+      flex: 1;
+      min-width: 0;
+      padding-inline-end: .875rem;
+    }
+
+    .input-action {
+      position: static;
+      flex-shrink: 0;
+      border: 1px solid var(--ui-border-strong);
+      transform: none;
+    }
+  }
+
+  .icon-button,
+  .user-button,
+  .navbar-brand,
+  #sidebar .nav-link:not(.nav-category .nav-link),
+  .search-input,
+  .auth-link,
+  .demo-account,
+  .input-action,
+  .ui-crumbs a,
+  .target-link,
+  .person-link,
+  .timeline-link,
+  .subject-clear,
+  .search-result,
+  .swatch {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .auth-link,
+  .ui-crumbs a,
+  .target-link,
+  .person-link {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  // White on the sign-in and error pages' indigo, made deep enough for 7:1 everywhere
+  app-auth-aside {
+    background: linear-gradient(160deg, #312e81, #1e1b4b) !important;
+  }
+}
+
+// Forced colors: the current page in the menu, the role being edited, the result picked with the arrow keys and the
+// chosen color are marked with the system highlight, as ui.scss does for its own parts. The colors to choose from keep
+// their own color; it is what they show.
+@media (forced-colors: active) {
+  #sidebar .nav-item.active:not(.nav-group):not(.navbar-brand-mini-wrapper) > .nav-link,
+  #sidebar .sub-menu .nav-link.active,
+  .role-item.active,
+  .search-result.active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  #sidebar .sub-menu .nav-link.active::before {
+    display: none;
+  }
+
+  .swatch {
+    forced-color-adjust: none;
+
+    &.selected {
+      outline: 3px solid Highlight;
+      outline-offset: 2px;
+    }
   }
 }

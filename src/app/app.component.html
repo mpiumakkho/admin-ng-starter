@@ -7,6 +7,13 @@
   }
   <div class="main-panel">
     <main class="content-wrapper">
+      <!-- The accessible view keeps messages until dismissed, so they sit above the page instead of covering it -->
+      @if (accessibleView.on()) {
+        <ui-toaster inline [dismissLabel]="'Dismiss' | translate" />
+      }
+      @if (!isFullPage()) {
+        <app-session-notices />
+      }
       <!-- The spinner covers the page while the next one loads. The page stays, so it can still ask about unsaved changes. -->
       @if (isLoading()) {
         <app-spinner />
@@ -20,4 +27,11 @@
     }
   </div>
 </div>
-<ui-toaster />
+<!-- On the pages without the navbar, the switch to the accessible view; signed in, it is in the account menu -->
+@if (isFullPage()) {
+  <app-accessible-view-switch />
+}
+@if (!accessibleView.on()) {
+  <ui-toaster [dismissLabel]="'Dismiss' | translate" />
+}
+<app-reauth-dialog />

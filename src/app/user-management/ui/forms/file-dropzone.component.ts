@@ -65,6 +65,11 @@ import { lucideCloudUpload, lucideX } from '@ng-icons/lucide';
         border-color: var(--ui-primary);
         background: var(--ui-primary-soft);
       }
+
+      // The file input inside is hidden, so the zone shows where the keyboard is
+      &:focus-within {
+        box-shadow: var(--ui-ring);
+      }
     }
 
     .ui-drop-icon {

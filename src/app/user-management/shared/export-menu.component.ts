@@ -26,7 +26,7 @@ import { toXlsx } from './xlsx';
       <ui-menu [attr.aria-label]="'Export' | translate">
         <button uiMenuItem [icon]="icons.copy" (triggered)="copy()">{{ 'Copy' | translate }}</button>
         <button uiMenuItem [icon]="icons.excel" (triggered)="excel()">Excel</button>
-        <button uiMenuItem [icon]="icons.csv" (triggered)="csv()">CSV</button>
+        <button uiMenuItem [icon]="icons.csv" (triggered)="csv()"><abbr [title]="'abbr.csv' | translate">CSV</abbr></button>
         <button uiMenuItem [icon]="icons.print" (triggered)="print()">{{ 'Print' | translate }}</button>
       </ui-menu>
     </ng-template>

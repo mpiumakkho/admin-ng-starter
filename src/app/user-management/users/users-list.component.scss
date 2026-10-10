@@ -17,6 +17,7 @@
 }
 
 .toolbar-chips {
+  min-width: 0;
   margin-inline-start: auto;
 }
 
@@ -53,12 +54,18 @@
     padding: .75rem 1rem;
   }
 
-  .toolbar-search,
-  .toolbar-role {
+  // The search takes a row; the role and the status chips share the next, the chips scrolling sideways
+  .toolbar-search {
     flex: 1 1 100%;
   }
 
+  .toolbar-role {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
   .toolbar-chips {
+    flex: 1 1 0;
     margin-inline-start: 0;
   }
 

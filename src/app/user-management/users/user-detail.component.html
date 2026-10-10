@@ -60,7 +60,7 @@
   @switch (tab()) {
     @case ('details') {
       <ui-card [title]="'Details' | translate">
-        <ui-detail-list [columns]="2">
+        <ui-detail-list class="details" [columns]="2">
           <ui-detail-item [label]="'Full name' | translate">{{ name() }}</ui-detail-item>
           <ui-detail-item [label]="'Email' | translate">{{ user.email }}</ui-detail-item>
           <ui-detail-item [label]="'Phone' | translate">{{ user.phone || '—' }}</ui-detail-item>
@@ -72,7 +72,7 @@
           <ui-detail-item [label]="'Two-step sign-in' | translate">
             <ui-badge [tone]="user.twoFactor ? 'success' : 'neutral'">{{ (user.twoFactor ? 'On' : 'Off') | translate }}</ui-badge>
           </ui-detail-item>
-          <ui-detail-item [label]="'User ID' | translate"><code class="code">{{ user.id }}</code></ui-detail-item>
+          <ui-detail-item [label]="'User reference' | translate"><code class="code">{{ user.id }}</code></ui-detail-item>
         </ui-detail-list>
       </ui-card>
     }
@@ -103,7 +103,7 @@
         <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/activity" [queryParams]="{ user: user.id }">{{ 'View in activity log' | translate }} <ng-icon [svg]="icons.arrow" /></a>
         @if (activity().length) {
           <ui-timeline>
-            @for (entry of activity(); track entry.id) {
+            @for (entry of recentActivity(); track entry.id) {
               <ui-timeline-item [icon]="activityMeta[entry.action].icon" [tone]="activityMeta[entry.action].tone" [time]="entry.at | timeAgo">
                 <app-activity-text [entry]="entry" />
               </ui-timeline-item>
@@ -145,7 +145,7 @@
           </ui-card>
         }
 
-        <ui-card [title]="'Signed-in devices' | translate" [description]="(isSelf() ? 'Where you are signed in now.' : 'Where they are signed in now.') | translate" flush>
+        <ui-card class="devices" [title]="'Signed-in devices' | translate" [description]="(isSelf() ? 'Where you are signed in now.' : 'Where they are signed in now.') | translate" flush>
           @if ((sessions()?.length ?? 0) > (isSelf() ? 1 : 0)) {
             <button uiButton uiCardActions variant="ghost" size="sm" type="button" [loading]="ending() === 'all'" (click)="endOtherSessions()">
               <ng-icon [svg]="icons.signOut" /> {{ (isSelf() ? 'Sign out of other devices' : 'Sign out everywhere') | translate }}

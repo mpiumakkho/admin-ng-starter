@@ -10,6 +10,8 @@ export type { UserManagementOptions } from './provide-user-management';
 export { Session } from './access/session';
 export { canViewUser, requirePermission, settingUpTwoFactor, signedIn, signedOut } from './access/guards';
 export { TWO_FACTOR_SETUP_PATH } from './access/session';
+export { ReauthDialog } from './access/reauth-dialog.component';
+export { SessionNotices } from './access/session-notices.component';
 export { AdminApi, AdminApiError } from './data/admin-api';
 export { HttpAdminApi } from './data/http-admin-api';
 export { LocalAdminApi } from './data/local-admin-api';

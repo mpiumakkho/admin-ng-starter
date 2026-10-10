@@ -12,7 +12,9 @@
     [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="canListUsers() ? [{ label: 'Users' | translate, link: '/users' }] : []" />
 
   <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-    <ui-card>
+    <ui-card fill>
+      <!-- Two columns of sections on a wide page, one when narrow -->
+      <div class="form-grid">
       <section class="form-section">
         <div class="form-section-intro">
           <h2>{{ 'Profile' | translate }}</h2>
@@ -25,7 +27,7 @@
               accept="image/*"
               [preview]="form.controls.avatar.value"
               [title]="'Click to upload or drag and drop' | translate"
-              [hint]="'PNG or JPG. It is cropped to a square.' | translate"
+              [hint]="'A PNG or JPG image. It is cropped to a square.' | translate"
               [removeLabel]="'Remove photo' | translate"
               (fileSelected)="pickAvatar($event)"
               (removed)="removeAvatar()" />
@@ -86,6 +88,7 @@
           </ui-form-field>
         </div>
       </section>
+      </div>
 
       <div uiCardFooter>
         <a uiButton variant="secondary" [routerLink]="isEdit() ? ['/users', id()] : '/users'">{{ 'Cancel' | translate }}</a>

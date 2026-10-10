@@ -5,6 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideAccessibility,
   lucideActivity,
   lucideBell,
   lucideBlocks,
@@ -19,7 +20,7 @@ import {
   lucideUser,
   lucideX,
 } from '@ng-icons/lucide';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { map } from 'rxjs';
 
 import { ActivityDialog } from '../../user-management/activity/activity-dialog.component';
@@ -29,18 +30,24 @@ import {
   UiMenuDivider,
   UiMenuHeading,
   UiMenuItem,
+  UiAccessibleViewService,
+  UiMenuItemCheckbox,
   UiMenuItemRadio,
   UiMenuTrigger,
   UiOption,
   UiSegmented,
   UiThemeService,
 } from '../../user-management/ui';
-import { Activity, AdminStore, fullName, Session } from '../../user-management';
+import { Activity, AdminStore, fullName, Session, User } from '../../user-management';
 import { ActivityText } from '../../user-management/shared/activity-text';
 import { RoleBadge } from '../../user-management/shared/badges';
-import { TimeAgoPipe } from '../../user-management/shared/formatting';
+import { idleTimeoutLabel, TimeAgoPipe } from '../../user-management/shared/formatting';
+import { translationsChanged } from '../../user-management/shared/i18n';
 import { LanguageCode, LANGUAGES, LanguageService } from '../language.service';
 import { SidebarState } from '../sidebar/sidebar-state';
+
+/** The most people the search shows as you type; the rest are a click away on the users list */
+const QUICK_RESULTS = 6;
 
 /** When the bell menu was last opened, so its dot means "new since you looked" */
 const ACTIVITY_SEEN_KEY = 'activity-seen';
@@ -56,6 +63,7 @@ const ACTIVITY_SEEN_KEY = 'activity-seen';
     UiMenuDivider,
     UiMenuHeading,
     UiMenuItem,
+    UiMenuItemCheckbox,
     UiMenuItemRadio,
     UiMenuTrigger,
     UiSegmented,
@@ -79,16 +87,26 @@ export class NavbarComponent {
   private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
   protected readonly language = inject(LanguageService);
   protected readonly theme = inject(UiThemeService);
+  protected readonly accessibleView = inject(UiAccessibleViewService);
   protected readonly store = inject(AdminStore);
   protected readonly session = inject(Session);
   protected readonly sidebar = inject(SidebarState);
   private readonly router = inject(Router);
   protected readonly fullName = fullName;
   protected readonly themeToggleLabel = computed(() => this.theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode');
+  private readonly translate = inject(TranslateService);
+  private readonly i18n = translationsChanged();
+  /** How long before the app signs out someone who is away, when the settings say it should (WCAG 2.2.6) */
+  protected readonly idleTimeout = computed(() => {
+    this.i18n();
+    const minutes = this.store.settings().sessionTimeoutMinutes;
+    return minutes ? idleTimeoutLabel(this.translate, minutes) : '';
+  });
 
   /** Menu item icons, as SVG for ui-menu */
   protected readonly icons = {
     user: lucideUser, activity: lucideActivity, blocks: lucideBlocks, history: lucideHistory, security: lucideShieldCheck, signOut: lucideLogOut,
+    accessible: lucideAccessibility,
   };
   /** Menus open under their button, lined up with its right edge, or above it when there is no room below */
   protected readonly menuPosition: ConnectedPosition[] = [
@@ -151,9 +169,86 @@ export class NavbarComponent {
   private readonly isMac = /Mac|iPhone|iPad/.test(this.document.defaultView?.navigator.userAgent ?? '');
   protected readonly searchShortcutLabel = this.isMac ? '⌘K' : 'Ctrl K';
   protected readonly searchShortcutKeys = this.isMac ? 'Meta+K' : 'Control+K';
+  /** The shortcut in words, for its tooltip */
+  protected readonly searchShortcutName = this.isMac ? 'Command + K' : 'Control + K';
 
   /** On phones the search field is hidden until the search button opens it over the bar */
   protected readonly searchOpen = signal(false);
+
+  /* Search as you type */
+
+  protected readonly query = signal('');
+  protected readonly searchFocused = signal(false);
+  /** The person picked with the arrow keys; one past the last is "see all results", -1 none */
+  protected readonly activeIndex = signal(-1);
+
+  /** Everyone the text matches, as the users list searches: name, email or phone. Names that start with it first. */
+  protected readonly matches = computed<User[]>(() => {
+    const query = this.query().trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+    return this.store.users()
+      .filter(user => fullName(user).toLowerCase().includes(query) || user.email.toLowerCase().includes(query) || user.phone.includes(query))
+      .sort((a, b) => Number(!fullName(a).toLowerCase().startsWith(query)) - Number(!fullName(b).toLowerCase().startsWith(query)));
+  });
+  protected readonly results = computed(() => this.matches().slice(0, QUICK_RESULTS));
+  protected readonly resultsShown = computed(() => this.searchFocused() && this.matches().length > 0);
+
+  protected typed(value: string) {
+    this.query.set(value);
+    this.activeIndex.set(-1);
+  }
+
+  protected searchKey(event: KeyboardEvent) {
+    const options = this.results().length + (this.matches().length ? 1 : 0);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      // Past either end the field itself is picked again (-1), as in most search boxes
+      if (options) {
+        this.activeIndex.update(index => event.key === 'ArrowDown'
+          ? (index + 1 >= options ? -1 : index + 1)
+          : (index - 1 < -1 ? options - 1 : index - 1));
+      }
+    } else if (event.key === 'Enter' && this.activeIndex() >= 0) {
+      event.preventDefault();
+      this.search()?.nativeElement.closest('form')?.querySelector<HTMLAnchorElement>(`#quick-search-${this.activeIndex()}`)?.click();
+    } else if (event.key === 'Escape') {
+      // First the list goes, then the text, then (on phones) the field
+      if (this.activeIndex() >= 0 || this.resultsShown()) {
+        this.activeIndex.set(-1);
+        this.searchFocused.set(false);
+      } else if (this.query()) {
+        this.query.set('');
+      } else {
+        this.closeSearch();
+      }
+    }
+  }
+
+  /** Enter with nobody picked: the users list, filtered by the text */
+  protected submitSearch() {
+    const query = this.query();
+    this.finishSearch();
+    this.searchUsers(query);
+  }
+
+  /** The list closes once the keyboard leaves the search, not when a click lands on one of its people */
+  protected searchFocusOut(event: FocusEvent) {
+    const form = event.currentTarget as HTMLElement;
+    if (!form.contains(event.relatedTarget as Node | null)) {
+      this.searchFocused.set(false);
+      this.activeIndex.set(-1);
+    }
+  }
+
+  protected finishSearch() {
+    this.query.set('');
+    this.activeIndex.set(-1);
+    this.searchFocused.set(false);
+    this.search()?.nativeElement.blur();
+    this.closeSearch();
+  }
 
   protected openSearch() {
     this.searchOpen.set(true);

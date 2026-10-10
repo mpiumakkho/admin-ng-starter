@@ -135,14 +135,16 @@ export class ActivityComponent {
 
   protected readonly kindOptions = computed<UiOption<Kind>[]>(() => {
     this.i18n();
-    // Counted within the person and time range picked, so the numbers match the rows the chips show
+    // Counted within the search, person and time range picked, so the numbers match the rows the chips show
+    const query = this.table.query().trim().toLowerCase();
     const actor = this.actor();
     const subject = this.subject();
     const since = this.since(this.period());
-    const entries = this.entries().filter(entry =>
-      (actor === 'all' || entry.actorId === actor)
-      && (!subject || entry.actorId === subject || entry.targetId === subject)
-      && (!since || entry.at >= since));
+    const entries = this.rows().filter(row =>
+      (actor === 'all' || row.entry.actorId === actor)
+      && (!subject || row.entry.actorId === subject || row.entry.targetId === subject)
+      && (!since || row.entry.at >= since)
+      && (!query || matchesSearch(row, query))).map(row => row.entry);
     const count = (kind: ActivityKind) => entries.filter(entry => ACTIVITY_META[entry.action].kind === kind).length;
     return [
       { value: 'all', label: this.translate.instant('All'), count: entries.length },
@@ -178,9 +180,7 @@ export class ActivityComponent {
     id: row => row.entry.id,
     pageSize: this.pageSizes[0],
     pageSizeKey: 'activity-page-size',
-    search: (row, query) =>
-      [row.actorName, row.actor?.email ?? '', row.entry.targetLabel, row.action, row.summary, row.entry.ip]
-        .some(text => text.toLowerCase().includes(query)),
+    search: matchesSearch,
     filter: computed(() => {
       const kind = this.kind();
       const actor = this.actor();
@@ -282,9 +282,9 @@ export class ActivityComponent {
         // The same in every language, as the API and the CSV name it, for filtering a sheet
         { header: t.instant('Action code'), skip: ['copy', 'print'] },
         { header: t.instant('Description') }, { header: t.instant('Details') },
-        { header: t.instant('IP address') }, { header: t.instant('Browser') }, { header: t.instant('OS') },
+        { header: t.instant('IP address') }, { header: t.instant('Browser') }, { header: t.instant('Operating system') },
         // For finding the one entry again; nobody reads it on paper
-        { header: t.instant('Event ID'), skip: ['print'] },
+        { header: t.instant('Event reference'), skip: ['print'] },
       ],
       rows: rows.map(row => [
         new Date(row.entry.at), row.actorName, row.actor?.email ?? '', row.action, row.entry.action, this.format.sentence(row.entry), row.summary,
@@ -323,4 +323,10 @@ function dayRange(fromDay: string, toDay: string): { from?: string; to?: string 
   const end = toDay ? start(toDay) : undefined;
   end?.setDate(end.getDate() + 1);
   return { from: fromDay ? start(fromDay).toISOString() : undefined, to: end?.toISOString() };
+}
+
+/** Who, what, the details or the IP address, as the search box says; the query is already lower case */
+function matchesSearch(row: ActivityRow, query: string): boolean {
+  return [row.actorName, row.actor?.email ?? '', row.entry.targetLabel, row.action, row.summary, row.entry.ip]
+    .some(text => text.toLowerCase().includes(query));
 }

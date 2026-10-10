@@ -1,30 +1,54 @@
-// Section title and description on the left, fields on the right
-.form-section {
+// The card's width decides between one column of sections and two. On a page-fit page the form takes the
+// height below the header and the card fills it, its buttons at the bottom
+form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.form-grid {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: 1rem 2rem;
-  padding: 1.5rem 0;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 2.5rem;
+}
+
+// Each section has its title above its fields
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 0;
   border-top: 1px solid var(--ui-border);
 
   &:first-child {
     padding-top: .25rem;
     border-top: 0;
   }
+}
 
-  @media (max-width: 991px) {
-    grid-template-columns: 1fr;
+// Side by side: the profile, with more fields, takes more room; the second section has no line above it
+@container (min-width: 900px) {
+  .form-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+
+  .form-section:nth-child(2) {
+    padding-top: .25rem;
+    border-top: 0;
   }
 }
 
 .field-stack {
   display: flex;
   flex-direction: column;
-  gap: 1.125rem;
+  gap: 1rem;
 }
 
-// Two roles per row on laptop screens, more on wide ones; narrower cards squeeze the title and count
+// Two roles per row in the role column of a laptop screen; narrower cards squeeze the title and count
 .role-choices {
-  --ui-choice-min: 280px;
+  --ui-choice-min: 220px;
 }
 
 .role-select {
@@ -55,7 +79,7 @@
 
 .form-section-intro {
   h2 {
-    margin: 0 0 .25rem;
+    margin: 0 0 .125rem;
     color: var(--ui-heading);
     font-size: .9375rem;
     font-weight: 600;
@@ -72,7 +96,7 @@
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.125rem 1rem;
+  gap: 1rem;
 
   .span-2 {
     grid-column: span 2;

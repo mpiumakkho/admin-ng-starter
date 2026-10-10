@@ -37,7 +37,7 @@
     "This cannot be undone.":       "This cannot be undone.",
     "This field is required.":      "This field is required.",
     "Total users":                  "Total users",
-    "UI kit":                       "UI kit",
+    "Component gallery":           "Component gallery",
     "Use at least 6 characters.":   "Use at least 6 characters.",
     "Welcome back":                 "Welcome back",
     "Hide password":                "Hide password",
@@ -91,5 +91,6 @@
     "resetLinkSent":                 "If {{email}} belongs to an account, we have sent it a link to set a new password. Check the inbox.",
     "With the sample data there is no mail server: the email is written to the browser console.": "With the sample data there is no mail server: the email is written to the browser console.",
     "Use another email":             "Use another email",
-    "Send link":                     "Send link"
+    "Send link":                     "Send link",
+    "searchShortcut":              "Keyboard shortcut: {{keys}}"
 }

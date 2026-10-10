@@ -17,7 +17,7 @@
       </span>
     }
     <ui-search-input class="toolbar-search" size="sm" [value]="table.query()" (valueChange)="table.search($event)" [placeholder]="'Search name, item or IP' | translate" [clearLabel]="'Clear search' | translate" />
-    <select uiInput class="ui-input-sm toolbar-select" [value]="period()" (change)="setPeriod($any($event.target).value)" [attr.aria-label]="'Time range' | translate">
+    <select uiInput class="ui-input-sm toolbar-select toolbar-period" [value]="period()" (change)="setPeriod($any($event.target).value)" [attr.aria-label]="'Time range' | translate">
       <option value="all">{{ 'Any time' | translate }}</option>
       <option value="today">{{ 'Today' | translate }}</option>
       <option value="7d">{{ 'Last 7 days' | translate }}</option>
@@ -37,7 +37,7 @@
         <option [value]="person.id">{{ person.name }}</option>
       }
     </select>
-    <ui-filter-chips class="toolbar-chips" [options]="kindOptions()" [value]="kind()" (valueChange)="setKind($event)" [ariaLabel]="'Type' | translate" />
+    <ui-filter-chips class="toolbar-chips" scroll [options]="kindOptions()" [value]="kind()" (valueChange)="setKind($event)" [ariaLabel]="'Type' | translate" />
   </div>
 
   @if (table.total()) {
@@ -49,7 +49,7 @@
             <th><ui-sort-header [table]="table" key="actor">{{ 'Done by' | translate }}</ui-sort-header></th>
             <th><ui-sort-header [table]="table" key="action">{{ 'Action' | translate }}</ui-sort-header></th>
             <th class="hide-md">{{ 'Details' | translate }}</th>
-            <th class="hide-lg">{{ 'IP and device' | translate }}</th>
+            <th class="hide-lg"><abbr [title]="'abbr.ip' | translate">IP</abbr> {{ 'and device' | translate }}</th>
             <th class="ui-cell-shrink"><span class="ui-sr-only">{{ 'Actions' | translate }}</span></th>
           </tr>
         </thead>

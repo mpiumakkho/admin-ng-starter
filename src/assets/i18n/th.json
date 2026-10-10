@@ -37,7 +37,7 @@
     "This cannot be undone.":       "ย้อนกลับไม่ได้",
     "This field is required.":      "กรุณากรอกข้อมูลช่องนี้",
     "Total users":                  "ผู้ใช้ทั้งหมด",
-    "UI kit":                       "ชุด UI",
+    "Component gallery":           "แกลเลอรีคอมโพเนนต์",
     "Use at least 6 characters.":   "ใช้อย่างน้อย 6 ตัวอักษร",
     "Welcome back":                 "ยินดีต้อนรับกลับมา",
     "Hide password":                "ซ่อนรหัสผ่าน",
@@ -91,5 +91,6 @@
     "resetLinkSent":                 "ถ้า {{email}} เป็นอีเมลของบัญชีในระบบ เราได้ส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปให้แล้ว ลองดูในกล่องจดหมาย",
     "With the sample data there is no mail server: the email is written to the browser console.": "ข้อมูลตัวอย่างไม่มีเซิร์ฟเวอร์อีเมล อีเมลจึงถูกเขียนไว้ใน console ของเบราว์เซอร์แทน",
     "Use another email":             "ใช้อีเมลอื่น",
-    "Send link":                     "ส่งลิงก์"
+    "Send link":                     "ส่งลิงก์",
+    "searchShortcut":              "แป้นลัด: {{keys}}"
 }

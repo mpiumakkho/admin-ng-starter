@@ -65,7 +65,10 @@
   --ui-shadow-sm: 0 1px 3px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .04);
   --ui-shadow-md: 0 6px 16px -4px rgba(15, 23, 42, .1), 0 2px 4px -2px rgba(15, 23, 42, .06);
   --ui-shadow-lg: 0 20px 40px -12px rgba(15, 23, 42, .22), 0 6px 14px -6px rgba(15, 23, 42, .1);
-  --ui-ring: 0 0 0 3px rgba(79, 70, 229, .18);
+  // Focus: a solid ring 2px wide and 2px off the edge, at least 3:1 against what is around it (WCAG 2.4.13).
+  // The global :focus-visible outline in styles.scss draws the same ring, so the two coincide where both apply.
+  --ui-focus: #4f46e5;
+  --ui-ring: 0 0 0 2px var(--ui-surface), 0 0 0 4px var(--ui-focus);
   --ui-ease: cubic-bezier(.16, 1, .3, 1);
 }
 
@@ -104,7 +107,8 @@
 
   --ui-shadow-md: 0 10px 24px -10px rgba(0, 0, 0, .6);
   --ui-shadow-lg: 0 20px 40px -12px rgba(0, 0, 0, .7);
-  --ui-ring: 0 0 0 3px rgba(129, 140, 248, .25);
+  --ui-focus: #818cf8;
+  --ui-ring: 0 0 0 2px var(--ui-surface), 0 0 0 4px var(--ui-focus);
 }
 
 /* Text fields: add the uiInput directive to <input>, <select> or <textarea> */
@@ -131,8 +135,8 @@
   }
 
   &:focus {
-    border-color: var(--ui-primary);
-    box-shadow: var(--ui-ring);
+    border-color: var(--ui-focus);
+    box-shadow: 0 0 0 1px var(--ui-focus);
     outline: none;
   }
 
@@ -146,7 +150,8 @@
     border-color: var(--ui-danger);
 
     &:focus {
-      box-shadow: 0 0 0 3px var(--ui-danger-soft);
+      border-color: var(--ui-danger);
+      box-shadow: 0 0 0 1px var(--ui-danger);
     }
   }
 
@@ -262,6 +267,8 @@ select.ui-input {
   position: relative;
   // Sideways on narrow screens; up and down too when a height limit applies, such as in <ui-card fit>
   overflow: auto;
+  // A row that gets focus scrolls clear of the header row that stays at the top, never under it (WCAG 2.4.12)
+  scroll-padding-top: 2.5rem;
 }
 
 // Visually hidden but read by screen readers
@@ -275,4 +282,224 @@ select.ui-input {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* Abbreviations: the browser's dotted underline says there is an explanation on hover */
+
+abbr[title] {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: .2em;
+}
+
+/* Less motion, when the system asks for it (WCAG 2.3.3): animations and transitions end at once, smooth scrolling
+   jumps. Spinners keep turning, since they show that something is still happening. */
+
+@media (prefers-reduced-motion: reduce) {
+  *:not(.ui-btn-spinner, .donut),
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The accessible view (UiAccessibleViewService adds ui-aaa to <body>): WCAG 2.2 AAA where the usual look stops at
+   AA. Text stands out at least 7:1 (1.4.6), anything clickable is at least 44 by 44 pixels (2.5.5), blocks of text
+   are spaced 1.5 (1.4.8) and nothing moves (2.3.3). "body.ui-aaa" outranks the components' own styles. */
+
+body.ui-aaa {
+  --ui-primary: #4338ca;
+  --ui-primary-hover: #3730a3;
+  --ui-primary-text: #3730a3;
+  --ui-focus: #3730a3;
+  --ui-danger: #991b1b;
+  --ui-danger-hover: #7f1d1d;
+  --ui-success-text: #064e3b;
+  --ui-warning-text: #713f12;
+  --ui-danger-text: #7f1d1d;
+  --ui-info-text: #0c4a6e;
+  --ui-neutral-text: #334155;
+  --ui-text: #1e293b;
+  --ui-muted: #334155;
+  --ui-subtle: #3b4658;
+}
+
+body.ui-aaa.theme-dark,
+body.ui-aaa[data-theme="dark"] {
+  --ui-primary: #4338ca;
+  --ui-primary-hover: #3730a3;
+  --ui-primary-text: #e0e7ff;
+  --ui-focus: #c7d2fe;
+  --ui-danger: #991b1b;
+  --ui-danger-hover: #7f1d1d;
+  --ui-success-text: #d1fae5;
+  --ui-warning-text: #fef3c7;
+  --ui-danger-text: #fee2e2;
+  --ui-info-text: #e0f2fe;
+  --ui-neutral-text: #f1f5f9;
+  --ui-text: #f1f5f9;
+  --ui-muted: #e2e8f0;
+  --ui-subtle: #dbe3ec;
+}
+
+body.ui-aaa {
+  // Targets of 44 by 44 pixels
+  .ui-btn {
+    --ui-btn-height: 44px;
+    min-width: 44px;
+  }
+
+  .ui-input,
+  .ui-input.ui-input-sm {
+    height: 44px;
+  }
+
+  textarea.ui-input {
+    height: auto;
+  }
+
+  .ui-chip,
+  .ui-page,
+  .ui-menu-item {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .ui-segmented-pill .ui-seg-option,
+  .ui-segmented-pill.ui-segmented-sm .ui-seg-option,
+  .ui-segmented-underline .ui-seg-option {
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .ui-sort,
+  .ui-legend-link,
+  .ui-drop-remove,
+  .ui-search-clear,
+  .ui-toast-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  // The hidden native checkbox and switch take the clicks: 44 pixels around the box they cover, each checkbox
+  // 44 pixels tall so the ones in a list do not overlap
+  .ui-check {
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .ui-check-input {
+    top: 50%;
+    left: -13px;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    transform: translateY(-50%);
+  }
+
+  // The header row is taller, with its 44-pixel sort buttons
+  .ui-table-scroll {
+    scroll-padding-top: 4rem;
+  }
+
+  .ui-switch-input {
+    inset-block-start: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+
+  // Blocks of text spaced 1.5
+  :where(p, li, dd, .ui-field-hint, .ui-card-description, .ui-page-head-subtitle, .ui-alert, .ui-empty-description) {
+    line-height: 1.5 !important;
+  }
+
+  // And paragraphs further apart than their lines (1.4.8)
+  p + p {
+    margin-block-start: 1.5em !important;
+  }
+
+  // No motion at all, whatever the system asks for
+  *:not(.ui-btn-spinner, .donut),
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * Forced colors (Windows contrast themes and the like): the system paints every color and drops shadows, so what
+ * shows a state only by a shade or a shadow (the chosen option, the current page, a ticked box, a switch, a focus
+ * ring drawn as a shadow) is painted here in the system's own colors. These elements opt out of the repainting
+ * (forced-color-adjust: none) and use only system colors, so they follow the person's theme.
+ */
+@media (forced-colors: active) {
+  .ui-segmented .ui-seg-option.ui-seg-active,
+  .ui-chip-active,
+  .ui-page-active,
+  .ui-choice-selected,
+  .ui-check-input:checked + .ui-check-box,
+  .ui-check-input:indeterminate + .ui-check-box {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+
+    * {
+      background: transparent;
+      color: inherit;
+    }
+  }
+
+  .ui-switch-track {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+
+  .ui-switch-knob {
+    top: 1px;
+    left: 1px;
+    background: CanvasText;
+  }
+
+  .ui-switch-input:checked + .ui-switch-track {
+    border-color: Highlight;
+    background: Highlight;
+
+    .ui-switch-knob {
+      background: HighlightText;
+    }
+  }
+
+  // Tabs: only the chosen one is marked; the others' transparent underline would be painted in too
+  .ui-segmented-underline .ui-seg-option:not(.ui-seg-active) {
+    forced-color-adjust: none;
+    border-bottom-color: transparent;
+    background: Canvas;
+    color: ButtonText;
+
+    * {
+      background: transparent;
+      color: inherit;
+    }
+  }
+
+  .ui-row-selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  // The real input is hidden, so its focus ring is drawn around the box it covers
+  .ui-check-input:focus-visible + .ui-check-box,
+  .ui-switch-input:focus-visible + .ui-switch-track {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
 }

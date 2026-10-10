@@ -258,10 +258,11 @@
     border-color: var(--ui-border);
   }
 
+  // As a text field focuses: its border and a ring just outside, 2px of the focus colour
   &:focus {
-    border-color: var(--ui-primary);
+    border-color: var(--ui-focus);
     background: var(--navbar-surface);
-    box-shadow: var(--ui-ring);
+    box-shadow: 0 0 0 1px var(--ui-focus);
   }
 
   &::-webkit-search-cancel-button {
@@ -285,6 +286,87 @@
 
 .search-close {
   display: none;
+}
+
+// The people the text matches, under the field
+.search-results {
+  position: absolute;
+  inset: calc(100% + .375rem) 0 auto;
+  z-index: 10;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-lg);
+
+  @media (max-width: 767px) {
+    inset-inline: -.75rem;
+    border-radius: 0 0 var(--ui-radius-lg) var(--ui-radius-lg);
+  }
+}
+
+.search-result {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem .875rem;
+  color: var(--ui-text);
+  text-decoration: none;
+
+  &:hover,
+  &.active {
+    background: var(--ui-hover);
+  }
+
+  // The one picked with the arrow keys, as clear as a focus ring (WCAG 2.4.13)
+  &.active {
+    box-shadow: inset 3px 0 0 var(--ui-focus);
+  }
+
+  app-role-badge {
+    flex-shrink: 0;
+  }
+}
+
+.search-result-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.search-result-name {
+  overflow: hidden;
+  color: var(--ui-heading);
+  font-size: .8125rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-detail {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: .75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-all {
+  justify-content: center;
+  padding-block: .625rem;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-primary-text);
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
+.search-empty {
+  margin: 0;
+  padding: 1rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  text-align: center;
 }
 
 /* New activity dot */
@@ -444,6 +526,13 @@
   font-size: .8125rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-idle {
+  margin-top: .375rem;
+  color: var(--ui-muted);
+  font-size: .75rem;
+  line-height: 1.4;
 }
 
 /* Sidebar narrowed to its icons: only the button to widen it again */
