@@ -122,7 +122,7 @@ The server sends `data: changed` after each change and a `: ping` comment every 
 
 | Request | Body | Answer | Permission |
 | --- | --- | --- | --- |
-| `GET /users` | | `User[]` | `users.view`; without it, only the signed-in user |
+| `GET /users` | | `User[]` | `users.view`; through a branch, its people and yourself (see Branch administrators); without it, only the signed-in user |
 | `POST /users` | `UserDraft` | The new `User` | `users.create` |
 | `POST /users/import` | `{ users: UserDraft[] }` | The new `User`s. All or none: refuse the whole request when one is refused | `users.create` |
 | `PATCH /users/:id` | `UserChanges`: a `Partial<UserDraft>` without `roles` | The `User` | `users.edit`; without it, people may change their own `firstName`, `lastName`, `phone` and `avatar` |
@@ -141,7 +141,7 @@ The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status 
 
 Someone's roles are the `RoleAssignment`s in `User.roles`, as in NIST RBAC: a person can hold several roles, and their permissions are those of every role they hold now, together. Each assignment gives one role from `startsAt` until `endsAt`, or for good when `endsAt` is `null`. It counts while `startsAt <= now < endsAt`: before that it is *scheduled*, after it *expired*. Someone who holds no role now can still sign in, and sees their own profile only.
 
-**Scope**, as Azure RBAC scopes a role assignment: `branchId` `null` gives the role across the whole organization; a branch limits it to that branch (an open one: `not_found`, `branch_closed`). User management's own permissions (`users.*`, `roles.*`, `activity.*`, `settings.*`, `branches.*`) come only from assignments for the whole organization. One limited to a branch grants its permissions in that branch, for the app's own modules to check (`Session.can(permission, branchId)` in the app, `Actor.can(permission, branchId)` on the server).
+**Scope**, as Azure RBAC scopes a role assignment: `branchId` `null` gives the role across the whole organization; a branch limits it to that branch (an open one: `not_found`, `branch_closed`). User management's own permissions (`users.*`, `roles.*`, `activity.*`, `settings.*`, `branches.*`) come from assignments for the whole organization, except the four that one limited to a branch grants over the people of that branch (see Branch administrators). Otherwise an assignment limited to a branch grants its permissions in that branch, for the app's own modules to check (`Session.can(permission, branchId)` in the app, `Actor.can(permission, branchId)` on the server).
 
 | Request | Body | Answer | Permission |
 | --- | --- | --- | --- |
@@ -153,7 +153,7 @@ Someone's roles are the `RoleAssignment`s in `User.roles`, as in NIST RBAC: a pe
 - **Dates.** `startsAt` left out, or earlier than now, means now. `endsAt` must be later than both `startsAt` and now. Otherwise `invalid_request`.
 - **Each role's own rules** (`Role.assignment`). With `maxDays`, an assignment of that role must end, at most that many days after it starts: refuse a longer one, or one without an end, with `assignment_too_long` (`422`). When `PATCH` moves the end, count from the start or from now, whichever is later. With `reasonRequired`, a blank `reason` is `reason_required` (`422`). A reason is at most 500 characters.
 - **Once at a time.** A new assignment that overlaps one the person already has of the same role in the same scope is refused with `already_assigned` (`409`); the same role in two branches is two assignments. To extend one, or renew one that has expired, `PATCH` its `endsAt`.
-- **Who may.** The rules below apply: the actor must hold every permission of the role (rule 2) and be able to manage the person (rule 3), and nobody changes their own assignments (rule 4).
+- **Who may.** The rules below apply: the actor must have `users.edit` and every permission of the role in the assignment's scope (rule 2; see Branch administrators) and be able to manage the person (rule 3), and nobody changes their own assignments (rule 4).
 - **Conflicting roles.** A role that a rule says cannot be held with one the person holds, now or later, at an overlapping time is refused with `role_conflict` (`409`); see Conflicting roles.
 - **Expired ones stay** on the user, so they can be renewed, until they are older than the settings' `activityRetentionDays`. A removed one is gone at once; the activity log keeps what it was.
 - **Several people at once.** `add` gives the role to everyone in `userIds` who does not hold it now or later; `removeRoleId` takes away their current and scheduled assignments of that role. Send one of the two. All or none: refuse the whole request when one change is refused. Repeated ids count once, and people with nothing to change are left out of the answer and the log.
@@ -172,6 +172,19 @@ Branches (sites, offices) are optional: the settings' `branchesEnabled` shows th
 | `DELETE /branches/:id` | | Nothing; `branch_in_use` while anyone belongs to it or holds a role there now or later | `branches.manage` |
 
 `code` is short (1 to 10 letters, digits or dashes, kept upper-case) and unique, ignoring case: `code_taken` (`409`). `name` is 1 to 100 characters. A closed branch (`active: false`) keeps its people and their roles, but nobody new joins it or gets a role there. Deleting a branch removes the ended role assignments limited to it. Log `branch.created`, `branch.updated` (the fields that changed) and `branch.deleted`.
+
+## Branch administrators
+
+As Microsoft Entra's administrative units and Google Workspace's organizational units let someone look after one part of the organization, a role limited to a branch grants four of user management's permissions over the people who belong to that branch (`User.branchId`), so a branch manager looks after their branch's staff and nobody else. Deleting people, roles, settings, branches and exporting the log (`users.delete`, `roles.*`, `settings.*`, `branches.*`, `activity.export`) still need a role for the whole organization. Someone who has one of the four only through branches gets:
+
+| Permission | Through a branch |
+| --- | --- |
+| `users.view` | `GET /users` answers the people of those branches, and themselves |
+| `users.create` | `POST /users` and `POST /users/import` with `branchId` one of those branches, and `POST /users/:id/resend-invite` for their people. A new user given no role gets the settings' default role limited to their branch |
+| `users.edit` | The changes to the people of those branches: `PATCH /users/:id` (moving them only to another of those branches), status, password, two-step sign-in, devices and role assignments |
+| `activity.view` | `GET /activity` answers the entries whose `targetId` is one of the people of those branches |
+
+Roles go by scope. An assignment for the whole organization needs `users.edit` (`users.create` for a new user's roles) for the whole organization; one limited to a branch needs it there. Rules 2 and 3 count the same way: what someone has in a branch is what their roles for the whole organization allow, together with what their roles limited to that branch allow. They give a role limited to a branch only when they have its every permission there, and manage a person only when they have, for each role the person holds now or later, every permission of that role in its scope. So nobody manages through a branch someone whose role for the whole organization allows more than their own roles for the whole organization. Anything else is `forbidden`.
 
 ## Roles
 
@@ -219,7 +232,7 @@ A rule made while people already hold its roles is kept: the roles page lists th
 
 | Request | Answer | Permission |
 | --- | --- | --- |
-| `GET /activity?from=&to=` | `Activity[]`, newest first, at most 10,000. `from` and `to` (both optional) keep the entries at or after `from` and before `to`. Each is an ISO 8601 instant with `Z` or an offset, such as `2026-10-01T00:00:00.000Z` or `2026-10-01T07:00:00+07:00`; a date alone or a time without an offset is `invalid_request` | `activity.view`; without it, an empty list |
+| `GET /activity?from=&to=` | `Activity[]`, newest first, at most 10,000. `from` and `to` (both optional) keep the entries at or after `from` and before `to`. Each is an ISO 8601 instant with `Z` or an offset, such as `2026-10-01T00:00:00.000Z` or `2026-10-01T07:00:00+07:00`; a date alone or a time without an offset is `invalid_request` | `activity.view`; through a branch, the entries about its people; without it, an empty list |
 
 The server writes the log itself, one entry per change, with `actorId` from the session and `ip`, `browser` and `os` from the request. What the server does by itself, such as ending an assignment on time, has `actorId: null` and empty `ip`, `browser` and `os`. `changes` lists the fields that changed and `reason` is the request's reason, if any (see Reasons); see `Activity` in `data/models.ts` and how `data/local-admin-api.ts` fills it. Entries older than the settings' `activityRetentionDays` are deleted every night.
 
@@ -230,17 +243,17 @@ The server writes the log itself, one entry per change, with `actorId` from the 
 | `GET /settings` | | `AdminSettings` | Anyone signed in |
 | `PATCH /settings` | `Partial<AdminSettings>` | The `AdminSettings` | `settings.manage` |
 
-`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none. `branchesEnabled` (`false` on a new installation) turns branches on. `reasonsRequired` (see Reasons; `["status", "delete"]` on a new installation) lists the changes that need a reason; an unknown item is `invalid_request`, and the list is stored without duplicates. `reauthMinutes` (0 to 1440; 10 on a new installation) is how long a sign-in or a confirmed password lets the person make the changes under Confirming who you are. Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the three lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
+`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none; limited to their branch when someone adds them through a branch (see Branch administrators). `branchesEnabled` (`false` on a new installation) turns branches on. `reasonsRequired` (see Reasons; `["status", "delete"]` on a new installation) lists the changes that need a reason; an unknown item is `invalid_request`, and the list is stored without duplicates. `reauthMinutes` (0 to 1440; 10 on a new installation) is how long a sign-in or a confirmed password lets the person make the changes under Confirming who you are. Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the three lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
 
 ## Rules the server must check
 
 The pages hide what a role cannot do, but only the server can enforce it. `data/local-admin-api.ts` checks the same rules and is a working reference, with the helpers in `data/access-rules.ts`:
 
-1. Each request needs the permission in the tables above. Refuse with `403` and `forbidden`.
+1. Each request needs the permission in the tables above, for the whole organization or, where Branch administrators says so, in a branch. Refuse with `403` and `forbidden`.
 2. Nobody gives out more than they have. Refuse with `forbidden` when someone:
    - gives a role (a new assignment, a change to one, or a new user's roles) that grants a permission they lack;
    - adds or removes a permission they lack on a role.
-3. Nobody manages someone who holds, now or later, a role that grants a permission they lack. Refuse editing, suspending, deleting, resetting or inviting that person, or changing their role assignments, with `forbidden`. The same goes for roles: nobody edits or deletes a role that grants a permission they lack.
+3. Nobody manages someone who holds, now or later, a role that grants a permission they lack in that role's scope (see Branch administrators). Refuse editing, suspending, deleting, resetting or inviting that person, or changing their role assignments, with `forbidden`. The same goes for roles: nobody edits or deletes a role that grants a permission they lack.
 4. Nobody suspends or deletes themselves, changes their own role assignments, or changes the permissions of a role they hold now. Refuse with `self_change`.
 5. Take only the fields each request may set (the `UserDraft`, `UserChanges`, `RoleAssignmentDraft`, `RoleDraft` and `AdminSettings` fields), and refuse anything else with `invalid_request`, so nobody can set an `id`, the `system` flag or the dates the server keeps.
 6. Someone must always be able to run the system, as Google Workspace keeps a last super administrator: at least one active user holds, for good and for the whole organization, a role with every permission. Refuse removing that assignment, giving it an end, or suspending or deleting its holder, when it is the last one, with `last_administrator` (`409`).
