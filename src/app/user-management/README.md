@@ -131,6 +131,7 @@ As Microsoft Entra's administrative units and Google Workspace's organizational 
 The Security tab of a profile (`/users/:id?tab=security`) shows:
 
 - **Two-step sign-in.** People turn it on by scanning a QR code with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password) and typing a code. After that, signing in asks for a code as well as the password. An administrator can turn it off for someone who lost their phone. The QR code is drawn by `uqr`, loaded only when the setup dialog opens.
+- **Recovery codes.** Turning two-step sign-in on shows ten single-use codes, such as `abcde-fghjk`, to copy or download (`RecoveryCodes`); they are not shown again. Wherever a code is asked (signing in, confirming who you are, turning it off), "Lost your phone? Use a recovery code" takes one instead (`TwoFactorCodeField`). The Security tab says how many are left and makes new ones, which replace the old (a risky change: the password may be asked again). Turning two-step sign-in off deletes them. [API.md](API.md#recovery-codes) has the requests.
 - **Password.** Changing it signs you out on your other devices.
 - **Signed-in devices.** Each session's browser, system, IP address and last activity. Sign out of one, or of all the others.
 
