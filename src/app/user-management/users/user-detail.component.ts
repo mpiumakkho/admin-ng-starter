@@ -99,6 +99,8 @@ const TAB_ALIASES: Record<string, Tab> = { permissions: 'roles' };
   ],
   templateUrl: './user-detail.component.html',
   styleUrl: './user-detail.component.scss',
+  // Fills the window on desktop: the tab's cards reach the bottom and scroll inside, as on the pages with tables
+  host: { class: 'page-fit' },
 })
 export class UserDetailComponent {
   protected readonly store = inject(AdminStore);
@@ -189,8 +191,8 @@ export class UserDetailComponent {
   /** Everything done by or to this person; the tab counts it all */
   protected readonly activity = computed(() =>
     this.store.activity().filter(entry => entry.actorId === this.id() || entry.targetId === this.id()));
-  /** The latest ten, shown on the tab; the card links to the whole log for this person */
-  protected readonly recentActivity = computed(() => this.activity().slice(0, 10));
+  /** The latest thirty, scrolling inside the tab's card; the card links to the whole log for this person */
+  protected readonly recentActivity = computed(() => this.activity().slice(0, 30));
 
   protected readonly tab = signal<Tab>('details');
   protected readonly tabs = computed<UiOption<Tab>[]>(() => {

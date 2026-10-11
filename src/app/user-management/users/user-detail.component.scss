@@ -5,6 +5,49 @@
   margin-bottom: 1.5rem;
 }
 
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.roles-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+// On a page-fit page (desktop, tall enough) the tab takes the window below the profile card: its cards reach the
+// bottom, as on the pages with tables, and what does not fit scrolls inside them
+@media (min-width: 992px) and (min-height: 600px) {
+  :host {
+    margin-bottom: 0;
+  }
+
+  .tab-panel {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .roles-tab,
+  .security {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  // The roles and what they allow side by side, each scrolling on its own; one above the other when narrow
+  .roles-tab {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1200px) and (min-height: 600px) {
+  .roles-tab {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
 ui-page-header {
   margin-bottom: .25rem;
 }
@@ -112,12 +155,6 @@ ui-page-header {
   color: var(--ui-text);
   font-family: var(--ui-font-mono);
   font-size: .8125rem;
-}
-
-.roles-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
 }
 
 .assignments {
@@ -228,15 +265,17 @@ ui-page-header {
 
 /* Security tab */
 // Two-step sign-in and the password side by side when there is room (one card spans the row alone); the devices
-// below, across the whole row
+// below, taking the rest of the height, their list scrolling inside
 .security {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.security-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
   gap: 1.5rem;
-
-  > .devices {
-    grid-column: 1 / -1;
-  }
 }
 
 // Four columns of details on a wide screen: three short rows instead of five

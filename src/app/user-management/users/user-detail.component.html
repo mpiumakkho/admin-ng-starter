@@ -57,9 +57,11 @@
     <ui-segmented class="tabs" variant="underline" [options]="tabs()" [(value)]="tab" [ariaLabel]="'Sections' | translate" />
   </ui-card>
 
+  <!-- On a desktop the tab takes the rest of the window and its cards reach the bottom, as on the pages with tables -->
+  <div class="tab-panel">
   @switch (tab()) {
     @case ('details') {
-      <ui-card [title]="'Details' | translate">
+      <ui-card fill [title]="'Details' | translate">
         <ui-detail-list class="details" [columns]="2">
           <ui-detail-item [label]="'Full name' | translate">{{ name() }}</ui-detail-item>
           <ui-detail-item [label]="'Email' | translate">{{ user.email }}</ui-detail-item>
@@ -78,7 +80,7 @@
     }
     @case ('roles') {
       <div class="roles-tab">
-        <ui-card [title]="'Roles' | translate" [description]="'What they hold, from when and until when.' | translate">
+        <ui-card fill [title]="'Roles' | translate" [description]="'What they hold, from when and until when.' | translate">
           @if (canChangeRoles()) {
             <button uiButton uiCardActions variant="secondary" size="sm" type="button" (click)="giveRole()"><ng-icon [svg]="icons.giveRole" /> {{ 'Give role' | translate }}</button>
           }
@@ -132,7 +134,7 @@
             <ui-empty-state compact [icon]="icons.role" [title]="'No role' | translate" [description]="'They can sign in and see their own profile only.' | translate" />
           }
         </ui-card>
-        <ui-card [title]="'Permissions' | translate" [description]="'Everything the roles they hold now allow, together.' | translate">
+        <ui-card fill [title]="'Permissions' | translate" [description]="'Everything the roles they hold now allow, together.' | translate">
           @if (session.can('roles.view')) {
             <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/roles"><ng-icon [svg]="icons.role" /> {{ 'Roles & permissions' | translate }}</a>
           }
@@ -163,7 +165,7 @@
       }
     }
     @case ('activity') {
-      <ui-card [title]="'Activity' | translate" [description]="'Changes made by or to this user' | translate">
+      <ui-card fill [title]="'Activity' | translate" [description]="'Changes made by or to this user' | translate">
         <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/activity" [queryParams]="{ user: user.id }">{{ 'View in activity log' | translate }} <ng-icon [svg]="icons.arrow" /></a>
         @if (activity().length) {
           <ui-timeline>
@@ -180,6 +182,7 @@
     }
     @case ('security') {
       <div class="security">
+        <div class="security-cards">
         <ui-card [title]="'Two-step sign-in' | translate" [description]="'A code from an authenticator app as well as the password.' | translate">
           <div class="security-row">
             <ui-badge [tone]="user.twoFactor ? 'success' : 'neutral'">{{ (user.twoFactor ? 'On' : 'Off') | translate }}</ui-badge>
@@ -208,8 +211,9 @@
             </div>
           </ui-card>
         }
+        </div>
 
-        <ui-card class="devices" [title]="'Signed-in devices' | translate" [description]="(isSelf() ? 'Where you are signed in now.' : 'Where they are signed in now.') | translate" flush>
+        <ui-card class="devices" fill [title]="'Signed-in devices' | translate" [description]="(isSelf() ? 'Where you are signed in now.' : 'Where they are signed in now.') | translate" flush>
           @if ((sessions()?.length ?? 0) > (isSelf() ? 1 : 0)) {
             <button uiButton uiCardActions variant="ghost" size="sm" type="button" [loading]="ending() === 'all'" (click)="endOtherSessions()">
               <ng-icon [svg]="icons.signOut" /> {{ (isSelf() ? 'Sign out of other devices' : 'Sign out everywhere') | translate }}
@@ -253,6 +257,7 @@
       }
     }
   }
+  </div>
 } @else {
   <ui-card>
     <ui-empty-state [icon]="icons.missing" [title]="'User not found' | translate" [description]="'They may have been deleted.' | translate">
