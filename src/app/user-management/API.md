@@ -134,6 +134,7 @@ Someone's roles are the `RoleAssignment`s in `User.roles`, as in NIST RBAC: a pe
 - **Each role's own rules** (`Role.assignment`). With `maxDays`, an assignment of that role must end, at most that many days after it starts: refuse a longer one, or one without an end, with `assignment_too_long` (`422`). When `PATCH` moves the end, count from the start or from now, whichever is later. With `reasonRequired`, a blank `reason` is `reason_required` (`422`). A reason is at most 500 characters.
 - **Once at a time.** A new assignment that overlaps one the person already has of the same role in the same scope is refused with `already_assigned` (`409`); the same role in two branches is two assignments. To extend one, or renew one that has expired, `PATCH` its `endsAt`.
 - **Who may.** The rules below apply: the actor must hold every permission of the role (rule 2) and be able to manage the person (rule 3), and nobody changes their own assignments (rule 4).
+- **Conflicting roles.** A role that a rule says cannot be held with one the person holds, now or later, at an overlapping time is refused with `role_conflict` (`409`); see Conflicting roles.
 - **Expired ones stay** on the user, so they can be renewed, until they are older than the settings' `activityRetentionDays`. A removed one is gone at once; the activity log keeps what it was.
 - **Several people at once.** `add` gives the role to everyone in `userIds` who does not hold it now or later; `removeRoleId` takes away their current and scheduled assignments of that role. Send one of the two. All or none: refuse the whole request when one change is refused. Repeated ids count once, and people with nothing to change are left out of the answer and the log.
 
@@ -179,6 +180,21 @@ As Microsoft Entra asks for a justification, the changes that take or reset some
 
 Nobody needs a reason for their own sessions or password. A new role assignment's `reason` (see Role assignments, where `Role.assignment.reasonRequired` decides) is the reason of its `role_assignment.added` entry.
 
+## Conflicting roles
+
+As NIST RBAC's static separation of duty, a rule names roles nobody may hold at the same time, so that one person cannot both do and check the same work.
+
+| Request | Body | Answer | Permission |
+| --- | --- | --- | --- |
+| `GET /role-conflicts` | | `RoleConflict[]` | Anyone signed in |
+| `POST /role-conflicts` | `RoleConflictDraft`: `{ name, description?, roleIds }` | The new `RoleConflict` | `roles.manage` |
+| `PATCH /role-conflicts/:id` | `Partial<RoleConflictDraft>` | The `RoleConflict` | `roles.manage` |
+| `DELETE /role-conflicts/:id` | | Nothing | `roles.manage` |
+
+`name` is 1 to 100 characters, `description` at most 500, and `roleIds` 2 to 20 different roles that exist (`not_found` otherwise). Giving a role (`POST /role-assignments`, `add` in `POST /role-assignments/batch`, a new or imported user's roles) is refused with `role_conflict` (`409`) when the person holds, now or later, another role of a rule with that role at a time the new assignment overlaps. Scope does not matter: a role for one branch still lets one person do both. Moving an assignment's end (`PATCH /role-assignments/:id`) is checked the same way.
+
+A rule made while people already hold its roles is kept: the roles page lists them as the people to fix, and the rule stops anyone new. Deleting a role takes it off the rules; a rule left with fewer than two roles goes with it. Log `role_conflict.created`, `role_conflict.updated` (the `name` and `description` that changed, and `roles` as items added and removed) and `role_conflict.deleted`.
+
 ## Activity
 
 | Request | Answer | Permission |
@@ -219,7 +235,7 @@ Refuse a request with a 4xx status and a body such as `{ "code": "email_taken" }
 | `403` | `forbidden`, `self_change`, `account_suspended`, `invite_pending`, `two_factor_mandatory`: the role requires two-step sign-in and it is off |
 | `404` | `not_found` |
 | `400` | `invalid_request`: a field the request may not set, or a value of the wrong kind; `invalid_token`: an email link that has expired or was used |
-| `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role`, `already_assigned`, `last_administrator`, `code_taken`, `branch_in_use`, `branch_closed` |
+| `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role`, `already_assigned`, `last_administrator`, `code_taken`, `branch_in_use`, `branch_closed`, `role_conflict` |
 | `422` | `email_domain`, `weak_password`, `password_reused`, `assignment_too_long`, `reason_required` |
 | `429` | `too_many_requests`: too many sign-in, refresh or reset attempts from one address |
 
