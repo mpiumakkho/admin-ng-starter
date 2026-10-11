@@ -100,6 +100,10 @@ The model follows NIST RBAC, with the role assignments of Microsoft Entra:
 
 Nobody gives a role that grants a permission they lack, manages someone whose roles (now or scheduled) grant one, or changes their own roles. [API.md](API.md#role-assignments) has the requests and rules a server checks.
 
+### Conflicting roles
+
+As NIST RBAC's static separation of duty, a rule names roles nobody may hold at the same time, so that one person cannot both do and check the same work. The Roles & permissions page leads to them (`/roles/conflicts`, with a count of the people to fix); `roles.manage` adds, changes and deletes rules. Giving a role that clashes with one the person holds at an overlapping time, in any scope, is refused with `role_conflict`; the role dialog names the rule first, and an import row with two such roles shows a problem. A rule made while people already hold its roles lists them as the people to fix, as an access review would (`AdminStore.roleConflictViolations`, `roleConflict()` in `data/access-rules.ts`).
+
 ### Branches
 
 Branches (sites, offices) are optional: they show once the settings turn on "Use branches", and the sample data has them on. With them on:
