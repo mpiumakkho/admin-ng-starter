@@ -4,7 +4,7 @@ Users, roles and permissions, and the activity log for an Angular 22 app, in one
 
 | Folder | What it holds |
 | --- | --- |
-| `overview/`, `users/`, `roles/`, `activity/`, `settings/` | The pages |
+| `overview/`, `users/`, `roles/`, `branches/`, `activity/`, `settings/` | The pages |
 | `access/` | `Session` (who is signed in and what their role allows), the route guards and the no-access page |
 | `data/` | Types, `AdminApi` (the contract with the server), `LocalAdminApi` (sample data in the browser), `HttpAdminApi` (a real server, see [API.md](API.md)), `AdminStore` (signals the pages read) and the permission rules |
 | `shared/` | Pieces several pages use: role and status badges, the activity sentence, date pipes, error messages, CSV, and the Export menu (copy, Excel, CSV, print) with its own small .xlsx writer |
@@ -100,6 +100,16 @@ The model follows NIST RBAC, with the role assignments of Microsoft Entra:
 
 Nobody gives a role that grants a permission they lack, manages someone whose roles (now or scheduled) grant one, or changes their own roles. [API.md](API.md#role-assignments) has the requests and rules a server checks.
 
+### Branches
+
+Branches (sites, offices) are optional: they show once the settings turn on "Use branches", and the sample data has them on. With them on:
+
+- **Each person belongs to one branch, or none**, as Google Workspace puts each user in one organizational unit. The user form picks it, the users list shows and filters by it (`/users?branch=<id>`, or `none`), and an import file can name it by code or name in a Branch column.
+- **A role can be given for one branch only** (`RoleAssignment.branchId`), as Azure RBAC gives a role at a scope. It allows what it allows in that branch and nowhere else: `Session.can(permission, branchId)` says yes for that branch, and `Session.branchesWith(permission)` lists the branches. `Session.can(permission)` without a branch, and so user management itself, counts only roles for the whole organization, and only those keep an administrator (`last_administrator`).
+- **The Branches page** (`branches.view`, under User management; `branches.manage` to change it) adds, renames, closes and deletes them, and searches, filters by status, sorts and pages its list as the users list does. A closed branch keeps its people and roles, but nobody new joins it or gets a role there; one that anyone belongs to or holds a role in cannot be deleted.
+
+The app's own modules use the branch scope for their records, such as an order's branch: `session.can('orders.approve', order.branchId)`.
+
 ## Security
 
 The Security tab of a profile (`/users/:id?tab=security`) shows:
@@ -128,13 +138,14 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 - how long someone can leave the app idle before `Session` signs them out;
 - which roles must turn on two-step sign-in before anything else (the guards then keep them on `/setup-two-factor`);
 - the password rules: the shortest password and how many recent passwords may not be used again;
-- how long the activity log keeps each entry.
+- how long the activity log keeps each entry;
+- whether people belong to branches (see [Branches](#branches)).
 
 `AdminStore.settings` holds them for any page that needs them.
 
 ## Trying it with the sample data
 
-`LocalAdminApi` keeps 48 sample users, 14 roles and a month of activity in the browser's `localStorage`: the four built-in roles and ten an organization might add (Help desk, HR, Auditor and so on), so the pages show a longer list of roles. With more than six roles, the roles page searches its list, the user form offers roles in a dropdown and the overview chart adds up all but the five largest. The sign-in page offers one account for each built-in role (Administrator, Manager, Support and Viewer); any active user's email works too, with any password of 6 or more characters. Clear the `admin-data-v5` key in the browser to start over.
+`LocalAdminApi` keeps 48 sample users, 14 roles and a month of activity in the browser's `localStorage`: the four built-in roles and ten an organization might add (Help desk, HR, Auditor and so on), so the pages show a longer list of roles. With more than six roles, the roles page searches its list, the user form offers roles in a dropdown and the overview chart adds up all but the five largest. The sign-in page offers one account for each built-in role (Administrator, Manager, Support and Viewer); any active user's email works too, with any password of 6 or more characters. Clear the `admin-data-v7` key in the browser to start over.
 
 ## Using a real server
 
