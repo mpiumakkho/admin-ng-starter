@@ -161,13 +161,16 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 - the role the Add user form picks first;
 - which email domains new users may have;
 - how long invitations last before the overview lists them as expired;
-- how long someone can leave the app idle before `Session` signs them out;
+- how long someone can leave the app idle before `Session` signs them out; the server ends a session that long without a request too;
 - which roles must turn on two-step sign-in before anything else (the guards then keep them on `/setup-two-factor`);
 - the password rules: the shortest password and how many recent passwords may not be used again;
 - how long the activity log keeps each entry: 90 days at least, as Thailand's Computer-Related Crime Act has service providers keep traffic data;
 - whether people belong to branches (see [Branches](#branches));
 - which changes must have a reason (see [Reasons](#reasons)); suspending or reactivating someone and deleting people on a new installation;
-- how long a sign-in or a confirmed password lasts for the risky changes (see [Confirming who you are](#confirming-who-you-are)), or never asking again.
+- how long a sign-in or a confirmed password lasts for the risky changes (see [Confirming who you are](#confirming-who-you-are)), or never asking again;
+- after how many days nobody signed in to an account it is suspended, every night (off on a new installation; never the last administrator).
+
+The server also emails people when their account is signed in from a new device, gets a role, or has its email or password changed, and when it is suspended for not being used ([API.md](API.md#emails-about-your-account)). With the sample data these emails go to the browser console.
 
 `AdminStore.settings` holds them for any page that needs them.
 
