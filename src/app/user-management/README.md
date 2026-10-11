@@ -131,6 +131,7 @@ As Microsoft Entra's administrative units and Google Workspace's organizational 
 The Security tab of a profile (`/users/:id?tab=security`) shows:
 
 - **Two-step sign-in.** People turn it on by scanning a QR code with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password) and typing a code. After that, signing in asks for a code as well as the password. An administrator can turn it off for someone who lost their phone. The QR code is drawn by `uqr`, loaded only when the setup dialog opens.
+- **Failed sign-ins.** A refused sign-in of someone who exists (a wrong password or code, a suspended account, an invitation not accepted yet) shows in the activity log as "Sign-in failed" with why, as does a wrong password when confirming who you are; the server also logs when too many wrong attempts lock an account. An email that belongs to nobody is not logged.
 - **Recovery codes.** Turning two-step sign-in on shows ten single-use codes, such as `abcde-fghjk`, to copy or download (`RecoveryCodes`); they are not shown again. Wherever a code is asked (signing in, confirming who you are, turning it off), "Lost your phone? Use a recovery code" takes one instead (`TwoFactorCodeField`). The Security tab says how many are left and makes new ones, which replace the old (a risky change: the password may be asked again). Turning two-step sign-in off deletes them. [API.md](API.md#recovery-codes) has the requests.
 - **Password.** Changing it signs you out on your other devices.
 - **Signed-in devices.** Each session's browser, system, IP address and last activity. Sign out of one, or of all the others.
@@ -163,7 +164,7 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 - how long someone can leave the app idle before `Session` signs them out;
 - which roles must turn on two-step sign-in before anything else (the guards then keep them on `/setup-two-factor`);
 - the password rules: the shortest password and how many recent passwords may not be used again;
-- how long the activity log keeps each entry;
+- how long the activity log keeps each entry: 90 days at least, as Thailand's Computer-Related Crime Act has service providers keep traffic data;
 - whether people belong to branches (see [Branches](#branches));
 - which changes must have a reason (see [Reasons](#reasons)); suspending or reactivating someone and deleting people on a new installation;
 - how long a sign-in or a confirmed password lasts for the risky changes (see [Confirming who you are](#confirming-who-you-are)), or never asking again.
