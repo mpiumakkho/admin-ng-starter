@@ -16,6 +16,11 @@ export interface AdminData {
   settings: AdminSettings;
   /** Who is signed in where */
   sessions: UserSession[];
+  /**
+   * When each session last proved who is signed in, by session id: its sign-in, or a password confirmed since, for the
+   * changes that ask for it again (API.md, "Confirming who you are")
+   */
+  verifiedAt?: Record<string, string>;
   /** Authenticator secrets by user id, and the ones waiting to be confirmed */
   twoFactorSecrets?: Record<string, string>;
   pendingTwoFactor?: Record<string, string>;

@@ -8,11 +8,12 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
 import {
-  ACTIVITY_RETENTION_DAYS, INVITE_EXPIRY_DAYS, PASSWORD_HISTORY, PASSWORD_MIN_LENGTHS, REASON_ACTIONS, SESSION_TIMEOUT_MINUTES,
+  ACTIVITY_RETENTION_DAYS, INVITE_EXPIRY_DAYS, PASSWORD_HISTORY, PASSWORD_MIN_LENGTHS, REASON_ACTIONS, REAUTH_MINUTES,
+  SESSION_TIMEOUT_MINUTES,
 } from '../data/catalog';
 import { AdminSettings, ReasonAction } from '../data/models';
 import { errorMessage } from '../shared/errors';
-import { idleTimeoutLabel, passwordHistoryLabel, retentionLabel } from '../shared/formatting';
+import { idleTimeoutLabel, passwordHistoryLabel, reauthLabel, retentionLabel } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import {
   UiAlert,
@@ -77,6 +78,7 @@ export class SettingsComponent implements OnInit {
     activityRetentionDays: [730],
     branchesEnabled: [false],
     reasonsRequired: [[] as ReasonAction[]],
+    reauthMinutes: [10],
   });
 
   /** The changes that can require a reason, in the order of REASON_ACTIONS */
@@ -90,6 +92,11 @@ export class SettingsComponent implements OnInit {
   protected readonly timeoutOptions = computed(() => {
     this.i18n();
     return SESSION_TIMEOUT_MINUTES.map(minutes => ({ value: minutes, label: idleTimeoutLabel(this.translate, minutes) }));
+  });
+
+  protected readonly reauthOptions = computed(() => {
+    this.i18n();
+    return REAUTH_MINUTES.map(minutes => ({ value: minutes, label: reauthLabel(this.translate, minutes) }));
   });
 
   protected readonly passwordLengthOptions = computed(() => {

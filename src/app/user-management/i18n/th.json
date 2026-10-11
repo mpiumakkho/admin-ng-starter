@@ -618,5 +618,12 @@
     "action.role_conflict.deleted": "ลบกฎบทบาทที่ห้ามถือร่วมกัน",
     "activity.role_conflict.created": "{{actor}} เพิ่มกฎบทบาทที่ห้ามถือร่วมกัน {{target}}",
     "activity.role_conflict.updated": "{{actor}} แก้ไขกฎบทบาทที่ห้ามถือร่วมกัน {{target}}",
-    "activity.role_conflict.deleted": "{{actor}} ลบกฎบทบาทที่ห้ามถือร่วมกัน {{target}}"
+    "activity.role_conflict.deleted": "{{actor}} ลบกฎบทบาทที่ห้ามถือร่วมกัน {{target}}",
+    "Confirm it is you":            "ยืนยันว่าเป็นคุณ",
+    "Confirm":                      "ยืนยัน",
+    "reauthConfirm":                "การเปลี่ยนแปลงนี้ต้องใส่รหัสผ่านอีกครั้ง เพราะคุณเข้าสู่ระบบหรือยืนยันรหัสผ่านครั้งล่าสุดนานกว่า {{time}} แล้ว",
+    "Ask for the password again after": "ขอรหัสผ่านอีกครั้งเมื่อผ่านไป",
+    "reauthHint":                   "การมอบหรือถอดบทบาท การแก้สิทธิ์ของบทบาท การลบผู้ใช้ การ reset การเข้าสู่ระบบของคนอื่น และการแก้การตั้งค่านี้ จะขอรหัสผ่านอีกครั้งเมื่อผ่านไปนานเท่านี้นับจากครั้งล่าสุดที่ใส่",
+    "Never ask again":              "ไม่ขออีก",
+    "This change needs your password first. Try again and confirm it is you.": "การเปลี่ยนแปลงนี้ต้องยืนยันรหัสผ่านก่อน ลองอีกครั้งแล้วยืนยันว่าเป็นคุณ"
 }

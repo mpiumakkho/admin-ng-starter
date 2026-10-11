@@ -58,7 +58,9 @@ export type AdminApiErrorCode =
   /** Nobody new joins a closed branch or gets a role there */
   | 'branch_closed'
   /** A rule says nobody may hold this role with one the person holds at an overlapping time */
-  | 'role_conflict';
+  | 'role_conflict'
+  /** A risky change, and the person last signed in or confirmed their password too long ago: confirm it, then try again */
+  | 'reauth_required';
 
 export class AdminApiError extends Error {
   constructor(readonly code: AdminApiErrorCode) {
@@ -86,6 +88,11 @@ export abstract class AdminApi {
   abstract signOut(): Promise<void>;
   /** Changes the signed-in user's own password; invalid_credentials when the current one is wrong */
   abstract changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  /**
+   * Confirms who the signed-in user is with their password, and the code with two-step sign-in on, for the changes
+   * refused with reauth_required; the refusals are those of signIn()
+   */
+  abstract reauthenticate(password: string, code?: string): Promise<void>;
 
   /* Links in emails: nobody is signed in, the token from the link says who */
 

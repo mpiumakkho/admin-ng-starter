@@ -75,20 +75,13 @@ export class LocalAdminApi extends AdminApi {
       await this.respond(undefined);
       throw new AdminApiError(user.status === 'suspended' ? 'account_suspended' : 'invite_pending');
     }
-    const secret = user.twoFactor ? this.data.twoFactorSecrets?.[user.id] : undefined;
-    if (secret && !code) {
-      await this.respond(undefined);
-      throw new AdminApiError('two_factor_required');
-    }
-    if (secret && !(await verifyTotp(secret, code!))) {
-      await this.respond(undefined);
-      throw new AdminApiError('invalid_code');
-    }
+    await this.checkCode(user, code);
     const now = new Date().toISOString();
     const signedIn = { ...user, lastActiveAt: now };
     this.data.users = this.data.users.map(item => item.id === user.id ? signedIn : item);
     const session: UserSession = { id: `s-${crypto.randomUUID().slice(0, 12)}`, userId: user.id, createdAt: now, lastSeenAt: now, ...this.client };
     this.data.sessions = [...this.data.sessions, session];
+    this.data.verifiedAt = { ...this.data.verifiedAt, [session.id]: now };
     this.log(user.id, 'auth.sign_in', fullName(user), user.id);
     clearSession();
     writeStore(remember ? localStorage : sessionStorage, SESSION_KEY, session.id);
@@ -115,6 +108,18 @@ export class LocalAdminApi extends AdminApi {
     const here = this.currentSession()?.session.id;
     this.data.sessions = this.data.sessions.filter(session => session.userId !== actor.id || session.id === here);
     this.log(actor.id, 'user.password_changed', fullName(actor), actor.id);
+    return this.respond(undefined);
+  }
+
+  async reauthenticate(password: string, code?: string): Promise<void> {
+    const actor = this.actor();
+    if (!(await this.passwordMatches(actor.id, String(password ?? '')))) {
+      await this.respond(undefined);
+      throw new AdminApiError('invalid_credentials');
+    }
+    await this.checkCode(actor, code);
+    const session = this.currentSession()!.session;
+    this.data.verifiedAt = { ...this.data.verifiedAt, [session.id]: new Date().toISOString() };
     return this.respond(undefined);
   }
 
@@ -174,6 +179,8 @@ export class LocalAdminApi extends AdminApi {
     const actor = this.actor('users.create');
     const draft = userDraft(input);
     this.assertCanCreate(actor, draft);
+    // A new user's roles are roles given
+    this.assertReauthenticated();
     return this.respond(this.addUser(actor, draft));
   }
 
@@ -193,6 +200,7 @@ export class LocalAdminApi extends AdminApi {
       }
       emails.add(email);
     }
+    this.assertReauthenticated();
     return this.respond(drafts.map(draft => this.addUser(actor, draft)));
   }
 
@@ -261,6 +269,7 @@ export class LocalAdminApi extends AdminApi {
       throw new AdminApiError('self_change');
     }
     const users = ids.map(id => this.findManageable(actor, id));
+    this.assertReauthenticated();
     const why = this.requireReason('delete', reason);
     this.commitUsers(this.data.users.filter(user => !ids.includes(user.id)), false);
     for (const user of users) {
@@ -277,7 +286,10 @@ export class LocalAdminApi extends AdminApi {
   async resetPassword(id: string, reason?: string): Promise<void> {
     const actor = this.actor('users.edit');
     const user = this.findManageable(actor, id);
-    // Your own needs no reason
+    // Your own needs no reason, nor a recent sign-in
+    if (id !== actor.id) {
+      this.assertReauthenticated();
+    }
     const why = id === actor.id ? '' : this.requireReason('resetSignIn', reason);
     this.log(actor.id, 'user.password_reset', fullName(user), id, undefined, why);
     this.sendLink(user, 'reset');
@@ -309,6 +321,7 @@ export class LocalAdminApi extends AdminApi {
     if (user.id === actor.id) {
       throw new AdminApiError('self_change');
     }
+    this.assertReauthenticated();
     const assignment = this.newAssignment(actor, user, grantInput(grant));
     const updated = { ...user, roles: [...user.roles, assignment] };
     this.commitUsers(this.data.users.map(item => item.id === user.id ? updated : item));
@@ -323,6 +336,7 @@ export class LocalAdminApi extends AdminApi {
     check(changes.reason === undefined || (typeof changes.reason === 'string' && changes.reason.length <= MAX_REASON_LENGTH));
     const { user, assignment: current } = this.findAssignment(actor, id);
     const role = this.assertCanAssign(actor, current.roleId);
+    this.assertReauthenticated();
     const now = Date.now();
     const assignment: RoleAssignment = {
       ...current,
@@ -358,6 +372,7 @@ export class LocalAdminApi extends AdminApi {
     const actor = this.actor('users.edit');
     const { user, assignment } = this.findAssignment(actor, id);
     this.assertCanAssign(actor, assignment.roleId);
+    this.assertReauthenticated();
     const why = this.requireReason('removeRole', reason);
     const updated = { ...user, roles: user.roles.filter(item => item.id !== id) };
     this.commitUsers(this.data.users.map(item => item.id === user.id ? updated : item));
@@ -377,6 +392,7 @@ export class LocalAdminApi extends AdminApi {
       throw new AdminApiError('self_change');
     }
     const users = ids.map(id => this.findManageable(actor, id));
+    this.assertReauthenticated();
     const now = Date.now();
     const holds = (user: User, roleId: string, branchId?: string | null) => user.roles.some(item => item.roleId === roleId
       && (branchId === undefined || item.branchId === branchId) && roleAssignmentState(item, now) !== 'expired');
@@ -600,6 +616,8 @@ export class LocalAdminApi extends AdminApi {
       if (!holdsAll(this.permissions(actor), [...added, ...removed])) {
         throw new AdminApiError('forbidden');
       }
+      // What a role allows; its name, color or rules alone do not ask
+      this.assertReauthenticated();
     }
     this.data.roles = this.data.roles.map(item => item.id === id ? role : item);
     const diff: ActivityChange[] = (['name', 'description', 'tone'] as const)
@@ -636,6 +654,7 @@ export class LocalAdminApi extends AdminApi {
     if (this.data.settings.defaultRoleId === id) {
       throw new AdminApiError('default_role');
     }
+    this.assertReauthenticated();
     this.data.roles = this.data.roles.filter(item => item.id !== id);
     // Its expired assignments go with it
     this.data.users = this.data.users.map(user => user.roles.some(item => item.roleId === id)
@@ -681,6 +700,7 @@ export class LocalAdminApi extends AdminApi {
     if (roleIds.some(roleId => !this.data.roles.some(role => role.id === roleId))) {
       throw new AdminApiError('not_found');
     }
+    this.assertReauthenticated();
     const current = this.data.settings;
     const settings: AdminSettings = {
       ...current,
@@ -692,7 +712,7 @@ export class LocalAdminApi extends AdminApi {
     this.data.settings = settings;
     const diff: ActivityChange[] = ([
       'defaultRoleId', 'inviteExpiryDays', 'sessionTimeoutMinutes', 'passwordMinLength', 'passwordHistory', 'activityRetentionDays',
-      'branchesEnabled',
+      'branchesEnabled', 'reauthMinutes',
     ] as const)
       .filter(field => current[field] !== settings[field])
       .map(field => ({ field, from: String(current[field]), to: String(settings[field]) }));
@@ -731,7 +751,10 @@ export class LocalAdminApi extends AdminApi {
       throw new AdminApiError('not_found');
     }
     const user = this.assertCanSeeSecurity(actor, session.userId);
-    // Your own needs no reason
+    // Your own needs no reason, nor a recent sign-in
+    if (user.id !== actor.id) {
+      this.assertReauthenticated();
+    }
     const why = user.id === actor.id ? '' : this.requireReason('endSessions', reason);
     this.data.sessions = this.data.sessions.filter(item => item.id !== sessionId);
     this.log(actor.id, 'auth.sessions_ended', fullName(user), user.id, [{ field: 'devices', added: [], removed: [deviceName(session)] }], why);
@@ -741,6 +764,9 @@ export class LocalAdminApi extends AdminApi {
   async endSessions(userId: string, reason?: string): Promise<void> {
     const actor = this.actor();
     const user = this.assertCanSeeSecurity(actor, userId);
+    if (userId !== actor.id) {
+      this.assertReauthenticated();
+    }
     const why = userId === actor.id ? '' : this.requireReason('endSessions', reason);
     // Your own: everywhere but this browser
     const here = this.currentSession()?.session.id;
@@ -798,6 +824,7 @@ export class LocalAdminApi extends AdminApi {
       throw new AdminApiError('self_change');
     }
     this.findManageable(actor, userId);
+    this.assertReauthenticated();
     const why = this.requireReason('resetSignIn', reason);
     const user = this.setTwoFactor(userId, false);
     this.log(actor.id, 'auth.two_factor_off', fullName(user), user.id, undefined, why);
@@ -1014,6 +1041,33 @@ export class LocalAdminApi extends AdminApi {
   private async passwordMatches(userId: string, password: string): Promise<boolean> {
     const saved = this.data.passwords?.[userId];
     return saved ? saved === await sha256(password) : password.length >= MIN_PASSWORD_LENGTH;
+  }
+
+  /** The code from the authenticator app, with two-step sign-in on: two_factor_required without one, invalid_code when wrong */
+  private async checkCode(user: User, code: string | undefined) {
+    const secret = user.twoFactor ? this.data.twoFactorSecrets?.[user.id] : undefined;
+    if (secret && !code) {
+      await this.respond(undefined);
+      throw new AdminApiError('two_factor_required');
+    }
+    if (secret && !(await verifyTotp(secret, String(code)))) {
+      await this.respond(undefined);
+      throw new AdminApiError('invalid_code');
+    }
+  }
+
+  /**
+   * Refuses a risky change with reauth_required when this browser's session last proved who is signed in longer ago
+   * than the settings' reauthMinutes allow (API.md, "Confirming who you are"). Asked once the change is allowed, before
+   * anything changes.
+   */
+  private assertReauthenticated() {
+    const minutes = this.data.settings.reauthMinutes;
+    const session = this.currentSession()?.session;
+    const verifiedAt = session && this.data.verifiedAt?.[session.id];
+    if (minutes && (!verifiedAt || Date.now() - new Date(verifiedAt).getTime() >= minutes * 60_000)) {
+      throw new AdminApiError('reauth_required');
+    }
   }
 
   /** This browser's session and its user, while the session lasts and the account is active */
@@ -1304,6 +1358,7 @@ function settleAssignments(data: AdminData, kept: string) {
 const SETTINGS_RANGES: Record<string, [min: number, max: number]> = {
   inviteExpiryDays: [0, 365],
   sessionTimeoutMinutes: [0, 10080],
+  reauthMinutes: [0, 1440],
   passwordMinLength: [8, 64],
   passwordHistory: [0, 24],
   activityRetentionDays: [30, 3650],

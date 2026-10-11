@@ -72,6 +72,11 @@ export class Session {
    * (ReauthDialog, WCAG 2.2.5) rather than being taken to the sign-in page (3.2.5). Null while signed in.
    */
   readonly paused = signal<SessionEndReason | null>(null);
+  /**
+   * A risky change was refused with reauth_required and waits for the password (ReauthDialog): reauthenticate() sends
+   * it again, cancelReauth() lets it fail (API.md, "Confirming who you are")
+   */
+  readonly reauthRequested = this.store.reauthRequested.asReadonly();
 
   /** "Keep me signed in" at the last sign-in, for signing in again the same way */
   private remember = false;
@@ -254,6 +259,17 @@ export class Session {
     this.account.set(user);
     this.paused.set(null);
     this.store.resume();
+  }
+
+  /** Confirms who the signed-in user is; the changes waiting for it go again. The refusals are those of signing in. */
+  async reauthenticate(password: string, code?: string): Promise<void> {
+    await this.api.reauthenticate(password, code);
+    this.store.endReauth(true);
+  }
+
+  /** Leaves the changes waiting for the password unsent: they fail with reauth_required */
+  cancelReauth(): void {
+    this.store.endReauth(false);
   }
 
   /** Leaves the page the session ended on for the sign-in page, as the usual view does at once */

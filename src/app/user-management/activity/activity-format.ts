@@ -4,7 +4,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, REASON_ACTIONS, STATUS_META } from '../data/catalog';
 import { Activity, ActivityChange, fullName, ReasonAction, UserStatus } from '../data/models';
-import { idleTimeoutLabel, localDate, passwordHistoryLabel, retentionLabel } from '../shared/formatting';
+import { idleTimeoutLabel, localDate, passwordHistoryLabel, reauthLabel, retentionLabel } from '../shared/formatting';
 
 /** Where an entry's target can be opened, if it still exists */
 export interface ActivityTarget {
@@ -91,6 +91,8 @@ export class ActivityFormat {
         return this.translate.instant('dayCount', { count: Number(raw) });
       case 'sessionTimeoutMinutes':
         return idleTimeoutLabel(this.translate, Number(raw));
+      case 'reauthMinutes':
+        return reauthLabel(this.translate, Number(raw));
       case 'passwordMinLength':
         return this.translate.instant('characterCount', { count: Number(raw) });
       case 'passwordHistory':

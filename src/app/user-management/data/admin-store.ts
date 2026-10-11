@@ -45,9 +45,17 @@ export class AdminStore {
   readonly holdChanges = signal(false);
   /** Changes made elsewhere are waiting to be shown, while holdChanges is on */
   readonly changesWaiting = signal(false);
+  /**
+   * A change was refused with reauth_required and waits for the signed-in user to confirm who they are (ReauthDialog).
+   * endReauth() sends it again, or lets it fail.
+   */
+  readonly reauthRequested = signal(false);
 
   private stopWatching?: () => void;
   private refreshTimer?: ReturnType<typeof setTimeout>;
+  /** Settles the changes waiting on reauthRequested: true once the person has confirmed who they are */
+  private settleReauth?: (confirmed: boolean) => void;
+  private reauthAnswer?: Promise<boolean>;
 
   readonly usersById = computed(() => new Map(this.users().map(user => [user.id, user])));
   readonly rolesById = computed(() => new Map(this.roles().map(role => [role.id, role])));
@@ -224,6 +232,16 @@ export class AdminStore {
     this.sessionEnded.set(false);
     this.changesWaiting.set(false);
     this.twoFactorSetupRequired.set(false);
+    this.endReauth(false);
+  }
+
+  /** The person confirmed who they are, or gave up: the changes that waited go again, or fail with reauth_required */
+  endReauth(confirmed: boolean): void {
+    const settle = this.settleReauth;
+    this.settleReauth = undefined;
+    this.reauthAnswer = undefined;
+    this.reauthRequested.set(false);
+    settle?.(confirmed);
   }
 
   isEmailTaken(email: string, exceptId?: string): boolean {
@@ -456,9 +474,10 @@ export class AdminStore {
 
   /**
    * Runs a request, noting when it failed because the session has ended, or because two-step sign-in has to be set up
-   * first (unless the request can only be refused for the other reason two_factor_mandatory has)
+   * first (unless the request can only be refused for the other reason two_factor_mandatory has). A change refused
+   * with reauth_required goes again, once, after the person confirms who they are.
    */
-  private async call<T>(request: () => Promise<T>, setupMayBeRequired = true): Promise<T> {
+  private async call<T>(request: () => Promise<T>, setupMayBeRequired = true, reauthAsked = false): Promise<T> {
     try {
       const result = await request();
       // What the server answers is as of now: a role given a moment ago counts at once, not at the clock's next move
@@ -471,7 +490,19 @@ export class AdminStore {
       if (setupMayBeRequired && error instanceof AdminApiError && error.code === 'two_factor_mandatory') {
         this.twoFactorSetupRequired.set(true);
       }
+      if (!reauthAsked && error instanceof AdminApiError && error.code === 'reauth_required' && await this.askReauth()) {
+        return this.call(request, setupMayBeRequired, true);
+      }
       throw error;
     }
+  }
+
+  /** Waits for the person to confirm who they are, or give up; changes refused together wait for the same answer */
+  private askReauth(): Promise<boolean> {
+    this.reauthAnswer ??= new Promise<boolean>(resolve => {
+      this.settleReauth = resolve;
+      this.reauthRequested.set(true);
+    });
+    return this.reauthAnswer;
   }
 }

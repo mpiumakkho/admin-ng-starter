@@ -127,6 +127,33 @@ describe('HttpAdminApi against localBackend', () => {
     }
   });
 
+  it('asks for the password again before a risky change, once the sign-in is older than the settings allow', async () => {
+    const admin = await api.signIn(DEMO_ACCOUNTS[0].email, 'any-password', false);
+    const other = (await api.listUsers()).find(user => user.status === 'active' && user.id !== admin.id)!;
+
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.now() + 10 * 60_000);
+      answers = [];
+      await expect(api.resetPassword(other.id, 'Lost their phone')).rejects.toEqual(new AdminApiError('reauth_required'));
+      expect(answers).toEqual([`POST /api/users/${other.id}/reset-password 403`]);
+      // Only the risky changes ask
+      await expect(api.updateUser(other.id, { department: 'Design' })).resolves.toMatchObject({ department: 'Design' });
+
+      await expect(api.reauthenticate('nope')).rejects.toEqual(new AdminApiError('invalid_credentials'));
+      await api.reauthenticate('any-password');
+      await api.resetPassword(other.id, 'Lost their phone');
+
+      // 0 never asks
+      expect((await api.updateSettings({ reauthMinutes: 0 })).reauthMinutes).toBe(0);
+      vi.setSystemTime(Date.now() + 60 * 60_000);
+      await api.deleteUsers([other.id], 'Left the company');
+      await expect(api.updateSettings({ reauthMinutes: 2000 })).rejects.toEqual(new AdminApiError('invalid_request'));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('follows the account rules in the settings', async () => {
     const admin = DEMO_ACCOUNTS.find(account => account.roleName === 'Administrator')!.email;
     const viewer = DEMO_ACCOUNTS.find(account => account.roleName === 'Viewer')!;

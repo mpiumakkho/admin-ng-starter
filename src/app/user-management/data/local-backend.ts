@@ -38,6 +38,7 @@ const STATUS: Record<AdminApiErrorCode, number> = {
   branch_in_use: 409,
   branch_closed: 409,
   role_conflict: 409,
+  reauth_required: 403,
 };
 
 /** How long an access token lasts, in seconds, as on the server */
@@ -70,6 +71,7 @@ const ROUTES: Route[] = [
   ['GET', /^\/auth\/password-policy$/, api => api.getPasswordPolicy()],
   ['GET', /^\/me$/, async api => signedIn(await api.getSession())],
   ['POST', /^\/me\/password$/, (api, body) => api.changePassword(body['currentPassword'], body['newPassword'])],
+  ['POST', /^\/me\/reauthenticate$/, (api, body) => api.reauthenticate(body['password'], body['code'])],
   ['POST', /^\/me\/two-factor$/, api => api.startTwoFactor()],
   ['POST', /^\/me\/two-factor\/confirm$/, (api, body) => api.confirmTwoFactor(body['code'])],
   ['POST', /^\/me\/two-factor\/disable$/, (api, body) => api.disableTwoFactor(body['code'])],

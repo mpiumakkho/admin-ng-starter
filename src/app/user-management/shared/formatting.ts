@@ -12,9 +12,16 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 
 /** An idle timeout as people say it: "Never", "30 minutes", "1 hour", "4 hours" */
 export function idleTimeoutLabel(translate: TranslateService, minutes: number): string {
-  if (!minutes) {
-    return translate.instant('Never sign out');
-  }
+  return minutes ? minutesLabel(translate, minutes) : translate.instant('Never sign out');
+}
+
+/** How long a sign-in or a confirmed password lets someone make risky changes: "10 minutes", "1 hour", or never asking */
+export function reauthLabel(translate: TranslateService, minutes: number): string {
+  return minutes ? minutesLabel(translate, minutes) : translate.instant('Never ask again');
+}
+
+/** "15 minutes", "1 hour", "8 hours" */
+function minutesLabel(translate: TranslateService, minutes: number): string {
   if (minutes % 60) {
     return translate.instant('minuteCount', { count: minutes });
   }

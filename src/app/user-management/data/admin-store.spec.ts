@@ -120,6 +120,34 @@ describe('AdminStore', () => {
     expect(store.activity()[0].changes).toEqual([{ field: 'permissions', added: ['users.create'], removed: ['users.edit'] }]);
   });
 
+  it('sends a change refused with reauth_required again once the person confirms who they are', async () => {
+    const [first, second] = store.users().filter(user => user.status === 'active' && user.id !== session.userId());
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.now() + 10 * 60_000);
+
+      // Given up: the change fails, and nothing waits any more
+      const reset = store.resetPassword(first.id, 'Lost their phone');
+      await vi.waitFor(() => expect(session.reauthRequested()).toBe(true));
+      session.cancelReauth();
+      await expect(reset).rejects.toEqual(new AdminApiError('reauth_required'));
+      expect(session.reauthRequested()).toBe(false);
+
+      // Confirmed: changes refused together go again, without the page sending them
+      const deleted = store.deleteUsers([first.id], 'Left the company');
+      const removed = store.removeRoleAssignment(second.roles[0].id, 'Moved team');
+      await vi.waitFor(() => expect(session.reauthRequested()).toBe(true));
+      await expect(session.reauthenticate('nope')).rejects.toEqual(new AdminApiError('invalid_credentials'));
+      expect(session.reauthRequested()).toBe(true);
+      await session.reauthenticate('any-password');
+      await Promise.all([deleted, removed]);
+      expect(store.usersById().has(first.id)).toBe(false);
+      expect(store.usersById().get(second.id)?.roles.some(item => item.id === second.roles[0].id)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps changes for the next visit', async () => {
     const other = store.users().find(user => user.id !== session.userId())!;
     await store.deleteUsers([other.id], 'Left the company');

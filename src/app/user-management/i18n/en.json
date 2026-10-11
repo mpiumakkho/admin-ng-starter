@@ -618,5 +618,12 @@
     "action.role_conflict.deleted": "Deleted conflict rule",
     "activity.role_conflict.created": "{{actor}} added the conflicting-roles rule {{target}}",
     "activity.role_conflict.updated": "{{actor}} changed the conflicting-roles rule {{target}}",
-    "activity.role_conflict.deleted": "{{actor}} deleted the conflicting-roles rule {{target}}"
+    "activity.role_conflict.deleted": "{{actor}} deleted the conflicting-roles rule {{target}}",
+    "Confirm it is you":            "Confirm it's you",
+    "Confirm":                      "Confirm",
+    "reauthConfirm":                "This change needs your password, as you signed in or last confirmed it more than {{time}} ago.",
+    "Ask for the password again after": "Ask for the password again after",
+    "reauthHint":                   "Giving or taking away roles, changing what a role allows, deleting people, resetting someone's sign-in and changing these settings ask for the password once this long has passed since it was typed.",
+    "Never ask again":              "Never",
+    "This change needs your password first. Try again and confirm it is you.": "This change needs your password first. Try again and confirm it is you."
 }

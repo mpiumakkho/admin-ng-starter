@@ -30,6 +30,7 @@ const CODES: Record<AdminApiErrorCode, true> = {
   two_factor_required: true, invalid_code: true, invalid_token: true, two_factor_mandatory: true, password_reused: true,
   too_many_requests: true, already_assigned: true, last_administrator: true, assignment_too_long: true,
   reason_required: true, code_taken: true, branch_in_use: true, branch_closed: true, role_conflict: true,
+  reauth_required: true,
 };
 
 /** The /auth requests carry the refresh cookie, also to an API on another origin */
@@ -86,6 +87,10 @@ export class HttpAdminApi extends AdminApi {
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await this.send('POST', '/me/password', { currentPassword, newPassword });
+  }
+
+  async reauthenticate(password: string, code?: string): Promise<void> {
+    await this.send('POST', '/me/reauthenticate', { password, code });
   }
 
   /* Links in emails: no access token, no cookie */

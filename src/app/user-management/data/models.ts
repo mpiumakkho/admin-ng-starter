@@ -197,6 +197,11 @@ export interface AdminSettings {
   branchesEnabled: boolean;
   /** The changes that must have a reason */
   reasonsRequired: ReasonAction[];
+  /**
+   * How long after signing in, or confirming their password, someone can make the risky changes (giving roles, deleting
+   * people, the settings…) before the password is asked again; 0 never asks
+   */
+  reauthMinutes: number;
 }
 
 /** What a new password must be, from the settings; readable before signing in, for the links in emails */

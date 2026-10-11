@@ -290,6 +290,12 @@ describe('HttpAdminApi', () => {
       changed.flush(null);
       await password;
 
+      const confirm = api.reauthenticate('secret', '123456');
+      const confirmed = await sent('POST', '/me/reauthenticate');
+      expect(confirmed.request.body).toEqual({ password: 'secret', code: '123456' });
+      confirmed.flush(null);
+      await confirm;
+
       const setup = api.startTwoFactor();
       (await sent('POST', '/me/two-factor')).flush({ secret: 'ABC', uri: 'otpauth://totp/x' });
       await setup;

@@ -187,6 +187,7 @@ export const FIELD_LABELS: Record<string, string> = {
   passwordHistory: 'Recent passwords not allowed again',
   activityRetentionDays: 'Keep activity for',
   reasonsRequired: 'Ask for a reason when',
+  reauthMinutes: 'Ask for the password again after',
   devices: 'Devices',
 };
 
@@ -217,11 +218,13 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   activityRetentionDays: 730,
   branchesEnabled: false,
   reasonsRequired: ['status', 'delete'],
+  reauthMinutes: 10,
 };
 
 /** Choices on the settings page */
 export const INVITE_EXPIRY_DAYS = [3, 7, 14, 30];
 export const SESSION_TIMEOUT_MINUTES = [0, 15, 30, 60, 240, 480];
+export const REAUTH_MINUTES = [0, 5, 10, 15, 30, 60];
 export const PASSWORD_MIN_LENGTHS = [8, 10, 12, 14, 16];
 export const PASSWORD_HISTORY = [0, 1, 3, 5, 10];
 export const ACTIVITY_RETENTION_DAYS = [30, 90, 180, 365, 730, 1825];
