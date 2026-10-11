@@ -13,7 +13,10 @@ import {
   lucidePencil,
   lucideSettings,
   lucideShield,
+  lucideShieldAlert,
   lucideShieldCheck,
+  lucideShieldEllipsis,
+  lucideShieldMinus,
   lucideShieldOff,
   lucideShieldPlus,
   lucideShieldX,
@@ -128,6 +131,15 @@ export const ACTIVITY_META: Record<ActivityAction, { icon: string; tone: UiTone;
   'role.created': { icon: lucideShieldPlus, tone: 'primary', label: 'action.role.created', message: 'activity.role.created', kind: 'roles' },
   'role.updated': { icon: lucideShield, tone: 'info', label: 'action.role.updated', message: 'activity.role.updated', kind: 'roles' },
   'role.deleted': { icon: lucideShieldX, tone: 'danger', label: 'action.role.deleted', message: 'activity.role.deleted', kind: 'roles' },
+  'role_conflict.created': {
+    icon: lucideShieldAlert, tone: 'primary', label: 'action.role_conflict.created', message: 'activity.role_conflict.created', kind: 'roles',
+  },
+  'role_conflict.updated': {
+    icon: lucideShieldEllipsis, tone: 'info', label: 'action.role_conflict.updated', message: 'activity.role_conflict.updated', kind: 'roles',
+  },
+  'role_conflict.deleted': {
+    icon: lucideShieldMinus, tone: 'danger', label: 'action.role_conflict.deleted', message: 'activity.role_conflict.deleted', kind: 'roles',
+  },
   'role_assignment.added': { icon: lucideBadgePlus, tone: 'primary', label: 'action.role_assignment.added', message: 'activity.role_assignment.added', kind: 'users' },
   'role_assignment.updated': { icon: lucideCalendarClock, tone: 'info', label: 'action.role_assignment.updated', message: 'activity.role_assignment.updated', kind: 'users' },
   'role_assignment.removed': { icon: lucideBadgeMinus, tone: 'warning', label: 'action.role_assignment.removed', message: 'activity.role_assignment.removed', kind: 'users' },

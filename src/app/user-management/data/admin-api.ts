@@ -1,6 +1,7 @@
 import {
   Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
-  RoleAssignmentChanges, RoleAssignmentDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  RoleAssignmentChanges, RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft,
+  UserSession, UserStatus,
 } from './models';
 
 /** Why the server turned a request down; the UI turns each code into a message */
@@ -55,7 +56,8 @@ export type AdminApiErrorCode =
   /** People still belong to the branch, or hold a role there now or later */
   | 'branch_in_use'
   /** Nobody new joins a closed branch or gets a role there */
-  | 'branch_closed';
+  | 'branch_closed'
+  | 'role_conflict';
 
 export class AdminApiError extends Error {
   constructor(readonly code: AdminApiErrorCode) {
@@ -133,6 +135,13 @@ export abstract class AdminApi {
   abstract createRole(draft: RoleDraft): Promise<Role>;
   abstract updateRole(id: string, changes: Partial<RoleDraft>): Promise<Role>;
   abstract deleteRole(id: string): Promise<void>;
+
+  /* Conflicting roles: everyone signed in can read them, to explain a refusal */
+
+  abstract listRoleConflicts(): Promise<RoleConflict[]>;
+  abstract createRoleConflict(draft: RoleConflictDraft): Promise<RoleConflict>;
+  abstract updateRoleConflict(id: string, changes: Partial<RoleConflictDraft>): Promise<RoleConflict>;
+  abstract deleteRoleConflict(id: string): Promise<void>;
 
   /* Activity */
 

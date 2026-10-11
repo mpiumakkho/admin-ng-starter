@@ -65,6 +65,7 @@ export class ImportUsersDialog {
       canAssign: role => this.session.canAssign(role),
       status: this.status(),
       branches: settings.branchesEnabled ? this.store.branches() : undefined,
+      conflicts: this.store.roleConflicts(),
     });
   });
 

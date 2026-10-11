@@ -91,6 +91,20 @@ export interface RoleAssignmentChanges {
 }
 
 /** POST /role-assignments/batch: give several people a role, or take one away from them */
+/**
+ * Roles nobody may hold at the same time, so that one person cannot both do and check the same work: NIST RBAC's
+ * static separation of duty (API.md, "Conflicting roles")
+ */
+export interface RoleConflict {
+  id: string;
+  name: string;
+  description: string;
+  /** Two or more roles */
+  roleIds: string[];
+}
+
+export type RoleConflictDraft = Pick<RoleConflict, 'name' | 'roleIds'> & { description?: string };
+
 /** A role for several people, or one taken away from them, with a reason (see ReasonAction) */
 export type RoleAssignmentBatch = { add: RoleGrant } | { removeRoleId: string; reason?: string };
 
@@ -213,6 +227,9 @@ export type ActivityAction =
   | 'role_assignment.updated'
   | 'role_assignment.removed'
   | 'role_assignment.expired'
+  | 'role_conflict.created'
+  | 'role_conflict.updated'
+  | 'role_conflict.deleted'
   | 'settings.updated'
   | 'branch.created'
   | 'branch.updated'

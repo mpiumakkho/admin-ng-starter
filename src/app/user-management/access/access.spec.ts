@@ -392,6 +392,62 @@ describe('Session and permissions', () => {
     });
   });
 
+  describe('conflicting roles', () => {
+    const active = (roleId: string) => store.users().find(user => user.status === 'active' && activeRoleIds(user).join() === roleId)!;
+
+    it('refuses a role that a rule says cannot be held with one held then, in any scope', async () => {
+      await signInAs('admin');
+      const someone = active('viewer');
+      await store.createRoleConflict({ name: 'Viewers do not bill', roleIds: ['viewer', 'finance'] });
+
+      await expect(store.assignRole({ userId: someone.id, roleId: 'finance', endsAt: null })).rejects.toEqual(new AdminApiError('role_conflict'));
+      await expect(store.assignRole({ userId: someone.id, roleId: 'finance', branchId: 'b-cnx', endsAt: null }))
+        .rejects.toEqual(new AdminApiError('role_conflict'));
+      await expect(store.createUser({ ...draft('viewer'), roles: [{ roleId: 'viewer', endsAt: null }, { roleId: 'finance', endsAt: null }] }))
+        .rejects.toEqual(new AdminApiError('role_conflict'));
+    });
+
+    it('counts the times: one that ends before the other starts is fine, until its end moves', async () => {
+      await signInAs('admin');
+      const someone = active('viewer');
+      await store.createRoleConflict({ name: 'HR is not audited by itself', roleIds: ['hr', 'auditor'] });
+      await store.assignRole({ userId: someone.id, roleId: 'hr', startsAt: hours(48), endsAt: null });
+
+      await expect(store.assignRole({ userId: someone.id, roleId: 'auditor', endsAt: null })).rejects.toEqual(new AdminApiError('role_conflict'));
+      const user = await store.assignRole({ userId: someone.id, roleId: 'auditor', endsAt: hours(24) });
+      const auditor = user.roles.find(item => item.roleId === 'auditor')!;
+      await expect(store.updateRoleAssignment(auditor.id, { endsAt: hours(72) })).rejects.toEqual(new AdminApiError('role_conflict'));
+    });
+
+    it('keeps the rules to people who manage roles, and lists the people a new rule finds', async () => {
+      await signInAs('admin');
+      // The sample has someone who held Auditor and Support before the rule was made
+      expect(store.roleConflictViolations().map(item => item.rule.id)).toContain('rc-audit');
+      await expect(store.createRoleConflict({ name: 'One role', roleIds: ['viewer'] })).rejects.toEqual(new AdminApiError('invalid_request'));
+      await expect(store.createRoleConflict({ name: 'Ghost', roleIds: ['viewer', 'ghost'] })).rejects.toEqual(new AdminApiError('not_found'));
+
+      const rule = await store.createRoleConflict({ name: 'Support is not HR', roleIds: ['support', 'hr'] });
+      expect(store.activity()[0]).toMatchObject({
+        action: 'role_conflict.created', targetId: rule.id, changes: [{ field: 'name', to: 'Support is not HR' }, { field: 'roles', added: ['support', 'hr'] }],
+      });
+      await store.updateRoleConflict(rule.id, { roleIds: ['support', 'onboarding'] });
+      expect(store.activity()[0].changes).toEqual([{ field: 'roles', added: ['onboarding'], removed: ['hr'] }]);
+
+      await session.signOut();
+      await signInAs('manager');
+      await expect(store.deleteRoleConflict(rule.id)).rejects.toEqual(new AdminApiError('forbidden'));
+    });
+
+    it('drops a rule left with one role when a role is deleted', async () => {
+      await signInAs('admin');
+      const role = await store.createRole({ name: 'Temporary desk', description: '', tone: 'info', permissions: ['users.view'] });
+      await store.createRoleConflict({ name: 'Desk is not billing', roleIds: [role.id, 'finance'] });
+      await store.deleteRole(role.id);
+
+      expect(store.roleConflicts().some(rule => rule.name === 'Desk is not billing')).toBe(false);
+    });
+  });
+
   describe('reasons', () => {
     it('asks for a reason where the settings say so, and keeps any given in the log', async () => {
       await signInAs('admin');

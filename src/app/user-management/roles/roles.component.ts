@@ -1,8 +1,10 @@
 import { afterRenderEffect, Component, computed, ElementRef, inject, input, linkedSignal, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
-import { lucideCopy, lucideLock, lucidePlus, lucideSave, lucideShieldCheck, lucideTrash2, lucideUsers } from '@ng-icons/lucide';
+import {
+  lucideCopy, lucideLock, lucidePlus, lucideSave, lucideShieldAlert, lucideShieldCheck, lucideTrash2, lucideUsers,
+} from '@ng-icons/lucide';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import {
@@ -36,6 +38,7 @@ const SEARCH_FROM = 6;
   selector: 'app-roles',
   imports: [
     FormsModule,
+    RouterLink,
     NgIcon,
     TranslatePipe,
     UiPageHeader,
@@ -69,7 +72,12 @@ export class RolesComponent {
   /** ?role=… picks the role to edit */
   readonly role = input<string>();
 
-  protected readonly icons = { page: lucideShieldCheck, add: lucidePlus, save: lucideSave, remove: lucideTrash2, users: lucideUsers, locked: lucideLock, copy: lucideCopy };
+  protected readonly icons = {
+    page: lucideShieldCheck, add: lucidePlus, save: lucideSave, remove: lucideTrash2, users: lucideUsers, locked: lucideLock, copy: lucideCopy,
+    conflicts: lucideShieldAlert,
+  };
+  /** People who hold roles that cannot be held together, for the count on the Conflicting roles button */
+  protected readonly toFix = computed(() => this.session.can('users.view') ? this.store.roleConflictViolations().length : 0);
   private readonly i18n = translationsChanged();
   protected readonly groups = PERMISSION_GROUPS;
   protected readonly tones = ROLE_TONES;

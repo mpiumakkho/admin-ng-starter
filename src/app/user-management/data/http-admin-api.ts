@@ -5,7 +5,8 @@ import { firstValueFrom, Observable, Subscription } from 'rxjs';
 import { AdminApi, AdminApiError, AdminApiErrorCode } from './admin-api';
 import {
   Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
-  RoleAssignmentChanges, RoleAssignmentDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  RoleAssignmentChanges, RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft,
+  UserSession, UserStatus,
 } from './models';
 
 /** Where the server's API starts, such as "/api" or "https://admin.example.com/api". Set by provideUserManagement(). */
@@ -153,6 +154,24 @@ export class HttpAdminApi extends AdminApi {
 
   assignRoles(userIds: string[], change: RoleAssignmentBatch): Promise<User[]> {
     return this.send<User[]>('POST', '/role-assignments/batch', { userIds, ...change });
+  }
+
+  /* Conflicting roles */
+
+  listRoleConflicts(): Promise<RoleConflict[]> {
+    return this.send<RoleConflict[]>('GET', '/role-conflicts');
+  }
+
+  createRoleConflict(draft: RoleConflictDraft): Promise<RoleConflict> {
+    return this.send<RoleConflict>('POST', '/role-conflicts', draft);
+  }
+
+  updateRoleConflict(id: string, changes: Partial<RoleConflictDraft>): Promise<RoleConflict> {
+    return this.send<RoleConflict>('PATCH', `/role-conflicts/${encodeURIComponent(id)}`, changes);
+  }
+
+  async deleteRoleConflict(id: string): Promise<void> {
+    await this.send('DELETE', `/role-conflicts/${encodeURIComponent(id)}`);
   }
 
   /* Branches */

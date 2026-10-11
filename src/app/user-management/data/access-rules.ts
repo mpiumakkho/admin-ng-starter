@@ -1,4 +1,4 @@
-import { Permission, Role, RoleAssignment, User } from './models';
+import { Permission, Role, RoleAssignment, RoleConflict, User } from './models';
 
 /*
  * Who may change what. LocalAdminApi enforces these rules the way a server would, and the pages use the same
@@ -93,4 +93,54 @@ export function administratorRemains(users: readonly User[], roles: readonly Rol
   const full = new Set(roles.filter(role => grantsEverything(role, all)).map(role => role.id));
   return users.some(user => user.status === 'active' && user.roles.some(item =>
     full.has(item.roleId) && item.branchId === null && item.endsAt === null && roleAssignmentState(item, now) === 'active'));
+}
+
+/** A period of a role: from startsAt until endsAt, or for good */
+type Period = Pick<RoleAssignment, 'startsAt' | 'endsAt'>;
+
+/** Whether two periods share a moment */
+export function periodsOverlap(a: Period, b: Period): boolean {
+  const end = (period: Period) => period.endsAt ? new Date(period.endsAt).getTime() : Infinity;
+  return new Date(a.startsAt).getTime() < end(b) && new Date(b.startsAt).getTime() < end(a);
+}
+
+/**
+ * The rule a period of a role would break, and the role it clashes with: another role of the same rule held, now or
+ * later, at an overlapping time, in any scope (API.md, "Conflicting roles"). Null when none.
+ */
+export function roleConflict(
+  rules: readonly RoleConflict[], held: readonly RoleAssignment[], roleId: string, period: Period, now = Date.now(),
+): { rule: RoleConflict; roleId: string } | null {
+  for (const rule of rules.filter(item => item.roleIds.includes(roleId))) {
+    const other = held.find(item => item.roleId !== roleId && rule.roleIds.includes(item.roleId)
+      && roleAssignmentState(item, now) !== 'expired' && periodsOverlap(item, period));
+    if (other) {
+      return { rule, roleId: other.roleId };
+    }
+  }
+  return null;
+}
+
+/** Someone who holds two or more roles of a rule at an overlapping time, now or later: the people to fix */
+export interface RoleConflictViolation {
+  user: User;
+  rule: RoleConflict;
+  roleIds: string[];
+}
+
+/** Everyone who breaks a rule, as a rule made after they got their roles leaves them (API.md, "Conflicting roles") */
+export function roleConflictViolations(users: readonly User[], rules: readonly RoleConflict[], now = Date.now()): RoleConflictViolation[] {
+  const found: RoleConflictViolation[] = [];
+  for (const user of users) {
+    const held = user.roles.filter(item => roleAssignmentState(item, now) !== 'expired');
+    for (const rule of rules) {
+      const inRule = held.filter(item => rule.roleIds.includes(item.roleId));
+      const clashing = new Set(inRule.filter(item => inRule.some(other => other.roleId !== item.roleId && periodsOverlap(item, other)))
+        .map(item => item.roleId));
+      if (clashing.size > 1) {
+        found.push({ user, rule, roleIds: rule.roleIds.filter(roleId => clashing.has(roleId)) });
+      }
+    }
+  }
+  return found;
 }

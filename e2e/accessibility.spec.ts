@@ -10,6 +10,7 @@ const PAGES = [
   { path: '/users/u-002?tab=security', ready: '.device' },
   { path: '/users/new', ready: '#firstName' },
   { path: '/roles', ready: 'ui-page-header' },
+  { path: '/roles/conflicts', ready: '.rules-table tbody tr' },
   { path: '/branches', ready: '.branches-table tbody tr' },
   { path: '/activity', ready: '.log tbody tr' },
   { path: '/settings', ready: '#passwordMinLength' },

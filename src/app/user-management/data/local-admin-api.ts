@@ -1,15 +1,16 @@
 import { Injectable } from '@angular/core';
 
 import {
-  activeRoleIds, administratorRemains, canManageRole, canManageUser, holdsAll, permissionsOf, roleAssignmentState, SELF_EDITABLE_FIELDS,
+  activeRoleIds, administratorRemains, canManageRole, canManageUser, holdsAll, permissionsOf, roleAssignmentState, roleConflict,
+  SELF_EDITABLE_FIELDS,
 } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
 import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, REASON_ACTIONS, ROLE_TONES, STATUS_META } from './catalog';
-import { AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, EmailLink } from './mock-data';
+import { AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, EmailLink, SAMPLE_ROLE_CONFLICTS } from './mock-data';
 import {
   Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, fullName, PasswordPolicy,
-  Permission, Role, RoleAssignment, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleAssignmentRules, RoleDraft,
-  ReasonAction, RoleGrant, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  Permission, ReasonAction, Role, RoleAssignment, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleAssignmentRules,
+  RoleConflict, RoleConflictDraft, RoleDraft, RoleGrant, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 import { createSecret, otpauthUri, verifyTotp } from './totp';
 import { uuidV7 } from './uuid';
@@ -333,6 +334,9 @@ export class LocalAdminApi extends AdminApi {
       const end = assignment.endsAt === null ? Infinity : new Date(assignment.endsAt).getTime();
       check(end > now && end > new Date(assignment.startsAt).getTime());
       assertWithinRules(role.assignment, Math.max(new Date(assignment.startsAt).getTime(), now), assignment.endsAt);
+      if (roleConflict(this.conflicts(), user.roles.filter(item => item.id !== id), assignment.roleId, assignment, now)) {
+        throw new AdminApiError('role_conflict');
+      }
       // Renewed after it expired: it is logged again when it ends
       this.data.expiryLogged = (this.data.expiryLogged ?? []).filter(item => item !== id);
     }
@@ -410,6 +414,86 @@ export class LocalAdminApi extends AdminApi {
       }
     }
     return this.respond(changed);
+  }
+
+  /* Conflicting roles */
+
+  async listRoleConflicts(): Promise<RoleConflict[]> {
+    this.actor();
+    return this.respond(this.conflicts());
+  }
+
+  async createRoleConflict(input: RoleConflictDraft): Promise<RoleConflict> {
+    const actor = this.actor('roles.manage');
+    const changes = this.roleConflictChanges(input);
+    check(changes.name !== undefined && changes.roleIds !== undefined);
+    const rule: RoleConflict = {
+      id: `rc-${crypto.randomUUID().slice(0, 8)}`, name: changes.name!, description: changes.description ?? '', roleIds: changes.roleIds!,
+    };
+    this.data.roleConflicts = [...this.conflicts(), rule];
+    this.log(actor.id, 'role_conflict.created', rule.name, rule.id, [
+      { field: 'name', to: rule.name },
+      ...(rule.description ? [{ field: 'description', to: rule.description }] : []),
+      { field: 'roles', added: rule.roleIds, removed: [] },
+    ]);
+    return this.respond(rule);
+  }
+
+  async updateRoleConflict(id: string, input: Partial<RoleConflictDraft>): Promise<RoleConflict> {
+    const actor = this.actor('roles.manage');
+    const current = this.findRoleConflict(id);
+    const rule = { ...current, ...this.roleConflictChanges(input) };
+    this.data.roleConflicts = this.conflicts().map(item => item.id === id ? rule : item);
+    const diff: ActivityChange[] = (['name', 'description'] as const)
+      .filter(field => current[field] !== rule[field])
+      .map(field => ({ field, from: current[field], to: rule[field] }));
+    const added = rule.roleIds.filter(roleId => !current.roleIds.includes(roleId));
+    const removed = current.roleIds.filter(roleId => !rule.roleIds.includes(roleId));
+    if (added.length || removed.length) {
+      diff.push({ field: 'roles', added, removed });
+    }
+    if (diff.length) {
+      this.log(actor.id, 'role_conflict.updated', rule.name, id, diff);
+    }
+    return this.respond(rule);
+  }
+
+  async deleteRoleConflict(id: string): Promise<void> {
+    const actor = this.actor('roles.manage');
+    const rule = this.findRoleConflict(id);
+    this.data.roleConflicts = this.conflicts().filter(item => item.id !== id);
+    this.log(actor.id, 'role_conflict.deleted', rule.name, undefined, [{ field: 'roles', added: [], removed: rule.roleIds }]);
+    return this.respond(undefined);
+  }
+
+  private conflicts(): RoleConflict[] {
+    return this.data.roleConflicts ?? [];
+  }
+
+  private findRoleConflict(id: string): RoleConflict {
+    const rule = this.conflicts().find(item => item.id === id);
+    if (!rule) {
+      throw new AdminApiError('not_found');
+    }
+    return rule;
+  }
+
+  /** A rule's fields: a name, a description, and two to twenty different roles that exist */
+  private roleConflictChanges(input: unknown): Partial<RoleConflictDraft> {
+    const changes = fields(input, ['name', 'description', 'roleIds']);
+    check(changes['name'] === undefined || (typeof changes['name'] === 'string' && !!changes['name'].trim() && changes['name'].length <= 100));
+    check(changes['description'] === undefined || (typeof changes['description'] === 'string' && changes['description'].length <= 500));
+    const roleIds = changes['roleIds'];
+    check(roleIds === undefined || (Array.isArray(roleIds) && roleIds.every(roleId => typeof roleId === 'string')
+      && new Set(roleIds).size === roleIds.length && roleIds.length >= 2 && roleIds.length <= 20));
+    if (Array.isArray(roleIds) && roleIds.some(roleId => !this.data.roles.some(role => role.id === roleId))) {
+      throw new AdminApiError('not_found');
+    }
+    return {
+      ...(changes['name'] !== undefined ? { name: (changes['name'] as string).trim() } : {}),
+      ...(changes['description'] !== undefined ? { description: (changes['description'] as string).trim() } : {}),
+      ...(roleIds !== undefined ? { roleIds: roleIds as string[] } : {}),
+    };
   }
 
   /* Branches */
@@ -558,6 +642,10 @@ export class LocalAdminApi extends AdminApi {
       ? { ...user, roles: user.roles.filter(item => item.roleId !== id) } : user);
     const settings = this.data.settings;
     this.data.settings = { ...settings, twoFactorRoleIds: settings.twoFactorRoleIds.filter(roleId => roleId !== id) };
+    // Off the conflicting-roles rules; a rule left with fewer than two goes
+    this.data.roleConflicts = this.conflicts()
+      .map(rule => ({ ...rule, roleIds: rule.roleIds.filter(roleId => roleId !== id) }))
+      .filter(rule => rule.roleIds.length > 1);
     this.log(actor.id, 'role.deleted', role.name, undefined, [{ field: 'permissions', added: [], removed: role.permissions }]);
     return this.respond(undefined);
   }
@@ -811,6 +899,10 @@ export class LocalAdminApi extends AdminApi {
     if (overlaps) {
       throw new AdminApiError('already_assigned');
     }
+    // Nor a role that a rule says cannot be held with one they hold then
+    if (roleConflict(this.conflicts(), user.roles, grant.roleId, { startsAt: new Date(start).toISOString(), endsAt: grant.endsAt }, now)) {
+      throw new AdminApiError('role_conflict');
+    }
     const at = new Date(now).toISOString();
     return {
       id: uuidV7(), userId: user.id, roleId: grant.roleId, branchId, startsAt: new Date(start).toISOString(), endsAt: grant.endsAt, reason,
@@ -1060,6 +1152,7 @@ export class LocalAdminApi extends AdminApi {
         // Saved before settings, sessions or the newer settings existed
         data.settings = { ...DEFAULT_SETTINGS, ...data.settings };
         data.sessions ??= createMockSessions(data.users);
+        data.roleConflicts ??= SAMPLE_ROLE_CONFLICTS.filter(rule => rule.roleIds.every(roleId => data.roles.some(role => role.id === roleId)));
         // Activity older than the settings keep is gone, as the server deletes it every night
         const kept = new Date(Date.now() - data.settings.activityRetentionDays * DAY_MS).toISOString();
         data.activity = data.activity.filter(entry => entry.at >= kept);

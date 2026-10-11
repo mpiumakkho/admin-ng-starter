@@ -1,4 +1,10 @@
 <ui-page-header [title]="'Roles & permissions' | translate" [subtitle]="'Decide what each group of people can see and change.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
+  <a uiButton variant="secondary" routerLink="/roles/conflicts">
+    <ng-icon [svg]="icons.conflicts" /> {{ 'Conflicting roles' | translate }}
+    @if (toFix()) {
+      <ui-badge tone="danger">{{ toFix() }}<span class="ui-sr-only"> {{ 'to fix' | translate }}</span></ui-badge>
+    }
+  </a>
   @if (canManage()) {
     <button uiButton type="button" (click)="openCreate()"><ng-icon [svg]="icons.add" /> {{ 'New role' | translate }}</button>
   }

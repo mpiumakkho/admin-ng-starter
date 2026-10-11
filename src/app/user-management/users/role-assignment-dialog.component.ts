@@ -4,7 +4,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import { Session } from '../access/session';
-import { roleAssignmentState } from '../data/access-rules';
+import { roleAssignmentState, roleConflict } from '../data/access-rules';
 import { AdminStore } from '../data/admin-store';
 import { fullName, RoleAssignment, RoleGrant, User } from '../data/models';
 import { errorMessage } from '../shared/errors';
@@ -296,6 +296,17 @@ export class RoleAssignmentDialog {
       this.granted.emit(grant);
       this.open.set(false);
       return;
+    }
+    // One person: say which rule a conflicting role breaks before asking the server (API.md, "Conflicting roles")
+    const single = this.users().length === 1 ? this.users()[0] : null;
+    if (single) {
+      const held = single.roles.filter(item => item.id !== current?.id);
+      const period = { startsAt: current?.startsAt ?? grant.startsAt ?? new Date().toISOString(), endsAt: grant.endsAt };
+      const conflict = roleConflict(this.store.roleConflicts(), held, current?.roleId ?? grant.roleId, period, Date.now());
+      if (conflict) {
+        this.problem.set(this.translate.instant('conflictProblem', { role: this.roleName(conflict.roleId), rule: conflict.rule.name }));
+        return;
+      }
     }
     this.saving.set(true);
     try {

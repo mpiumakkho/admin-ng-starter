@@ -115,4 +115,14 @@ describe('checkImportRows', () => {
     const off = checkImportRows(cells, context);
     expect(off.rows.every(row => !row.problems.length && row.draft.branchId === null)).toBe(true);
   });
+
+  it('refuses two roles a rule says cannot be held together', () => {
+    const { rows } = checkImportRows([['First name', 'Last name', 'Email', 'Roles'], ['Ann', 'Lee', 'ann@example.com', 'Viewer; Administrator']], {
+      ...context,
+      canAssign: () => true,
+      conflicts: [{ id: 'rc', name: 'No both', description: '', roleIds: ['viewer', 'admin'] }],
+    });
+
+    expect(rows[0].problems).toEqual(['These roles cannot be held together.']);
+  });
 });

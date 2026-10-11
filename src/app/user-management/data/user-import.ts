@@ -1,5 +1,5 @@
 import { DEPARTMENTS } from './catalog';
-import { Branch, Role, UserDraft, UserStatus } from './models';
+import { Branch, Role, RoleConflict, UserDraft, UserStatus } from './models';
 
 /** The columns of an import file; headers match without regard to case, spaces or underscores */
 export const IMPORT_COLUMNS = ['First name', 'Last name', 'Email', 'Phone', 'Department', 'Role'] as const;
@@ -40,6 +40,8 @@ export interface ImportContext {
   status: UserStatus;
   /** With branches on, the ones a Branch column can name, by code or name; without, the column is left alone */
   branches?: readonly Branch[];
+  /** Roles nobody may hold together: a row may not give two of one rule (API.md, "Conflicting roles") */
+  conflicts?: readonly RoleConflict[];
 }
 
 /**
@@ -101,6 +103,8 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
       problems.push('Your role cannot give this role.');
     } else if (roles.some(role => role!.assignment.maxDays !== null || role!.assignment.reasonRequired)) {
       problems.push('This role needs an end date or a reason. Give it from the profile after the import.');
+    } else if ((context.conflicts ?? []).some(rule => roles.filter(role => rule.roleIds.includes(role!.id)).length > 1)) {
+      problems.push('These roles cannot be held together.');
     }
 
     const draft: UserDraft = {

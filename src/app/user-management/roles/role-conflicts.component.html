@@ -1,0 +1,141 @@
+<ui-page-header [title]="'Conflicting roles' | translate" [subtitle]="'Roles nobody may hold at the same time, so one person cannot both do and check the same work.' | translate" [icon]="icons.page"
+  [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }, { label: 'Roles & permissions' | translate, link: '/roles' }]">
+  @if (canManage()) {
+    <button uiButton type="button" (click)="add()"><ng-icon [svg]="icons.add" /> {{ 'Add rule' | translate }}</button>
+  }
+</ui-page-header>
+
+<div class="conflicts-layout">
+  <ui-card flush fit [title]="'Rules' | translate" [description]="'Giving one of these roles to someone who holds another of the same rule is refused.' | translate">
+    @if (rows().length) {
+      <div class="ui-table-scroll">
+        <table uiTable dense class="rules-table">
+          <thead>
+            <tr>
+              <th>{{ 'Rule' | translate }}</th>
+              <th class="hide-sm">{{ 'Roles' | translate }}</th>
+              <th class="cell-number">{{ 'To fix' | translate }}</th>
+              @if (canManage()) {
+                <th class="ui-cell-shrink"><span class="ui-sr-only">{{ 'Actions' | translate }}</span></th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.rule.id) {
+              <tr>
+                <td class="cell-rule">
+                  <span class="rule-name">{{ row.rule.name }}</span>
+                  @if (row.rule.description) {
+                    <span class="rule-description">{{ row.rule.description }}</span>
+                  }
+                  <!-- Phones: the roles under the rule, in place of their column -->
+                  <span class="rule-roles show-sm">
+                    @for (roleId of row.roleIds; track roleId) {
+                      <app-role-badge [roleId]="roleId" />
+                    }
+                  </span>
+                </td>
+                <td class="hide-sm">
+                  <span class="rule-roles">
+                    @for (roleId of row.roleIds; track roleId) {
+                      <app-role-badge [roleId]="roleId" />
+                    }
+                  </span>
+                </td>
+                <td class="cell-number">
+                  @if (row.toFix) {
+                    <ui-badge tone="danger">{{ row.toFix }}</ui-badge>
+                  } @else {
+                    <span class="muted">0</span>
+                  }
+                </td>
+                @if (canManage()) {
+                  <td class="ui-cell-shrink">
+                    <button uiButton variant="ghost" size="sm" iconOnly type="button" [uiMenuTrigger]="menu" [attr.aria-label]="'actionsFor' | translate: { name: row.rule.name }">
+                      <ng-icon [svg]="icons.more" />
+                    </button>
+                    <ng-template #menu>
+                      <ui-menu>
+                        <button uiMenuItem [icon]="icons.edit" (triggered)="edit(row.rule)">{{ 'Edit' | translate }}</button>
+                        <hr uiMenuDivider />
+                        <button uiMenuItem tone="danger" [icon]="icons.remove" (triggered)="remove(row.rule)">{{ 'Delete' | translate }}</button>
+                      </ui-menu>
+                    </ng-template>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <ui-empty-state [icon]="icons.page" [title]="'No rules yet' | translate" [description]="'Add one for roles that should never be held by the same person.' | translate">
+        @if (canManage()) {
+          <button uiButton type="button" (click)="add()">{{ 'Add rule' | translate }}</button>
+        }
+      </ui-empty-state>
+    }
+  </ui-card>
+
+  @if (toFix().length) {
+    <ui-card class="to-fix" flush fit [title]="'To fix' | translate" [description]="'They held these roles before the rule was made. Take one away on their profile.' | translate">
+      <div class="ui-table-scroll">
+        <table uiTable dense class="fix-table">
+          <thead>
+            <tr>
+              <th>{{ 'User' | translate }}</th>
+              <th class="hide-sm">{{ 'Rule' | translate }}</th>
+              <th>{{ 'Roles they hold' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of toFix(); track item.user.id + item.rule.id) {
+              <tr>
+                <td>
+                  <a class="person-link" [routerLink]="['/users', item.user.id]" [queryParams]="{ tab: 'roles' }">
+                    <ui-person [name]="fullName(item.user)" [detail]="item.user.email" [src]="item.user.avatar" size="xs" />
+                  </a>
+                  <!-- Phones: the rule under the person, in place of its column -->
+                  <span class="rule-description show-sm">{{ item.rule.name }}</span>
+                </td>
+                <td class="hide-sm">{{ item.rule.name }}</td>
+                <td>
+                  <span class="rule-roles">
+                    @for (roleId of item.roleIds; track roleId) {
+                      <app-role-badge [roleId]="roleId" />
+                    }
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </ui-card>
+  }
+</div>
+
+<ui-dialog [(open)]="dialogOpen" [title]="(editing() ? 'Edit rule' : 'Add rule') | translate" [closeLabel]="'Close' | translate">
+  <form class="rule-form" id="ruleForm" (ngSubmit)="save()" novalidate>
+    <ui-form-field [label]="'Name' | translate" for="ruleName" required>
+      <input uiInput id="ruleName" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" maxlength="100" autocomplete="off" />
+    </ui-form-field>
+    <ui-form-field [label]="'Description' | translate" for="ruleDescription" [optionalLabel]="'(optional)' | translate">
+      <textarea uiInput id="ruleDescription" name="description" rows="2" [ngModel]="description()" (ngModelChange)="description.set($event)" maxlength="500"></textarea>
+    </ui-form-field>
+    <ui-form-field [label]="'Roles nobody may hold together' | translate" [hint]="'Pick two or more.' | translate" required>
+      <div class="rule-role-checks" role="group" [attr.aria-label]="'Roles nobody may hold together' | translate">
+        @for (role of store.roles(); track role.id) {
+          <ui-checkbox [checked]="picked().includes(role.id)" (changed)="toggle(role.id, $event)">{{ role.name }}</ui-checkbox>
+        }
+      </div>
+    </ui-form-field>
+    @if (problem(); as message) {
+      <p class="rule-problem" role="alert">{{ message | translate }}</p>
+    }
+  </form>
+  <div uiDialogFooter>
+    <button uiButton variant="secondary" type="button" (click)="dialogOpen.set(false)">{{ 'Cancel' | translate }}</button>
+    <button uiButton type="submit" form="ruleForm" [loading]="saving()">{{ (editing() ? 'Save changes' : 'Add rule') | translate }}</button>
+  </div>
+</ui-dialog>

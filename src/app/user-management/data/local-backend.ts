@@ -5,7 +5,7 @@ import { catchError, from, map, throwError } from 'rxjs';
 import { AdminApiError, AdminApiErrorCode } from './admin-api';
 import { ADMIN_API_URL, TokenAnswer } from './http-admin-api';
 import { LocalAdminApi } from './local-admin-api';
-import { BranchDraft, RoleAssignmentBatch, RoleAssignmentDraft, RoleDraft, User, UserDraft } from './models';
+import { BranchDraft, RoleAssignmentBatch, RoleAssignmentDraft, RoleConflictDraft, RoleDraft, User, UserDraft } from './models';
 
 /** The status a server would answer each refusal with */
 const STATUS: Record<AdminApiErrorCode, number> = {
@@ -37,6 +37,7 @@ const STATUS: Record<AdminApiErrorCode, number> = {
   code_taken: 409,
   branch_in_use: 409,
   branch_closed: 409,
+  role_conflict: 409,
 };
 
 /** How long an access token lasts, in seconds, as on the server */
@@ -99,6 +100,10 @@ const ROUTES: Route[] = [
   ['POST', /^\/roles$/, (api, body) => api.createRole(body as unknown as RoleDraft)],
   ['PATCH', /^\/roles\/([^/]+)$/, (api, body, id) => api.updateRole(id, body)],
   ['DELETE', /^\/roles\/([^/]+)$/, (api, _body, id) => api.deleteRole(id)],
+  ['GET', /^\/role-conflicts$/, api => api.listRoleConflicts()],
+  ['POST', /^\/role-conflicts$/, (api, body) => api.createRoleConflict(body as unknown as RoleConflictDraft)],
+  ['PATCH', /^\/role-conflicts\/([^/]+)$/, (api, body, id) => api.updateRoleConflict(id, body)],
+  ['DELETE', /^\/role-conflicts\/([^/]+)$/, (api, _body, id) => api.deleteRoleConflict(id)],
   ['GET', /^\/activity$/, (api, _body, _id, query) => api.listActivity({
     from: query.get('from') ?? undefined,
     to: query.get('to') ?? undefined,

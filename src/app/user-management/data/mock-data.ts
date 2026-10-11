@@ -1,14 +1,16 @@
 import { activeRoleIds } from './access-rules';
 import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, DEPARTMENTS } from './catalog';
 import {
-  Activity, ActivityAction, ActivityChange, AdminSettings, Branch, fullName, Role, RoleAssignment, RoleAssignmentRules, User, UserSession,
-  UserStatus,
+  Activity, ActivityAction, ActivityChange, AdminSettings, Branch, fullName, Role, RoleAssignment, RoleAssignmentRules, RoleConflict,
+  User, UserSession, UserStatus,
 } from './models';
 import { uuidV7 } from './uuid';
 
 export interface AdminData {
   users: User[];
   roles: Role[];
+  /** Saved before conflicting roles existed: the sample rules */
+  roleConflicts?: RoleConflict[];
   branches: Branch[];
   activity: Activity[];
   settings: AdminSettings;
@@ -101,6 +103,21 @@ const ROLES: Role[] = withRules([
 
 /** The built-in roles, as the server's code defines them; LocalAdminApi puts them back on every load */
 export const BUILT_IN_ROLES = ROLES.filter(role => role.system);
+
+/**
+ * Roles nobody may hold together, as an organization might set them: the sample has someone who holds two of the
+ * first, given before the rule was made, so the roles page has a person to fix
+ */
+export const SAMPLE_ROLE_CONFLICTS: RoleConflict[] = [
+  {
+    id: 'rc-audit', name: 'Auditors do not change accounts',
+    description: 'Who checks the activity log does not edit the people in it.', roleIds: ['auditor', 'support', 'help-desk'],
+  },
+  {
+    id: 'rc-settings', name: 'Settings are checked by someone else',
+    description: 'Who changes the settings is not the one who reviews them.', roleIds: ['it-operations', 'compliance'],
+  },
+];
 
 /**
  * Roles an organization adds of its own, so the sample shows the pages with a longer list of roles. A few people
@@ -325,7 +342,7 @@ export function createMockData(now = Date.now()): AdminData {
   // A year ago, before the first people joined
   const branches = BRANCHES.map(branch => ({ ...branch, createdAt: new Date(now - 430 * DAY).toISOString() }));
   return {
-    users, roles: structuredClone([...ROLES, ...CUSTOM_ROLES]), branches, activity,
+    users, roles: structuredClone([...ROLES, ...CUSTOM_ROLES]), roleConflicts: structuredClone(SAMPLE_ROLE_CONFLICTS), branches, activity,
     // The sample shows branches; a new installation starts without them
     settings: { ...DEFAULT_SETTINGS, branchesEnabled: true },
     sessions: createMockSessions(users, now), expiryLogged,

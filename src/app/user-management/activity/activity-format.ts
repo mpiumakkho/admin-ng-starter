@@ -49,6 +49,9 @@ export class ActivityFormat {
     if (!entry.targetId || entry.action === 'auth.sign_in') {
       return null;
     }
+    if (entry.action.startsWith('role_conflict.')) {
+      return this.store.roleConflicts().some(rule => rule.id === entry.targetId) ? { link: ['/roles/conflicts'] } : null;
+    }
     if (ACTIVITY_META[entry.action].kind === 'roles') {
       return this.store.rolesById().has(entry.targetId) ? { link: ['/roles'], queryParams: { role: entry.targetId } } : null;
     }

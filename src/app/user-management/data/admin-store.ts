@@ -1,11 +1,11 @@
 import { computed, effect, inject, Injectable, signal } from '@angular/core';
 
-import { activeRoleIds, roleAssignmentState } from './access-rules';
+import { activeRoleIds, roleAssignmentState, roleConflictViolations } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
 import { DEFAULT_SETTINGS } from './catalog';
 import {
   Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, Role, RoleAssignmentBatch, RoleAssignmentChanges,
-  RoleAssignmentDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
 /** How long to wait for more changes before loading again, as one action can change several things */
@@ -24,6 +24,7 @@ export class AdminStore {
 
   readonly users = signal<User[]>([]);
   readonly roles = signal<Role[]>([]);
+  readonly roleConflicts = signal<RoleConflict[]>([]);
   readonly branches = signal<Branch[]>([]);
   readonly activity = signal<Activity[]>([]);
   readonly settings = signal<AdminSettings>(DEFAULT_SETTINGS);
@@ -113,7 +114,7 @@ export class AdminStore {
   }
 
   async load(): Promise<void> {
-    let loaded: [User[], Role[], Activity[], AdminSettings, Branch[]];
+    let loaded: [User[], Role[], Activity[], AdminSettings, Branch[], RoleConflict[]];
     try {
       loaded = await this.fetchAll();
     } catch (error) {
@@ -129,10 +130,11 @@ export class AdminStore {
       this.loaded.set(true);
       return;
     }
-    const [users, roles, activity, settings, branches] = loaded;
+    const [users, roles, activity, settings, branches, roleConflicts] = loaded;
     this.twoFactorSetupRequired.set(false);
     this.users.set(users);
     this.roles.set(roles);
+    this.roleConflicts.set(roleConflicts);
     this.branches.set(branches);
     this.activity.set(activity);
     this.settings.set(settings);
@@ -159,9 +161,10 @@ export class AdminStore {
   /** Loads everything again, quietly; a session that ended elsewhere is noticed here */
   async refresh(): Promise<void> {
     try {
-      const [users, roles, activity, settings, branches] = await this.fetchAll();
+      const [users, roles, activity, settings, branches, roleConflicts] = await this.fetchAll();
       this.users.set(users);
       this.roles.set(roles);
+      this.roleConflicts.set(roleConflicts);
       this.branches.set(branches);
       this.activity.set(activity);
       this.settings.set(settings);
@@ -174,6 +177,7 @@ export class AdminStore {
   private fetchAll() {
     return this.call(() => Promise.all([
       this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings(), this.api.listBranches(),
+      this.api.listRoleConflicts(),
     ]));
   }
 
@@ -196,7 +200,7 @@ export class AdminStore {
     }
     try {
       const latest = await this.fetchAll();
-      const shown = [this.users(), this.roles(), this.activity(), this.settings(), this.branches()];
+      const shown = [this.users(), this.roles(), this.activity(), this.settings(), this.branches(), this.roleConflicts()];
       if (JSON.stringify(latest) !== JSON.stringify(shown)) {
         this.changesWaiting.set(true);
       }
@@ -212,6 +216,7 @@ export class AdminStore {
     clearTimeout(this.refreshTimer);
     this.users.set([]);
     this.roles.set([]);
+    this.roleConflicts.set([]);
     this.branches.set([]);
     this.activity.set([]);
     this.settings.set(DEFAULT_SETTINGS);
@@ -224,6 +229,31 @@ export class AdminStore {
   isEmailTaken(email: string, exceptId?: string): boolean {
     const value = email.trim().toLowerCase();
     return this.users().some(user => user.id !== exceptId && user.email.toLowerCase() === value);
+  }
+
+  /** People who hold roles that a rule says cannot be held together, now or later: the ones to fix */
+  readonly roleConflictViolations = computed(() => roleConflictViolations(this.users(), this.roleConflicts(), this.now()));
+
+  /* Conflicting roles */
+
+  async createRoleConflict(draft: RoleConflictDraft): Promise<RoleConflict> {
+    const rule = await this.call(() => this.api.createRoleConflict(draft));
+    this.roleConflicts.update(rules => [...rules, rule]);
+    await this.refreshActivity();
+    return rule;
+  }
+
+  async updateRoleConflict(id: string, changes: Partial<RoleConflictDraft>): Promise<RoleConflict> {
+    const rule = await this.call(() => this.api.updateRoleConflict(id, changes));
+    this.roleConflicts.update(rules => rules.map(item => item.id === id ? rule : item));
+    await this.refreshActivity();
+    return rule;
+  }
+
+  async deleteRoleConflict(id: string): Promise<void> {
+    await this.call(() => this.api.deleteRoleConflict(id));
+    this.roleConflicts.update(rules => rules.filter(item => item.id !== id));
+    await this.refreshActivity();
   }
 
   /* Users */
@@ -360,6 +390,8 @@ export class AdminStore {
   async deleteRole(id: string): Promise<void> {
     await this.call(() => this.api.deleteRole(id));
     this.roles.update(roles => roles.filter(role => role.id !== id));
+    // The server took it off the conflicting-roles rules, and dropped those left with one role
+    this.roleConflicts.set(await this.call(() => this.api.listRoleConflicts()));
     await this.refreshActivity();
   }
 
