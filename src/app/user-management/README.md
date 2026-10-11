@@ -109,10 +109,22 @@ As NIST RBAC's static separation of duty, a rule names roles nobody may hold at 
 Branches (sites, offices) are optional: they show once the settings turn on "Use branches", and the sample data has them on. With them on:
 
 - **Each person belongs to one branch, or none**, as Google Workspace puts each user in one organizational unit. The user form picks it, the users list shows and filters by it (`/users?branch=<id>`, or `none`), and an import file can name it by code or name in a Branch column.
-- **A role can be given for one branch only** (`RoleAssignment.branchId`), as Azure RBAC gives a role at a scope. It allows what it allows in that branch and nowhere else: `Session.can(permission, branchId)` says yes for that branch, and `Session.branchesWith(permission)` lists the branches. `Session.can(permission)` without a branch, and so user management itself, counts only roles for the whole organization, and only those keep an administrator (`last_administrator`).
+- **A role can be given for one branch only** (`RoleAssignment.branchId`), as Azure RBAC gives a role at a scope. It allows what it allows in that branch and nowhere else: `Session.can(permission, branchId)` says yes for that branch, and `Session.branchesWith(permission)` lists the branches. `Session.can(permission)` without a branch counts only roles for the whole organization, and only those keep an administrator (`last_administrator`); user management takes four permissions from a branch role too (see [Branch administrators](#branch-administrators)).
 - **The Branches page** (`branches.view`, under User management; `branches.manage` to change it) adds, renames, closes and deletes them, and searches, filters by status, sorts and pages its list as the users list does. A closed branch keeps its people and roles, but nobody new joins it or gets a role there; one that anyone belongs to or holds a role in cannot be deleted.
 
 The app's own modules use the branch scope for their records, such as an order's branch: `session.can('orders.approve', order.branchId)`.
+
+### Branch administrators
+
+As Microsoft Entra's administrative units and Google Workspace's organizational unit admins do, a role limited to a branch grants `users.view`, `users.create`, `users.edit` and `activity.view` over the people who belong to that branch (`BRANCH_SCOPED_PERMISSIONS` in `data/access-rules.ts`), so a branch manager looks after their branch's staff and nobody else. Deleting people, roles, settings, branches and exporting the log still need a role for the whole organization. The sample's "Branch manager" holds Viewer for everyone and Manager in Chiang Mai only. For such a person:
+
+- **The menu and the guards** ask `Session.canSomewhere(permission)`, so Users and Activity log open, and the buttons for a whole page show (Add user).
+- **Each person** goes by `Session.canOn(permission, user)`: the permission over the person's branch, and, rule 3 counted by scope (`permissionsIn`), every permission of each role they hold in that role's scope. A role for the whole organization that allows more than the manager's own keeps its holder out of reach; the users list says why a row cannot be ticked.
+- **New people** join one of their branches (the form offers only those, without "No branch"), and without a role get the default role limited to that branch. An import gives its roles limited to the row's branch.
+- **Roles** are given limited to their branches only (`Session.canGive(role, branchId)`): the role dialog's "Applies in" lists those branches, and offers the roles they hold there.
+- **The activity log** shows the entries about the people of their branches; the server answers only those.
+
+[API.md](API.md#branch-administrators) has the rules the server checks; `LocalAdminApi` checks the same.
 
 ## Security
 

@@ -28,6 +28,7 @@ Sign in with one of the sample accounts the sign-in page offers, one per role. E
 | Manager | Add, invite and edit people whose role is Manager or below; read roles, the activity log (and export it) and the settings |
 | Support | Edit people whose role is Support or Viewer; read roles and the activity log |
 | Viewer | Read users and roles |
+| Branch manager | Viewer for everyone, and Manager in Chiang Mai only: add, invite and edit the people of Chiang Mai whose roles allow no more than theirs, and read their activity |
 
 Any active user's email works too, with any password of 6 or more characters, until that user sets their own password or turns on two-step sign-in (account menu, Security and devices).
 
