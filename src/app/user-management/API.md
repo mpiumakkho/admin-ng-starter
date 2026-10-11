@@ -88,7 +88,7 @@ Codes are TOTP (RFC 6238): SHA-1, 30-second steps, 6 digits; accept one step eit
 
 ### Roles that must use two-step sign-in
 
-The settings can require it for some roles (`twoFactorRoleIds`). Someone who holds one of them and has not turned it on can still sign in, but until they turn it on the server answers every request with `403` `two_factor_mandatory`, `GET /events` included, except the ones they need to do it: `GET /me`, `GET /settings`, `GET /roles`, `POST /me/two-factor` and `POST /me/two-factor/confirm` (and `/auth/*`, which need no access token). This applies at once, from the next request: an administrator who adds their own role while their two-step sign-in is off is held back too. `POST /me/two-factor/disable` is refused with `two_factor_mandatory` while their role requires it. An administrator can still turn it off for them with `POST /users/:id/two-factor/reset`; they then have to turn it on again before anything else.
+The settings can require it for some roles (`twoFactorRoleIds`). Someone who holds one of them now (see Role assignments) and has not turned it on can still sign in, but until they turn it on the server answers every request with `403` `two_factor_mandatory`, `GET /events` included, except the ones they need to do it: `GET /me`, `GET /settings`, `GET /roles`, `POST /me/two-factor` and `POST /me/two-factor/confirm` (and `/auth/*`, which need no access token). This applies at once, from the next request: an administrator who adds their own role while their two-step sign-in is off is held back too. `POST /me/two-factor/disable` is refused with `two_factor_mandatory` while their role requires it. An administrator can still turn it off for them with `POST /users/:id/two-factor/reset`; they then have to turn it on again before anything else.
 
 The app checks the same thing after signing in, and whenever a request answers `two_factor_mandatory`, and sends the person to `/setup-two-factor` until it is on. The settings page warns an administrator who is about to add their own role that way.
 
@@ -105,16 +105,35 @@ The server sends `data: changed` after each change and a `: ping` comment every 
 | `GET /users` | | `User[]` | `users.view`; without it, only the signed-in user |
 | `POST /users` | `UserDraft` | The new `User` | `users.create` |
 | `POST /users/import` | `{ users: UserDraft[] }` | The new `User`s. All or none: refuse the whole request when one is refused | `users.create` |
-| `PATCH /users/:id` | `Partial<UserDraft>` | The `User` | `users.edit`; without it, people may change their own `firstName`, `lastName`, `phone` and `avatar` |
+| `PATCH /users/:id` | `UserChanges`: a `Partial<UserDraft>` without `roles` | The `User` | `users.edit`; without it, people may change their own `firstName`, `lastName`, `phone` and `avatar` |
 | `POST /users/status` | `{ ids, status }` | The `User`s that changed | `users.edit` |
-| `POST /users/role` | `{ ids, roleId }` | The `User`s that changed | `users.edit` |
 | `POST /users/delete` | `{ ids }` | Nothing | `users.delete` |
 | `POST /users/:id/reset-password` | | Nothing | `users.edit` |
 | `POST /users/:id/resend-invite` | | Nothing; `not_invited` unless the status is `invited` | `users.create` |
 
-`POST /users/role` gives several people the same role at once: `not_found` for an unknown role, `forbidden` for a role that grants more than the actor holds or for someone the actor may not manage, `self_change` when the list includes the actor, `not_found` for an unknown user. Nothing changes unless every check passes. Repeated ids count once, and people who already hold the role are left out of the answer and the log: log one `user.updated` entry per person whose role changed, with the `roleId` change.
+`UserDraft.roles` gives a new user their first roles, each a `RoleGrant` checked as `POST /role-assignments` checks it; with none, they get the settings' `defaultRoleId` for good. Log one `role_assignment.added` entry per role, after the `user.created` or `user.invited` entry. Roles change afterwards only through role assignments: `PATCH /users/:id` refuses `roles` with `invalid_request`.
 
 The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status `invited` gets an invitation email. Refuse an email someone else has with `email_taken`. When the settings list allowed domains, refuse a new or changed email outside them with `email_domain`.
+
+## Role assignments
+
+Someone's roles are the `RoleAssignment`s in `User.roles`, as in NIST RBAC: a person can hold several roles, and their permissions are those of every role they hold now, together. Each assignment gives one role from `startsAt` until `endsAt`, or for good when `endsAt` is `null`. It counts while `startsAt <= now < endsAt`: before that it is *scheduled*, after it *expired*. Someone who holds no role now can still sign in, and sees their own profile only.
+
+| Request | Body | Answer | Permission |
+| --- | --- | --- | --- |
+| `POST /role-assignments` | `RoleAssignmentDraft`: `{ userId, roleId, startsAt?, endsAt, reason? }` | The `User` | `users.edit` |
+| `PATCH /role-assignments/:id` | `{ endsAt?, reason? }` | The `User` | `users.edit` |
+| `DELETE /role-assignments/:id` | | The `User` | `users.edit` |
+| `POST /role-assignments/batch` | `{ userIds, add: RoleGrant }` or `{ userIds, removeRoleId }` | The `User`s that changed | `users.edit` |
+
+- **Dates.** `startsAt` left out, or earlier than now, means now. `endsAt` must be later than both `startsAt` and now. Otherwise `invalid_request`.
+- **Each role's own rules** (`Role.assignment`). With `maxDays`, an assignment of that role must end, at most that many days after it starts: refuse a longer one, or one without an end, with `assignment_too_long` (`422`). When `PATCH` moves the end, count from the start or from now, whichever is later. With `reasonRequired`, a blank `reason` is `reason_required` (`422`). A reason is at most 500 characters.
+- **Once at a time.** A new assignment that overlaps one the person already has of the same role is refused with `already_assigned` (`409`). To extend one, or renew one that has expired, `PATCH` its `endsAt`.
+- **Who may.** The rules below apply: the actor must hold every permission of the role (rule 2) and be able to manage the person (rule 3), and nobody changes their own assignments (rule 4).
+- **Expired ones stay** on the user, so they can be renewed, until they are older than the settings' `activityRetentionDays`. A removed one is gone at once; the activity log keeps what it was.
+- **Several people at once.** `add` gives the role to everyone in `userIds` who does not hold it now or later; `removeRoleId` takes away their current and scheduled assignments of that role. Send one of the two. All or none: refuse the whole request when one change is refused. Repeated ids count once, and people with nothing to change are left out of the answer and the log.
+
+Log each change with the person as the target: `role_assignment.added` (changes `roleId`, `startsAt`, `endsAt`, `reason`), `role_assignment.updated` (the fields that changed), `role_assignment.removed` (`roleId`) and, written by the server itself when an assignment ends, `role_assignment.expired` with `actorId: null`. Deleting a user removes their assignments without entries of their own.
 
 ## Roles
 
@@ -123,7 +142,11 @@ The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status 
 | `GET /roles` | | `Role[]` | Anyone signed in |
 | `POST /roles` | `RoleDraft` | The new `Role` | `roles.manage` |
 | `PATCH /roles/:id` | `Partial<RoleDraft>` | The `Role` | `roles.manage` |
-| `DELETE /roles/:id` | | Nothing; `system_role` for a built-in role, `role_in_use` while users hold it, `default_role` while the settings give it to new users | `roles.manage` |
+| `DELETE /roles/:id` | | Nothing; `system_role` for a built-in role, `role_in_use` while anyone holds it now or later, `default_role` while the settings give it to new users | `roles.manage` |
+
+`Role.assignment` sets how the role may be given (see Role assignments): `maxDays` (1 to 365, or `null` for no limit) and `reasonRequired`. A new role without it gets `{ maxDays: null, reasonRequired: false }`. Deleting a role removes its expired assignments with it.
+
+**Built-in roles** (`system: true`) come from the server's code, as Microsoft Entra's and AWS's built-in roles do: their `name`, `description` and `permissions` are the same on every installation and come back after an upgrade, and the built-in Administrator role holds every permission, including ones added later. `PATCH` may change only their `tone` and `assignment`; anything else is `system_role`. To give a built-in role's people something different, copy it into a new role (the roles page has "Duplicate") and assign that instead.
 
 ## Activity
 
@@ -131,7 +154,7 @@ The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status 
 | --- | --- | --- |
 | `GET /activity?from=&to=` | `Activity[]`, newest first, at most 10,000. `from` and `to` (both optional) keep the entries at or after `from` and before `to`. Each is an ISO 8601 instant with `Z` or an offset, such as `2026-10-01T00:00:00.000Z` or `2026-10-01T07:00:00+07:00`; a date alone or a time without an offset is `invalid_request` | `activity.view`; without it, an empty list |
 
-The server writes the log itself, one entry per change, with `actorId` from the session and `ip`, `browser` and `os` from the request. `changes` lists the fields that changed; see `Activity` in `data/models.ts` and how `data/local-admin-api.ts` fills it. Entries older than the settings' `activityRetentionDays` are deleted every night.
+The server writes the log itself, one entry per change, with `actorId` from the session and `ip`, `browser` and `os` from the request. What the server does by itself, such as ending an assignment on time, has `actorId: null` and empty `ip`, `browser` and `os`. `changes` lists the fields that changed; see `Activity` in `data/models.ts` and how `data/local-admin-api.ts` fills it. Entries older than the settings' `activityRetentionDays` are deleted every night.
 
 ## Settings
 
@@ -140,7 +163,7 @@ The server writes the log itself, one entry per change, with `actorId` from the 
 | `GET /settings` | | `AdminSettings` | Anyone signed in |
 | `PATCH /settings` | `Partial<AdminSettings>` | The `AdminSettings` | `settings.manage` |
 
-Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the two lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
+`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none. Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the two lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
 
 ## Rules the server must check
 
@@ -148,11 +171,12 @@ The pages hide what a role cannot do, but only the server can enforce it. `data/
 
 1. Each request needs the permission in the tables above. Refuse with `403` and `forbidden`.
 2. Nobody gives out more than they have. Refuse with `forbidden` when someone:
-   - assigns a role that grants a permission they lack;
+   - gives a role (a new assignment, a change to one, or a new user's roles) that grants a permission they lack;
    - adds or removes a permission they lack on a role.
-3. Nobody manages someone whose role grants a permission they lack. Refuse editing, suspending, deleting, resetting or inviting that person with `forbidden`. The same goes for roles: nobody edits or deletes a role that grants a permission they lack.
-4. Nobody suspends or deletes themselves, changes their own role, or changes the permissions of the role they hold. Refuse with `self_change`.
-5. Take only the fields each request may set (the `UserDraft`, `RoleDraft` and `AdminSettings` fields), and refuse anything else with `invalid_request`, so nobody can set an `id`, the `system` flag or a date.
+3. Nobody manages someone who holds, now or later, a role that grants a permission they lack. Refuse editing, suspending, deleting, resetting or inviting that person, or changing their role assignments, with `forbidden`. The same goes for roles: nobody edits or deletes a role that grants a permission they lack.
+4. Nobody suspends or deletes themselves, changes their own role assignments, or changes the permissions of a role they hold now. Refuse with `self_change`.
+5. Take only the fields each request may set (the `UserDraft`, `UserChanges`, `RoleAssignmentDraft`, `RoleDraft` and `AdminSettings` fields), and refuse anything else with `invalid_request`, so nobody can set an `id`, the `system` flag or the dates the server keeps.
+6. Someone must always be able to run the system, as Google Workspace keeps a last super administrator: at least one active user holds, for good, a role with every permission. Refuse removing that assignment, giving it an end, or suspending or deleting its holder, when it is the last one, with `last_administrator` (`409`).
 
 ## Errors
 
@@ -164,8 +188,8 @@ Refuse a request with a 4xx status and a body such as `{ "code": "email_taken" }
 | `403` | `forbidden`, `self_change`, `account_suspended`, `invite_pending`, `two_factor_mandatory`: the role requires two-step sign-in and it is off |
 | `404` | `not_found` |
 | `400` | `invalid_request`: a field the request may not set, or a value of the wrong kind; `invalid_token`: an email link that has expired or was used |
-| `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role` |
-| `422` | `email_domain`, `weak_password`, `password_reused` |
+| `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role`, `already_assigned`, `last_administrator` |
+| `422` | `email_domain`, `weak_password`, `password_reused`, `assignment_too_long`, `reason_required` |
 | `429` | `too_many_requests`: too many sign-in, refresh or reset attempts from one address |
 
 Without a known code, `401` counts as `unauthenticated`, `403` as `forbidden`, `404` as `not_found` and `429` as `too_many_requests`. When a refresh cannot fix an `unauthenticated`, the app sends the person to sign in, then brings them back to the page they were on. Other failures (offline, `5xx`) show "Something went wrong".
