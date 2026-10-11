@@ -28,9 +28,10 @@ test('export: copy, Excel, CSV and print the users the list shows', async ({ pag
   await expect(page.locator('ui-toaster')).toContainText(`Copied ${shown} rows to the clipboard`);
   // Windows keeps line breaks on the clipboard as \r\n
   const lines = (await page.evaluate(() => navigator.clipboard.readText())).split(/\r?\n/);
-  expect(lines.slice(0, 3)).toEqual(['Users', '', 'First name\tLast name\tEmail\tPhone\tDepartment\tRoles\tStatus\tJoined\tLast active']);
+  // The sample data has branches on, so a Branch column follows the department
+  expect(lines.slice(0, 3)).toEqual(['Users', '', 'First name\tLast name\tEmail\tPhone\tDepartment\tBranch\tRoles\tStatus\tJoined\tLast active']);
   expect(lines.length).toBe(3 + shown);
-  expect(lines.slice(3).every(line => line.split('\t')[6] === 'Suspended')).toBe(true);
+  expect(lines.slice(3).every(line => line.split('\t')[7] === 'Suspended')).toBe(true);
 
   let download = page.waitForEvent('download');
   await exportAs('Excel');
@@ -44,7 +45,7 @@ test('export: copy, Excel, CSV and print the users the list shows', async ({ pag
   const csv = await download;
   expect(csv.suggestedFilename()).toBe('users.csv');
   const csvLines = (await readFile((await csv.path())!, 'utf8')).replace(/^﻿/, '').split('\n');
-  expect(csvLines[0]).toBe('First name,Last name,Email,Phone,Department,Roles,Status,Joined,Last active');
+  expect(csvLines[0]).toBe('First name,Last name,Email,Phone,Department,Branch,Roles,Status,Joined,Last active');
   expect(csvLines.length).toBe(1 + shown);
 
   await exportAs('Print');

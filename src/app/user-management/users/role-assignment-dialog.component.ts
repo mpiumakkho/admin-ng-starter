@@ -35,6 +35,9 @@ const DAY_MS = 24 * 60 * 60_000;
           <p class="assignment-role">
             <span>{{ 'Role' | translate }}</span>
             <b>{{ roleName(current.roleId) }}</b>
+            @if (store.branchesEnabled() && current.branchId) {
+              <span>· {{ branchName(current.branchId) }}</span>
+            }
             <span class="assignment-started">{{ (started() ? 'startedOn' : 'startsOn') | translate: { date: (current.startsAt | localDate) } }}</span>
           </p>
         } @else {
@@ -45,6 +48,16 @@ const DAY_MS = 24 * 60 * 60_000;
               }
             </select>
           </ui-form-field>
+          @if (store.branchesEnabled()) {
+            <ui-form-field [label]="'Applies in' | translate" [for]="formId + '-scope'" [hint]="'A role for one branch allows what it allows there only.' | translate">
+              <select uiInput [id]="formId + '-scope'" [formControl]="scope">
+                <option value="">{{ 'Whole organization' | translate }}</option>
+                @for (branch of store.openBranches(); track branch.id) {
+                  <option [value]="branch.id">{{ branch.name }}</option>
+                }
+              </select>
+            </ui-form-field>
+          }
           <ui-form-field [label]="'Starts' | translate" [for]="formId + '-start'" [errors]="errors()">
             <ui-segmented [options]="startOptions()" [formControl]="startMode" [ariaLabel]="'Starts' | translate" />
             @if (startMode.value === 'date') {
@@ -110,7 +123,7 @@ const DAY_MS = 24 * 60 * 60_000;
 })
 export class RoleAssignmentDialog {
   private static nextId = 0;
-  private readonly store = inject(AdminStore);
+  protected readonly store = inject(AdminStore);
   private readonly session = inject(Session);
   private readonly translate = inject(TranslateService);
   private readonly toast = inject(UiToastService);
@@ -135,6 +148,8 @@ export class RoleAssignmentDialog {
   protected readonly problem = signal('');
 
   protected readonly role = new FormControl('', { nonNullable: true });
+  /** Empty: the whole organization; otherwise a branch id */
+  protected readonly scope = new FormControl('', { nonNullable: true });
   protected readonly startMode = new FormControl<'now' | 'date'>('now', { nonNullable: true });
   protected readonly startDate = new FormControl('', { nonNullable: true });
   protected readonly endMode = new FormControl<'never' | 'date'>('never', { nonNullable: true });
@@ -142,15 +157,17 @@ export class RoleAssignmentDialog {
   protected readonly reason = new FormControl('', { nonNullable: true });
 
   private readonly roleId = toSignal(this.role.valueChanges, { initialValue: '' });
+  private readonly scopeValue = toSignal(this.scope.valueChanges, { initialValue: '' });
   private readonly startValue = toSignal(this.startDate.valueChanges, { initialValue: '' });
   private readonly startModeValue = toSignal(this.startMode.valueChanges, { initialValue: 'now' as const });
 
-  /** Roles the signed-in user may give, other than ones the person holds now or later */
+  /** Roles the signed-in user may give, other than ones the person holds now or later where it would apply */
   protected readonly offered = computed(() => {
     const single = this.users().length === 1 ? this.users()[0] : null;
     const excluded = new Set(this.exclude());
+    const branchId = this.scopeValue() || null;
     return this.store.roles().filter(role => this.session.canAssign(role) && !excluded.has(role.id)
-      && !(single && this.store.holdsOrWillHold(single, role.id)));
+      && !(single && this.store.holdsOrWillHold(single, role.id, branchId)));
   });
   protected readonly rules = computed(() => {
     const roleId = this.assignment()?.roleId ?? this.roleId();
@@ -234,6 +251,7 @@ export class RoleAssignmentDialog {
       untracked(() => {
         const current = this.assignment();
         this.problem.set('');
+        this.scope.setValue(current?.branchId ?? '');
         this.role.setValue(current?.roleId ?? this.offered()[0]?.id ?? '');
         this.startMode.setValue('now');
         this.startDate.setValue(this.today());
@@ -247,10 +265,23 @@ export class RoleAssignmentDialog {
         this.setEnd(null);
       }
     });
+    // Another scope can leave the role picked already held there: the first one offered instead
+    effect(() => {
+      const offered = this.offered();
+      untracked(() => {
+        if (this.open() && !this.assignment() && !offered.some(role => role.id === this.role.value)) {
+          this.role.setValue(offered[0]?.id ?? '');
+        }
+      });
+    });
   }
 
   protected roleName(roleId: string): string {
     return this.store.rolesById().get(roleId)?.name ?? '';
+  }
+
+  protected branchName(branchId: string): string {
+    return this.store.branchesById().get(branchId)?.name ?? '';
   }
 
   protected async save() {
@@ -321,6 +352,7 @@ export class RoleAssignmentDialog {
     }
     return {
       roleId: this.assignment()?.roleId ?? this.role.value,
+      ...(!this.assignment() && this.scope.value ? { branchId: this.scope.value } : {}),
       ...(start !== null && start > now ? { startsAt: new Date(start).toISOString() } : {}),
       endsAt,
       ...(reason ? { reason } : {}),

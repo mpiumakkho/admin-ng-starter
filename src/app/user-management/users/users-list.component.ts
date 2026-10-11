@@ -59,10 +59,12 @@ import { ImportUsersDialog } from './import-users-dialog.component';
 import { RemoveRoleDialog } from './remove-role-dialog.component';
 import { RoleAssignmentDialog } from './role-assignment-dialog.component';
 
-type SortKey = 'name' | 'role' | 'department' | 'lastActive' | 'created';
+type SortKey = 'name' | 'role' | 'department' | 'branch' | 'lastActive' | 'created';
 
 /** The role filter's value for everyone who holds a role for a time, or will; ?role=temporary */
 const TEMPORARY = 'temporary';
+/** The branch filter's value for people who belong to no branch; ?branch=none */
+const NO_BRANCH = 'none';
 
 @Component({
   selector: 'app-users-list',
@@ -149,6 +151,18 @@ export class UsersListComponent {
   /** A role id, all, or everyone who holds a role for a time (or will) */
   protected readonly roleFilter = signal('all');
   protected readonly temporary = TEMPORARY;
+  /** A branch id, all, or none */
+  protected readonly branchFilter = signal('all');
+  protected readonly noBranch = NO_BRANCH;
+
+  protected branchName(branchId: string | null): string {
+    return branchId ? this.store.branchesById().get(branchId)?.name ?? '' : '';
+  }
+
+  /** Whether someone matches the branch filter; with branches turned off, everyone does */
+  private inBranch(user: User, filter: string): boolean {
+    return filter === 'all' || !this.store.branchesEnabled() || (filter === NO_BRANCH ? !user.branchId : user.branchId === filter);
+  }
 
   /** Whether someone matches the role filter */
   private holds(user: User, filter: string): boolean {
@@ -166,7 +180,8 @@ export class UsersListComponent {
     this.i18n();
     const query = this.table.query().trim().toLowerCase();
     const role = this.roleFilter();
-    const users = this.store.users().filter(user => this.holds(user, role) && (!query || matchesSearch(user, query)));
+    const branch = this.branchFilter();
+    const users = this.store.users().filter(user => this.holds(user, role) && this.inBranch(user, branch) && (!query || matchesSearch(user, query)));
     return [
       { value: 'all', label: this.translate.instant('All'), count: users.length },
       ...(Object.keys(STATUS_META) as UserStatus[]).map(status => ({
@@ -191,26 +206,31 @@ export class UsersListComponent {
     filter: computed(() => {
       const status = this.status();
       const role = this.roleFilter();
-      return (user: User) => (status === 'all' || user.status === status) && this.holds(user, role);
+      const branch = this.branchFilter();
+      return (user: User) => (status === 'all' || user.status === status) && this.holds(user, role) && this.inBranch(user, branch);
     }),
     sorters: {
       name: (a, b) => fullName(a).localeCompare(fullName(b)),
       // By the role each is named by: the one with most permissions
       role: (a, b) => (this.store.activeRoles(a)[0]?.name ?? '').localeCompare(this.store.activeRoles(b)[0]?.name ?? ''),
       department: (a, b) => a.department.localeCompare(b.department),
+      branch: (a, b) => this.branchName(a.branchId).localeCompare(this.branchName(b.branchId)),
       // Never signed in sorts as the oldest
       lastActive: (a, b) => (a.lastActiveAt ?? '').localeCompare(b.lastActiveAt ?? ''),
       created: (a, b) => a.createdAt.localeCompare(b.createdAt),
     },
   });
 
-  protected readonly hasFilters = computed(() => !!this.table.query() || this.status() !== 'all' || this.roleFilter() !== 'all');
+  protected readonly hasFilters = computed(() => !!this.table.query() || this.status() !== 'all' || this.roleFilter() !== 'all'
+    || this.branchFilter() !== 'all');
 
   /** ?q=… from the navbar search */
   readonly q = input<string>();
   /** ?status=…, ?role=… and ?sort=joined or ?sort=active (newest first), from the overview's cards */
   readonly statusParam = input<string>(undefined, { alias: 'status' });
   readonly roleParam = input<string>(undefined, { alias: 'role' });
+  /** ?branch=…, from the branches page */
+  readonly branchParam = input<string>(undefined, { alias: 'branch' });
   readonly sortParam = input<string>(undefined, { alias: 'sort' });
 
   constructor() {
@@ -223,9 +243,11 @@ export class UsersListComponent {
     effect(() => {
       const status = this.statusParam();
       const role = this.roleParam();
+      const branch = this.branchParam();
       untracked(() => {
         this.status.set(status && status in STATUS_META ? status as UserStatus : 'all');
         this.roleFilter.set(role && (role === TEMPORARY || this.store.rolesById().has(role)) ? role : 'all');
+        this.branchFilter.set(branch && (branch === NO_BRANCH || this.store.branchesById().has(branch)) ? branch : 'all');
         this.table.resetPage();
       });
     });
@@ -252,10 +274,16 @@ export class UsersListComponent {
     this.table.resetPage();
   }
 
+  protected setBranch(branch: string) {
+    this.branchFilter.set(branch);
+    this.table.resetPage();
+  }
+
   protected clearFilters() {
     this.table.search('');
     this.status.set('all');
     this.roleFilter.set('all');
+    this.branchFilter.set('all');
   }
 
   protected open(user: User) {
@@ -326,23 +354,26 @@ export class UsersListComponent {
     const users = this.table.sorted();
     // The roles held now, separated as an import file takes them
     const roleNames = (user: User) => this.store.activeRoles(user).map(role => role.name).join('; ');
+    // With branches on, the branch after the department, by name on screen and by code in the file to import again
+    const branches = this.store.branchesEnabled();
+    const branchCode = (user: User) => user.branchId ? this.store.branchesById().get(user.branchId)?.code ?? '' : '';
     return {
       fileName: 'users',
       title: t.instant('Users'),
       columns: [
         { header: t.instant('First name') }, { header: t.instant('Last name') }, { header: t.instant('Email') }, { header: t.instant('Phone') },
-        { header: t.instant('Department') }, { header: t.instant('Roles') }, { header: t.instant('Status') },
-        { header: t.instant('Joined'), date: 'day' }, { header: t.instant('Last active'), date: 'time' },
+        { header: t.instant('Department') }, ...(branches ? [{ header: t.instant('Branch') }] : []), { header: t.instant('Roles') },
+        { header: t.instant('Status') }, { header: t.instant('Joined'), date: 'day' }, { header: t.instant('Last active'), date: 'time' },
       ],
       rows: users.map(user => [
-        user.firstName, user.lastName, user.email, user.phone, t.instant(user.department), roleNames(user),
-        t.instant(STATUS_META[user.status].label), new Date(user.createdAt), user.lastActiveAt ? new Date(user.lastActiveAt) : null,
+        user.firstName, user.lastName, user.email, user.phone, t.instant(user.department), ...(branches ? [this.branchName(user.branchId)] : []),
+        roleNames(user), t.instant(STATUS_META[user.status].label), new Date(user.createdAt), user.lastActiveAt ? new Date(user.lastActiveAt) : null,
       ]),
       // The same first columns as an import file, so an export can be edited and imported elsewhere
       csv: [
-        ['First name', 'Last name', 'Email', 'Phone', 'Department', 'Roles', 'Status', 'Joined', 'Last active'],
+        ['First name', 'Last name', 'Email', 'Phone', 'Department', ...(branches ? ['Branch'] : []), 'Roles', 'Status', 'Joined', 'Last active'],
         ...users.map(user => [
-          user.firstName, user.lastName, user.email, user.phone, user.department, roleNames(user),
+          user.firstName, user.lastName, user.email, user.phone, user.department, ...(branches ? [branchCode(user)] : []), roleNames(user),
           user.status, user.createdAt.slice(0, 10), user.lastActiveAt?.slice(0, 10) ?? '',
         ]),
       ],

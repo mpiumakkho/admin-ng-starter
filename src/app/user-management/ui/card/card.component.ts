@@ -1,4 +1,7 @@
-import { booleanAttribute, ChangeDetectionStrategy, Component, contentChild, Directive, input, ViewEncapsulation } from '@angular/core';
+import {
+  afterEveryRender, afterNextRender, booleanAttribute, ChangeDetectionStrategy, Component, contentChild, DestroyRef, Directive, ElementRef, inject,
+  input, signal, viewChild, ViewEncapsulation,
+} from '@angular/core';
 
 /** Marks content shown at the right of the card header, such as buttons or a menu */
 @Directive({ selector: '[uiCardActions]' })
@@ -18,10 +21,13 @@ export class UiCardFooter {}
  *   </ui-card>
  *
  * Set `flush` to drop the body padding, for tables and lists that run edge to edge.
- * Set `fit` to let the card shrink to the height its parent gives it: the body becomes a column and a
- * scrolling area inside it, such as `.ui-table-scroll`, takes the difference while the rest keeps its size.
+ * Set `fit` to make the card take the height its parent gives it, in a flex column such as a page-fit page: the body
+ * becomes a column and a scrolling area inside it, such as `.ui-table-scroll`, takes the difference while the rest
+ * keeps its size. It shrinks and scrolls for a long table, and grows for a short one, so the pagination under the
+ * table stays at the bottom.
  * Set `fill` to make the card take all the height its parent gives it, as a form on a page-fit page does: the body
- * grows to fill it and scrolls when its content is taller, so the footer's buttons stay at the bottom.
+ * grows to fill it and scrolls when its content is taller, so the footer's buttons stay at the bottom. While it scrolls,
+ * the body is a named region in the tab order, so it scrolls from the keyboard too (WCAG 2.1.1).
  */
 @Component({
   selector: 'ui-card',
@@ -41,7 +47,8 @@ export class UiCardFooter {}
         </div>
       </div>
     }
-    <div class="ui-card-body" [class.ui-card-body-flush]="flush()">
+    <div #body class="ui-card-body" [class.ui-card-body-flush]="flush()"
+      [attr.tabindex]="scrolls() ? 0 : null" [attr.role]="scrolls() ? 'region' : null" [attr.aria-label]="scrolls() ? title() || null : null">
       <ng-content />
     </div>
     @if (footer()) {
@@ -64,4 +71,24 @@ export class UiCard {
 
   protected readonly actions = contentChild(UiCardActions);
   protected readonly footer = contentChild(UiCardFooter);
+  /** Whether a fill card's body is taller inside than it shows */
+  protected readonly scrolls = signal(false);
+
+  private readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
+
+  constructor() {
+    // The content changes with any render, and the space for it with the window
+    afterEveryRender({ read: () => this.measure() });
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
+      const observer = new ResizeObserver(() => this.measure());
+      observer.observe(this.body().nativeElement);
+      destroyRef.onDestroy(() => observer.disconnect());
+    });
+  }
+
+  private measure(): void {
+    const body = this.body().nativeElement;
+    this.scrolls.set(this.fill() && body.scrollHeight > body.clientHeight + 1);
+  }
 }

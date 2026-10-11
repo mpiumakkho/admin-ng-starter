@@ -94,13 +94,21 @@
   }
 }
 
+// In a flex column, such as a page that fills the window, it takes the height there is: shorter content leaves the
+// scrolling area (.ui-table-scroll) taller, so what comes after it, such as the pagination, stays at the bottom; taller
+// content scrolls inside it
 .ui-card-fit {
+  flex: 1 1 auto;
   min-height: 0;
 
   > .ui-card-body {
     display: flex;
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
+
+    > .ui-table-scroll {
+      flex-grow: 1;
+    }
   }
 }

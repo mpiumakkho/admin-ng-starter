@@ -187,6 +187,15 @@ ui-page-header {
   gap: .5rem;
 }
 
+.assignment-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  color: var(--ui-text);
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
 .assignment-period {
   color: var(--ui-muted);
   font-size: .8125rem;

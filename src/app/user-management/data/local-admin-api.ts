@@ -7,14 +7,14 @@ import { AdminApi, AdminApiError } from './admin-api';
 import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, ROLE_TONES, STATUS_META } from './catalog';
 import { AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, EmailLink } from './mock-data';
 import {
-  Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, fullName, PasswordPolicy, Permission, Role, RoleAssignment,
-  RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleAssignmentRules, RoleDraft, RoleGrant, TwoFactorSetup, User,
-  UserChanges, UserDraft, UserSession, UserStatus,
+  Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, fullName, PasswordPolicy,
+  Permission, Role, RoleAssignment, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleAssignmentRules, RoleDraft,
+  RoleGrant, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 import { createSecret, otpauthUri, verifyTotp } from './totp';
 import { uuidV7 } from './uuid';
 
-const STORAGE_KEY = 'admin-data-v6';
+const STORAGE_KEY = 'admin-data-v7';
 /** This browser's session id: kept in sessionStorage, or in localStorage with "Keep me signed in" */
 const SESSION_KEY = 'admin-session';
 /** The name authenticator apps show next to the codes */
@@ -34,13 +34,15 @@ const DAY_MS = 24 * 60 * 60_000;
 const MAX_REASON_LENGTH = 500;
 
 /** User fields the activity log tracks, in the order it lists them; also every field PATCH /users/:id may set */
-const USER_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'department', 'status', 'avatar'] as const;
+const USER_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'department', 'branchId', 'status', 'avatar'] as const;
+/** A branch code: short letters, digits and dashes */
+const BRANCH_CODE = /^[A-Za-z0-9-]{1,10}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * AdminApi backed by localStorage, seeded with sample data on first use. It plays the server's part: it knows
  * who is signed in, checks their permissions (see access-rules.ts) and writes the activity log.
- * Clear the "admin-data-v6" key in the browser to start over.
+ * Clear the "admin-data-v7" key in the browser to start over.
  */
 @Injectable()
 export class LocalAdminApi extends AdminApi {
@@ -214,6 +216,9 @@ export class LocalAdminApi extends AdminApi {
     if (id === actor.id && statusChanged) {
       throw new AdminApiError('self_change');
     }
+    if (changes.branchId !== undefined && changes.branchId !== current.branchId) {
+      this.assertOpenBranch(changes.branchId);
+    }
     const user = { ...current, ...changes };
     this.commitUsers(this.data.users.map(item => item.id === id ? user : item));
     const diff = USER_FIELDS.filter(field => current[field] !== user[field]).map<ActivityChange>(field =>
@@ -363,14 +368,14 @@ export class LocalAdminApi extends AdminApi {
     }
     const users = ids.map(id => this.findManageable(actor, id));
     const now = Date.now();
-    const holds = (user: User, roleId: string) =>
-      user.roles.some(item => item.roleId === roleId && roleAssignmentState(item, now) !== 'expired');
+    const holds = (user: User, roleId: string, branchId?: string | null) => user.roles.some(item => item.roleId === roleId
+      && (branchId === undefined || item.branchId === branchId) && roleAssignmentState(item, now) !== 'expired');
     const added: [User, RoleAssignment][] = [];
     const changed: User[] = [];
     let next = this.data.users;
     if ('add' in change) {
       const grant = grantInput(fields(change['add'], GRANT_FIELDS));
-      for (const user of users.filter(item => !holds(item, grant.roleId))) {
+      for (const user of users.filter(item => !holds(item, grant.roleId, grant.branchId ?? null))) {
         const assignment = this.newAssignment(actor, user, grant);
         const updated = { ...user, roles: [...user.roles, assignment] };
         added.push([updated, assignment]);
@@ -397,6 +402,59 @@ export class LocalAdminApi extends AdminApi {
       }
     }
     return this.respond(changed);
+  }
+
+  /* Branches */
+
+  async listBranches(): Promise<Branch[]> {
+    this.actor(undefined, true);
+    return this.respond(this.data.branches);
+  }
+
+  async createBranch(input: BranchDraft): Promise<Branch> {
+    const actor = this.actor('branches.manage');
+    const changes = branchChanges(input);
+    check(changes.code !== undefined && changes.name !== undefined && changes.active === undefined);
+    this.assertCodeFree(changes.code!);
+    const branch: Branch = { id: `b-${crypto.randomUUID().slice(0, 8)}`, code: changes.code!, name: changes.name!, active: true, createdAt: new Date().toISOString() };
+    this.data.branches = [...this.data.branches, branch];
+    this.log(actor.id, 'branch.created', branch.name, branch.id, [{ field: 'code', to: branch.code }, { field: 'name', to: branch.name }]);
+    return this.respond(branch);
+  }
+
+  async updateBranch(id: string, input: BranchChanges): Promise<Branch> {
+    const actor = this.actor('branches.manage');
+    const current = this.findBranch(id);
+    const changes = branchChanges(input);
+    if (changes.code !== undefined) {
+      this.assertCodeFree(changes.code, id);
+    }
+    const branch = { ...current, ...changes };
+    this.data.branches = this.data.branches.map(item => item.id === id ? branch : item);
+    const diff = (['code', 'name', 'active'] as const)
+      .filter(field => current[field] !== branch[field])
+      .map<ActivityChange>(field => ({ field, from: String(current[field]), to: String(branch[field]) }));
+    if (diff.length) {
+      this.log(actor.id, 'branch.updated', branch.name, id, diff);
+    }
+    return this.respond(branch);
+  }
+
+  /** Refused while people belong to it or hold a role there now or later; its ended assignments go with it */
+  async deleteBranch(id: string): Promise<void> {
+    const actor = this.actor('branches.manage');
+    const branch = this.findBranch(id);
+    const now = Date.now();
+    const inUse = this.data.users.some(user => user.branchId === id
+      || user.roles.some(item => item.branchId === id && roleAssignmentState(item, now) !== 'expired'));
+    if (inUse) {
+      throw new AdminApiError('branch_in_use');
+    }
+    this.data.branches = this.data.branches.filter(item => item.id !== id);
+    this.data.users = this.data.users.map(user => user.roles.some(item => item.branchId === id)
+      ? { ...user, roles: user.roles.filter(item => item.branchId !== id) } : user);
+    this.log(actor.id, 'branch.deleted', branch.name, undefined, [{ field: 'code', from: branch.code }]);
+    return this.respond(undefined);
   }
 
   /* Roles */
@@ -537,6 +595,7 @@ export class LocalAdminApi extends AdminApi {
     this.data.settings = settings;
     const diff: ActivityChange[] = ([
       'defaultRoleId', 'inviteExpiryDays', 'sessionTimeoutMinutes', 'passwordMinLength', 'passwordHistory', 'activityRetentionDays',
+      'branchesEnabled',
     ] as const)
       .filter(field => current[field] !== settings[field])
       .map(field => ({ field, from: String(current[field]), to: String(settings[field]) }));
@@ -681,21 +740,23 @@ export class LocalAdminApi extends AdminApi {
     return user;
   }
 
-  /** Checks a new user, their roles included, without adding anything */
+  /** Checks a new user, their branch and roles included, without adding anything */
   private assertCanCreate(actor: User, draft: UserDraft) {
     this.assertEmailFree(draft.email);
     this.assertEmailDomain(draft.email);
+    this.assertOpenBranch(draft.branchId ?? null);
     this.newRoles(actor, { id: '' }, draft.roles);
   }
 
   private addUser(actor: User, draft: UserDraft): User {
     const now = new Date().toISOString();
     const id = `u-${crypto.randomUUID().slice(0, 8)}`;
-    const { roles: grants, ...profile } = draft;
-    const user: User = { ...profile, id, roles: this.newRoles(actor, { id }, grants), createdAt: now, lastActiveAt: null };
+    const { roles: grants, branchId = null, ...profile } = draft;
+    const user: User = { ...profile, id, branchId, roles: this.newRoles(actor, { id }, grants), createdAt: now, lastActiveAt: null };
     this.data.users = [user, ...this.data.users];
     this.log(actor.id, draft.status === 'invited' ? 'user.invited' : 'user.created', fullName(user), user.id, [
       { field: 'department', to: user.department },
+      ...(user.branchId ? [{ field: 'branchId', to: user.branchId }] : []),
       { field: 'email', to: user.email },
       { field: 'status', to: user.status },
     ]);
@@ -719,6 +780,8 @@ export class LocalAdminApi extends AdminApi {
    */
   private newAssignment(actor: User, user: Pick<User, 'id' | 'roles'>, grant: RoleGrant): RoleAssignment {
     const role = this.assertCanAssign(actor, grant.roleId);
+    const branchId = grant.branchId ?? null;
+    this.assertOpenBranch(branchId);
     const now = Date.now();
     const start = Math.max(grant.startsAt ? new Date(grant.startsAt).getTime() : now, now);
     const end = grant.endsAt === null ? Infinity : new Date(grant.endsAt).getTime();
@@ -728,14 +791,14 @@ export class LocalAdminApi extends AdminApi {
     if (role.assignment.reasonRequired && !reason) {
       throw new AdminApiError('reason_required');
     }
-    const overlaps = user.roles.some(item => item.roleId === grant.roleId
+    const overlaps = user.roles.some(item => item.roleId === grant.roleId && item.branchId === branchId
       && new Date(item.startsAt).getTime() < end && start < (item.endsAt ? new Date(item.endsAt).getTime() : Infinity));
     if (overlaps) {
       throw new AdminApiError('already_assigned');
     }
     const at = new Date(now).toISOString();
     return {
-      id: uuidV7(), userId: user.id, roleId: grant.roleId, startsAt: new Date(start).toISOString(), endsAt: grant.endsAt, reason,
+      id: uuidV7(), userId: user.id, roleId: grant.roleId, branchId, startsAt: new Date(start).toISOString(), endsAt: grant.endsAt, reason,
       assignedById: actor.id, assignedAt: at,
     };
   }
@@ -756,6 +819,7 @@ export class LocalAdminApi extends AdminApi {
   private logAssignment(actorId: string | null, action: ActivityAction, user: User, assignment: RoleAssignment) {
     this.log(actorId, action, fullName(user), user.id, [
       { field: 'roleId', to: assignment.roleId },
+      ...(assignment.branchId ? [{ field: 'branchId', to: assignment.branchId }] : []),
       ...(assignment.startsAt > assignment.assignedAt ? [{ field: 'startsAt', to: assignment.startsAt }] : []),
       ...(assignment.endsAt ? [{ field: 'endsAt', to: assignment.endsAt }] : []),
       ...(assignment.reason ? [{ field: 'reason', to: assignment.reason }] : []),
@@ -900,6 +964,27 @@ export class LocalAdminApi extends AdminApi {
     return user;
   }
 
+  private findBranch(id: string): Branch {
+    const branch = this.data.branches.find(item => item.id === id);
+    if (!branch) {
+      throw new AdminApiError('not_found');
+    }
+    return branch;
+  }
+
+  /** A branch people can join or get a role in: one that exists and is open; null is none, or the whole organization */
+  private assertOpenBranch(branchId: string | null) {
+    if (branchId !== null && !this.findBranch(branchId).active) {
+      throw new AdminApiError('branch_closed');
+    }
+  }
+
+  private assertCodeFree(code: string, exceptId?: string) {
+    if (this.data.branches.some(branch => branch.id !== exceptId && branch.code.toUpperCase() === code.toUpperCase())) {
+      throw new AdminApiError('code_taken');
+    }
+  }
+
   /** A role the actor may give: it grants nothing they lack */
   private assertCanAssign(actor: User, roleId: string): Role {
     const role = this.data.roles.find(item => item.id === roleId);
@@ -1000,7 +1085,8 @@ function check(ok: boolean) {
 
 function userChanges(input: unknown): UserChanges {
   const changes = fields(input, USER_FIELDS);
-  check(Object.values(changes).every(value => typeof value === 'string'));
+  // Every field is text; the branch may also be null, for none
+  check(Object.entries(changes).every(([field, value]) => typeof value === 'string' || (field === 'branchId' && value === null)));
   check(changes['status'] === undefined || (changes['status'] as string) in STATUS_META);
   check(changes['email'] === undefined || EMAIL.test((changes['email'] as string).trim()));
   return changes as UserChanges;
@@ -1015,10 +1101,11 @@ function userDraft(input: unknown): UserDraft {
 }
 
 /** What a role grant may carry */
-const GRANT_FIELDS = ['roleId', 'startsAt', 'endsAt', 'reason'];
+const GRANT_FIELDS = ['roleId', 'branchId', 'startsAt', 'endsAt', 'reason'];
 
 function grantInput(grant: Record<string, unknown>): RoleGrant {
   check(typeof grant['roleId'] === 'string');
+  check(grant['branchId'] === undefined || grant['branchId'] === null || typeof grant['branchId'] === 'string');
   check(grant['startsAt'] === undefined || isInstant(grant['startsAt']));
   check(grant['endsAt'] === null || isInstant(grant['endsAt']));
   check(grant['reason'] === undefined || (typeof grant['reason'] === 'string' && grant['reason'].length <= MAX_REASON_LENGTH));
@@ -1030,6 +1117,19 @@ function assertWithinRules(rules: RoleAssignmentRules, start: number, endsAt: st
   if (rules.maxDays !== null && (endsAt === null || new Date(endsAt).getTime() - start > rules.maxDays * DAY_MS)) {
     throw new AdminApiError('assignment_too_long');
   }
+}
+
+/** A branch's fields, the code upper-case */
+function branchChanges(input: unknown): BranchChanges {
+  const changes = fields(input, ['code', 'name', 'active']);
+  check(changes['code'] === undefined || (typeof changes['code'] === 'string' && BRANCH_CODE.test(changes['code'].trim())));
+  check(changes['name'] === undefined || (typeof changes['name'] === 'string' && !!changes['name'].trim() && changes['name'].length <= 100));
+  check(changes['active'] === undefined || typeof changes['active'] === 'boolean');
+  return {
+    ...changes,
+    ...(changes['code'] !== undefined ? { code: (changes['code'] as string).trim().toUpperCase() } : {}),
+    ...(changes['name'] !== undefined ? { name: (changes['name'] as string).trim() } : {}),
+  } as BranchChanges;
 }
 
 function roleChanges(input: unknown): Partial<RoleDraft> {
@@ -1087,7 +1187,8 @@ const SETTINGS_RANGES: Record<string, [min: number, max: number]> = {
 };
 
 function settingsChanges(input: unknown): Partial<AdminSettings> {
-  const changes = fields(input, ['defaultRoleId', 'allowedDomains', 'twoFactorRoleIds', ...Object.keys(SETTINGS_RANGES)]);
+  const changes = fields(input, ['defaultRoleId', 'allowedDomains', 'twoFactorRoleIds', 'branchesEnabled', ...Object.keys(SETTINGS_RANGES)]);
+  check(changes['branchesEnabled'] === undefined || typeof changes['branchesEnabled'] === 'boolean');
   check(changes['defaultRoleId'] === undefined || typeof changes['defaultRoleId'] === 'string');
   check(['allowedDomains', 'twoFactorRoleIds'].every(field => changes[field] === undefined
     || (Array.isArray(changes[field]) && (changes[field] as unknown[]).every(item => typeof item === 'string'))));

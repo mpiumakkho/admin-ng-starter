@@ -22,6 +22,9 @@ const MESSAGES: Partial<Record<AdminApiErrorCode, string>> = {
   last_administrator: 'Someone must keep a role with every permission for good. Give it to another person first.',
   assignment_too_long: 'This role cannot be given for that long. Pick an earlier end.',
   reason_required: 'This role needs a reason.',
+  code_taken: 'Another branch already has this code.',
+  branch_in_use: 'People still belong to this branch or hold a role there. Move them first.',
+  branch_closed: 'This branch is closed. Pick an open one.',
 };
 
 /** The translation key that explains why a request failed */

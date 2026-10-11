@@ -12,6 +12,7 @@ export const USER_MANAGEMENT_ROUTES: Routes = [
   // Each users page checks its own permission; anyone can open their own profile
   { path: 'users', loadChildren: () => import('./users/users.routes').then(m => m.USERS_ROUTES) },
   { path: 'roles', canActivate: [requirePermission('roles.view')], loadComponent: () => import('./roles/roles.component').then(m => m.RolesComponent) },
+  { path: 'branches', canActivate: [requirePermission('branches.view')], loadComponent: () => import('./branches/branches.component').then(m => m.BranchesComponent) },
   { path: 'activity', canActivate: [requirePermission('activity.view')], loadComponent: () => import('./activity/activity.component').then(m => m.ActivityComponent) },
   { path: 'settings', loadChildren: () => import('./settings/settings.routes').then(m => m.SETTINGS_ROUTES) },
   // Where the guards send people whose role does not allow a page

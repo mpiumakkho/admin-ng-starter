@@ -93,4 +93,26 @@ describe('checkImportRows', () => {
 
     expect(rows.map(row => row.problems.length)).toEqual([1, 0]);
   });
+
+  it('puts people in an open branch by code or name, and leaves the column alone with branches off', () => {
+    const branches = [
+      { id: 'b-cnx', code: 'CNX', name: 'Chiang Mai', active: true, createdAt: '' },
+      { id: 'b-pyx', code: 'PYX', name: 'Pattaya', active: false, createdAt: '' },
+    ];
+    const cells = [
+      ['First name', 'Last name', 'Email', 'Branch'],
+      ['Ann', 'Lee', 'ann@example.com', 'cnx'],
+      ['Bo', 'Kim', 'bo@example.com', 'Chiang Mai'],
+      ['Cy', 'Ng', 'cy@example.com', 'Pattaya'],
+      ['Di', 'Wu', 'di@example.com', 'Nowhere'],
+      ['Ed', 'Po', 'ed@example.com', ''],
+    ];
+
+    const { rows } = checkImportRows(cells, { ...context, branches });
+    expect(rows.map(row => row.draft.branchId)).toEqual(['b-cnx', 'b-cnx', 'b-pyx', null, null]);
+    expect(rows.map(row => row.problems)).toEqual([[], [], ['This branch is closed. Pick an open one.'], ['Unknown branch.'], []]);
+
+    const off = checkImportRows(cells, context);
+    expect(off.rows.every(row => !row.problems.length && row.draft.branchId === null)).toBe(true);
+  });
 });

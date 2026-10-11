@@ -62,7 +62,7 @@ const AVATAR_SIZE = 160;
   host: { class: 'page-fit' },
 })
 export class UserFormComponent implements OnInit {
-  private readonly store = inject(AdminStore);
+  protected readonly store = inject(AdminStore);
   private readonly session = inject(Session);
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
@@ -97,6 +97,8 @@ export class UserFormComponent implements OnInit {
     email: ['', [Validators.required, Validators.email, (control: AbstractControl) => this.emailFree(control), (control: AbstractControl) => this.emailDomain(control)]],
     phone: ['', Validators.pattern(/^[0-9+\-\s]{9,15}$/)],
     department: [DEPARTMENTS[0], Validators.required],
+    /** Empty: no branch */
+    branchId: [''],
     status: ['invited' as UserStatus, Validators.required],
     avatar: [''],
   });
@@ -105,6 +107,10 @@ export class UserFormComponent implements OnInit {
   protected readonly grants = signal<RoleGrant[]>(this.defaultGrants());
   protected readonly grantedIds = computed(() => this.grants().map(grant => grant.roleId));
   protected readonly addingRole = signal(false);
+  /** Open branches to pick from, and the one someone already belongs to even when it has closed */
+  protected readonly branchChoices = computed(() =>
+    this.store.branches().filter(branch => branch.active || branch.id === this.user()?.branchId));
+
   /** Someone else's roles, changed on their profile */
   protected readonly canChangeRoles = computed(() => {
     const user = this.user();
@@ -143,7 +149,7 @@ export class UserFormComponent implements OnInit {
     if (user) {
       this.form.reset({
         firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone,
-        department: user.department, status: user.status, avatar: user.avatar,
+        department: user.department, branchId: user.branchId ?? '', status: user.status, avatar: user.avatar,
       });
     }
     if (this.isSelf()) {
@@ -152,6 +158,7 @@ export class UserFormComponent implements OnInit {
     if (this.profileOnly()) {
       this.form.controls.email.disable();
       this.form.controls.department.disable();
+      this.form.controls.branchId.disable();
     }
   }
 
@@ -164,6 +171,10 @@ export class UserFormComponent implements OnInit {
     const role = assignable.find(item => item.id === this.store.settings().defaultRoleId)
       ?? [...assignable].sort((a, b) => a.permissions.length - b.permissions.length)[0];
     return role ? [{ roleId: role.id, endsAt: null }] : [];
+  }
+
+  protected branchName(branchId: string): string {
+    return this.store.branchesById().get(branchId)?.name ?? '';
   }
 
   protected roleName(roleId: string): string {
@@ -219,7 +230,8 @@ export class UserFormComponent implements OnInit {
       this.toast.show(this.translate.instant('Check the highlighted fields.'), 'error');
       return;
     }
-    const profile = this.form.getRawValue();
+    const { branchId, ...rest } = this.form.getRawValue();
+    const profile = { ...rest, branchId: branchId || null };
     this.saving.set(true);
     try {
       const id = this.id();

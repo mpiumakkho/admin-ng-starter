@@ -108,7 +108,7 @@ test('gives several people a role at once, and takes it away again', async ({ pa
   await page.locator('ui-bulk-bar').getByRole('button', { name: 'Give role' }).click();
   const dialog = page.locator('dialog[open]');
   await expect(dialog).toContainText('Give a role to 2 people');
-  await dialog.locator('select').selectOption({ label: 'Compliance' });
+  await dialog.getByRole('combobox', { name: 'Role', exact: true }).selectOption({ label: 'Compliance' });
   await dialog.getByRole('button', { name: 'Give role' }).click();
   await expect(page.locator('ui-toaster')).toContainText('Gave the role to 2 user(s)');
   await expect(page.locator('ui-bulk-bar')).toHaveCount(0);
@@ -118,7 +118,7 @@ test('gives several people a role at once, and takes it away again', async ({ pa
 
   await pick();
   await page.locator('ui-bulk-bar').getByRole('button', { name: 'Take role away' }).click();
-  await dialog.locator('select').selectOption({ label: 'Compliance' });
+  await dialog.getByRole('combobox', { name: 'Role', exact: true }).selectOption({ label: 'Compliance' });
   await dialog.getByRole('button', { name: 'Take role away' }).click();
   await expect(page.locator('ui-toaster')).toContainText('Took the role away from 2 user(s)');
   await expect(rows.nth(0).locator('app-role-badges')).not.toContainText('Compliance');

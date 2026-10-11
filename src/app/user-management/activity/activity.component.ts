@@ -148,7 +148,10 @@ export class ActivityComponent {
     const count = (kind: ActivityKind) => entries.filter(entry => ACTIVITY_META[entry.action].kind === kind).length;
     return [
       { value: 'all', label: this.translate.instant('All'), count: entries.length },
-      ...(Object.keys(ACTIVITY_KINDS) as ActivityKind[]).map(kind => ({ value: kind, label: this.translate.instant(ACTIVITY_KINDS[kind]), count: count(kind) })),
+      // Branches only while they are on, or when the log has something about them
+      ...(Object.keys(ACTIVITY_KINDS) as ActivityKind[])
+        .filter(kind => kind !== 'branches' || this.store.branchesEnabled() || count(kind) > 0)
+        .map(kind => ({ value: kind, label: this.translate.instant(ACTIVITY_KINDS[kind]), count: count(kind) })),
     ];
   });
 

@@ -25,6 +25,15 @@
         <option [value]="role.id" [selected]="roleFilter() === role.id">{{ role.name }}</option>
       }
     </select>
+    @if (store.branchesEnabled()) {
+      <select uiInput class="ui-input-sm toolbar-branch" (change)="setBranch($any($event.target).value)" [attr.aria-label]="'Branch' | translate">
+        <option value="all" [selected]="branchFilter() === 'all'">{{ 'All branches' | translate }}</option>
+        @for (branch of store.branches(); track branch.id) {
+          <option [value]="branch.id" [selected]="branchFilter() === branch.id">{{ branch.name }}</option>
+        }
+        <option [value]="noBranch" [selected]="branchFilter() === noBranch">{{ 'No branch' | translate }}</option>
+      </select>
+    }
     <ui-filter-chips class="toolbar-chips" scroll [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" [ariaLabel]="'Status' | translate" />
   </div>
 
@@ -55,6 +64,9 @@
             <th><ui-sort-header [table]="table" key="name">{{ 'User' | translate }}</ui-sort-header></th>
             <th><ui-sort-header [table]="table" key="role">{{ 'Roles' | translate }}</ui-sort-header></th>
             <th class="hide-md"><ui-sort-header [table]="table" key="department">{{ 'Department' | translate }}</ui-sort-header></th>
+            @if (store.branchesEnabled()) {
+              <th class="hide-lg"><ui-sort-header [table]="table" key="branch">{{ 'Branch' | translate }}</ui-sort-header></th>
+            }
             <th>{{ 'Status' | translate }}</th>
             <th class="hide-lg"><ui-sort-header [table]="table" key="lastActive">{{ 'Last active' | translate }}</ui-sort-header></th>
             <th class="hide-lg"><ui-sort-header [table]="table" key="created">{{ 'Joined' | translate }}</ui-sort-header></th>
@@ -78,6 +90,9 @@
               </td>
               <td class="cell-role"><app-role-badges [user]="user" /></td>
               <td class="hide-md muted">{{ user.department | translate }}</td>
+              @if (store.branchesEnabled()) {
+                <td class="hide-lg muted">{{ branchName(user.branchId) || '—' }}</td>
+              }
               <td class="cell-status"><app-status-badge [status]="user.status" /></td>
               <td class="hide-lg muted">{{ user.lastActiveAt | timeAgo: ('Never' | translate) }}</td>
               <td class="hide-lg muted">{{ user.createdAt | localDate }}</td>

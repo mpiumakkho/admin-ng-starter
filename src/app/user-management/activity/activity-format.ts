@@ -52,6 +52,9 @@ export class ActivityFormat {
     if (ACTIVITY_META[entry.action].kind === 'roles') {
       return this.store.rolesById().has(entry.targetId) ? { link: ['/roles'], queryParams: { role: entry.targetId } } : null;
     }
+    if (ACTIVITY_META[entry.action].kind === 'branches') {
+      return this.store.branchesById().has(entry.targetId) ? { link: ['/branches'] } : null;
+    }
     return this.store.usersById().has(entry.targetId) ? { link: ['/users', entry.targetId] } : null;
   }
 
@@ -68,6 +71,12 @@ export class ActivityFormat {
       case 'roleId':
       case 'defaultRoleId':
         return this.store.rolesById().get(raw)?.name ?? raw;
+      case 'branchId':
+        return this.store.branchesById().get(raw)?.name ?? raw;
+      case 'active':
+        return this.translate.instant(raw === 'true' ? 'Open' : 'Closed');
+      case 'branchesEnabled':
+        return this.translate.instant(raw === 'true' ? 'On' : 'Off');
       case 'startsAt':
       case 'endsAt':
         return localDate(this.translate, raw);

@@ -16,6 +16,9 @@
           @if (user.phone) {
             <span><ng-icon [svg]="icons.phone" /> {{ user.phone }}</span>
           }
+          @if (store.branchesEnabled() && branchName(user.branchId); as branch) {
+            <span><ng-icon [svg]="icons.branch" /> <span class="ui-sr-only">{{ 'Branch' | translate }}: </span>{{ branch }}</span>
+          }
         </div>
         <div class="profile-badges">
           <app-role-badges [user]="user" [max]="3" />
@@ -67,6 +70,9 @@
           <ui-detail-item [label]="'Email' | translate">{{ user.email }}</ui-detail-item>
           <ui-detail-item [label]="'Phone' | translate">{{ user.phone || '—' }}</ui-detail-item>
           <ui-detail-item [label]="'Department' | translate">{{ user.department | translate }}</ui-detail-item>
+          @if (store.branchesEnabled()) {
+            <ui-detail-item [label]="'Branch' | translate">{{ branchName(user.branchId) || ('No branch' | translate) }}</ui-detail-item>
+          }
           <ui-detail-item [label]="'Roles' | translate"><app-role-badges [user]="user" [max]="6" /></ui-detail-item>
           <ui-detail-item [label]="'Status' | translate"><app-status-badge [status]="user.status" /></ui-detail-item>
           <ui-detail-item [label]="'Joined' | translate">{{ user.createdAt | localDate: 'datetime' }}</ui-detail-item>
@@ -91,6 +97,9 @@
                   <div class="assignment-main">
                     <app-role-badge [roleId]="item.assignment.roleId" />
                     <ui-badge [tone]="stateTones[item.state]" dot>{{ stateLabels[item.state] | translate }}</ui-badge>
+                    @if (store.branchesEnabled()) {
+                      <span class="assignment-scope"><ng-icon [svg]="icons.branch" /> {{ item.assignment.branchId ? branchName(item.assignment.branchId) : ('Whole organization' | translate) }}</span>
+                    }
                     <span class="assignment-period">
                       @if (item.state === 'scheduled') {
                         {{ 'fromDate' | translate: { date: (item.assignment.startsAt | localDate) } }}

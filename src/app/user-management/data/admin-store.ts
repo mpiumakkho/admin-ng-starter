@@ -4,8 +4,8 @@ import { activeRoleIds, roleAssignmentState } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
 import { DEFAULT_SETTINGS } from './catalog';
 import {
-  Activity, ActivityRange, AdminSettings, Role, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleDraft, TwoFactorSetup,
-  User, UserChanges, UserDraft, UserSession, UserStatus,
+  Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, Role, RoleAssignmentBatch, RoleAssignmentChanges,
+  RoleAssignmentDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
 /** How long to wait for more changes before loading again, as one action can change several things */
@@ -24,6 +24,7 @@ export class AdminStore {
 
   readonly users = signal<User[]>([]);
   readonly roles = signal<Role[]>([]);
+  readonly branches = signal<Branch[]>([]);
   readonly activity = signal<Activity[]>([]);
   readonly settings = signal<AdminSettings>(DEFAULT_SETTINGS);
   readonly loaded = signal(false);
@@ -49,6 +50,11 @@ export class AdminStore {
 
   readonly usersById = computed(() => new Map(this.users().map(user => [user.id, user])));
   readonly rolesById = computed(() => new Map(this.roles().map(role => [role.id, role])));
+  readonly branchesById = computed(() => new Map(this.branches().map(branch => [branch.id, branch])));
+  /** Branches are in use: turned on in the settings */
+  readonly branchesEnabled = computed(() => this.settings().branchesEnabled);
+  /** The ones people can join or get a role in */
+  readonly openBranches = computed(() => this.branches().filter(branch => branch.active));
 
   /**
    * Now, as far as role assignments go: it moves on when one starts or ends, so whatever depends on who holds which
@@ -107,10 +113,9 @@ export class AdminStore {
   }
 
   async load(): Promise<void> {
-    let loaded: [User[], Role[], Activity[], AdminSettings];
+    let loaded: [User[], Role[], Activity[], AdminSettings, Branch[]];
     try {
-      loaded = await this.call(() =>
-        Promise.all([this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings()]));
+      loaded = await this.fetchAll();
     } catch (error) {
       if (!(error instanceof AdminApiError && error.code === 'two_factor_mandatory')) {
         throw error;
@@ -124,10 +129,11 @@ export class AdminStore {
       this.loaded.set(true);
       return;
     }
-    const [users, roles, activity, settings] = loaded;
+    const [users, roles, activity, settings, branches] = loaded;
     this.twoFactorSetupRequired.set(false);
     this.users.set(users);
     this.roles.set(roles);
+    this.branches.set(branches);
     this.activity.set(activity);
     this.settings.set(settings);
     this.sessionEnded.set(false);
@@ -153,9 +159,10 @@ export class AdminStore {
   /** Loads everything again, quietly; a session that ended elsewhere is noticed here */
   async refresh(): Promise<void> {
     try {
-      const [users, roles, activity, settings] = await this.fetchAll();
+      const [users, roles, activity, settings, branches] = await this.fetchAll();
       this.users.set(users);
       this.roles.set(roles);
+      this.branches.set(branches);
       this.activity.set(activity);
       this.settings.set(settings);
       this.revision.update(revision => revision + 1);
@@ -165,8 +172,9 @@ export class AdminStore {
   }
 
   private fetchAll() {
-    return this.call(() =>
-      Promise.all([this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings()]));
+    return this.call(() => Promise.all([
+      this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings(), this.api.listBranches(),
+    ]));
   }
 
   /** Changes made elsewhere show up without a reload, or wait to be asked for (holdChanges) */
@@ -188,7 +196,7 @@ export class AdminStore {
     }
     try {
       const latest = await this.fetchAll();
-      const shown = [this.users(), this.roles(), this.activity(), this.settings()];
+      const shown = [this.users(), this.roles(), this.activity(), this.settings(), this.branches()];
       if (JSON.stringify(latest) !== JSON.stringify(shown)) {
         this.changesWaiting.set(true);
       }
@@ -204,6 +212,7 @@ export class AdminStore {
     clearTimeout(this.refreshTimer);
     this.users.set([]);
     this.roles.set([]);
+    this.branches.set([]);
     this.activity.set([]);
     this.settings.set(DEFAULT_SETTINGS);
     this.loaded.set(false);
@@ -271,10 +280,14 @@ export class AdminStore {
     return changed;
   }
 
-  /** Whether someone holds a role now or will hold it, for offering to give or take it */
-  holdsOrWillHold(user: Pick<User, 'roles'>, roleId: string): boolean {
+  /**
+   * Whether someone holds a role now or will hold it, for offering to give or take it: in any scope, or, given a branch
+   * id or null (the whole organization), in that one
+   */
+  holdsOrWillHold(user: Pick<User, 'roles'>, roleId: string, branchId?: string | null): boolean {
     const now = this.now();
-    return user.roles.some(item => item.roleId === roleId && roleAssignmentState(item, now) !== 'expired');
+    return user.roles.some(item => item.roleId === roleId && (branchId === undefined || item.branchId === branchId)
+      && roleAssignmentState(item, now) !== 'expired');
   }
 
   async deleteUsers(ids: string[]): Promise<void> {
@@ -292,6 +305,41 @@ export class AdminStore {
     await this.call(() => this.api.resendInvite(id));
     await this.refreshActivity();
   }
+
+  /* Branches */
+
+  async createBranch(draft: BranchDraft): Promise<Branch> {
+    const branch = await this.call(() => this.api.createBranch(draft));
+    this.branches.update(branches => [...branches, branch]);
+    await this.refreshActivity();
+    return branch;
+  }
+
+  async updateBranch(id: string, changes: BranchChanges): Promise<Branch> {
+    const branch = await this.call(() => this.api.updateBranch(id, changes));
+    this.branches.update(branches => branches.map(item => item.id === id ? branch : item));
+    await this.refreshActivity();
+    return branch;
+  }
+
+  async deleteBranch(id: string): Promise<void> {
+    await this.call(() => this.api.deleteBranch(id));
+    this.branches.update(branches => branches.filter(item => item.id !== id));
+    // Ended assignments limited to it are gone too
+    this.users.set(await this.call(() => this.api.listUsers()));
+    await this.refreshActivity();
+  }
+
+  /** How many people belong to each branch */
+  readonly branchCounts = computed(() => {
+    const counts = new Map<string, number>();
+    for (const user of this.users()) {
+      if (user.branchId) {
+        counts.set(user.branchId, (counts.get(user.branchId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  });
 
   /* Roles */
 
@@ -380,7 +428,10 @@ export class AdminStore {
    */
   private async call<T>(request: () => Promise<T>, setupMayBeRequired = true): Promise<T> {
     try {
-      return await request();
+      const result = await request();
+      // What the server answers is as of now: a role given a moment ago counts at once, not at the clock's next move
+      this.now.set(Date.now());
+      return result;
     } catch (error) {
       if (error instanceof AdminApiError && error.code === 'unauthenticated') {
         this.sessionEnded.set(true);

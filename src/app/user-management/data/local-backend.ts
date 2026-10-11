@@ -5,7 +5,7 @@ import { catchError, from, map, throwError } from 'rxjs';
 import { AdminApiError, AdminApiErrorCode } from './admin-api';
 import { ADMIN_API_URL, TokenAnswer } from './http-admin-api';
 import { LocalAdminApi } from './local-admin-api';
-import { RoleAssignmentBatch, RoleAssignmentDraft, RoleDraft, User, UserDraft } from './models';
+import { BranchDraft, RoleAssignmentBatch, RoleAssignmentDraft, RoleDraft, User, UserDraft } from './models';
 
 /** The status a server would answer each refusal with */
 const STATUS: Record<AdminApiErrorCode, number> = {
@@ -34,6 +34,9 @@ const STATUS: Record<AdminApiErrorCode, number> = {
   last_administrator: 409,
   assignment_too_long: 422,
   reason_required: 422,
+  code_taken: 409,
+  branch_in_use: 409,
+  branch_closed: 409,
 };
 
 /** How long an access token lasts, in seconds, as on the server */
@@ -88,6 +91,10 @@ const ROUTES: Route[] = [
   }],
   ['PATCH', /^\/role-assignments\/([^/]+)$/, (api, body, id) => api.updateRoleAssignment(id, body)],
   ['DELETE', /^\/role-assignments\/([^/]+)$/, (api, _body, id) => api.removeRoleAssignment(id)],
+  ['GET', /^\/branches$/, api => api.listBranches()],
+  ['POST', /^\/branches$/, (api, body) => api.createBranch(body as unknown as BranchDraft)],
+  ['PATCH', /^\/branches\/([^/]+)$/, (api, body, id) => api.updateBranch(id, body)],
+  ['DELETE', /^\/branches\/([^/]+)$/, (api, _body, id) => api.deleteBranch(id)],
   ['GET', /^\/roles$/, api => api.listRoles()],
   ['POST', /^\/roles$/, (api, body) => api.createRole(body as unknown as RoleDraft)],
   ['PATCH', /^\/roles\/([^/]+)$/, (api, body, id) => api.updateRole(id, body)],

@@ -7,6 +7,9 @@ import {
   lucideLogIn,
   lucideLogOut,
   lucideMail,
+  lucideMapPinned,
+  lucideMapPinOff,
+  lucideMapPinPlus,
   lucidePencil,
   lucideSettings,
   lucideShield,
@@ -67,6 +70,14 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'settings.manage', label: 'Change settings' },
     ],
   },
+  {
+    key: 'branches',
+    label: 'Branches',
+    permissions: [
+      { key: 'branches.view', label: 'View branches' },
+      { key: 'branches.manage', label: 'Add and change branches' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap(group => group.permissions.map(permission => permission.key));
@@ -91,11 +102,12 @@ export const TONE_NAMES: Record<UiTone, string> = {
   neutral: 'Gray',
 };
 
-export type ActivityKind = 'users' | 'roles' | 'settings' | 'sessions';
+export type ActivityKind = 'users' | 'roles' | 'branches' | 'settings' | 'sessions';
 
 export const ACTIVITY_KINDS: Record<ActivityKind, string> = {
   users: 'Users',
   roles: 'Roles',
+  branches: 'Branches',
   settings: 'Settings',
   sessions: 'Sign-ins',
 };
@@ -121,6 +133,9 @@ export const ACTIVITY_META: Record<ActivityAction, { icon: string; tone: UiTone;
   'role_assignment.removed': { icon: lucideBadgeMinus, tone: 'warning', label: 'action.role_assignment.removed', message: 'activity.role_assignment.removed', kind: 'users' },
   'role_assignment.expired': { icon: lucideTimerOff, tone: 'neutral', label: 'action.role_assignment.expired', message: 'activity.role_assignment.expired', kind: 'users' },
   'settings.updated': { icon: lucideSettings, tone: 'neutral', label: 'action.settings.updated', message: 'activity.settings.updated', kind: 'settings' },
+  'branch.created': { icon: lucideMapPinPlus, tone: 'primary', label: 'action.branch.created', message: 'activity.branch.created', kind: 'branches' },
+  'branch.updated': { icon: lucideMapPinned, tone: 'info', label: 'action.branch.updated', message: 'activity.branch.updated', kind: 'branches' },
+  'branch.deleted': { icon: lucideMapPinOff, tone: 'danger', label: 'action.branch.deleted', message: 'activity.branch.deleted', kind: 'branches' },
   'auth.sign_in': { icon: lucideLogIn, tone: 'neutral', label: 'action.auth.sign_in', message: 'activity.auth.sign_in', kind: 'sessions' },
   'auth.sessions_ended': { icon: lucideLogOut, tone: 'warning', label: 'action.auth.sessions_ended', message: 'activity.auth.sessions_ended', kind: 'sessions' },
   'auth.two_factor_on': { icon: lucideShieldCheck, tone: 'success', label: 'action.auth.two_factor_on', message: 'activity.auth.two_factor_on', kind: 'sessions' },
@@ -134,6 +149,10 @@ export const FIELD_LABELS: Record<string, string> = {
   email: 'Email',
   phone: 'Phone',
   department: 'Department',
+  branchId: 'Branch',
+  code: 'Code',
+  active: 'Open',
+  branchesEnabled: 'Branches',
   roleId: 'Role',
   roles: 'Roles',
   startsAt: 'Starts',
@@ -174,6 +193,7 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   passwordMinLength: 8,
   passwordHistory: 0,
   activityRetentionDays: 730,
+  branchesEnabled: false,
 };
 
 /** Choices on the settings page */

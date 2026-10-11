@@ -7,6 +7,8 @@ export interface MenuLink {
   link: string;
   /** Shown only to people whose role has this permission */
   permission?: Permission;
+  /** And only while this setting is on */
+  setting?: 'branchesEnabled';
 }
 
 export interface MenuItem {

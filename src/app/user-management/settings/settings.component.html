@@ -28,6 +28,9 @@
         <ui-form-field [label]="'Allowed email domains' | translate" for="allowedDomains" [errors]="errorMessages()" [hint]="'Separate domains with commas. Leave empty to allow any email.' | translate">
           <input uiInput class="domains-input" id="allowedDomains" formControlName="allowedDomains" placeholder="example.com, example.co.th" autocomplete="off" />
         </ui-form-field>
+        <ui-switch class="branches-switch" formControlName="branchesEnabled" [description]="'People belong to a branch, and roles can be given for one branch only.' | translate">
+          {{ 'Use branches' | translate }}
+        </ui-switch>
       </section>
 
       <section class="settings-section">

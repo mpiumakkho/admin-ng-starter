@@ -2,7 +2,7 @@ import { computed, DOCUMENT, effect, inject, Injectable, InjectionToken, signal,
 import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 
-import { canManageUser, holdsAll, permissionsOf } from '../data/access-rules';
+import { branchPermissionsOf, canManageUser, holdsAll, permissionsOf } from '../data/access-rules';
 import { AdminApi } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
 import { Permission, Role, User } from '../data/models';
@@ -63,6 +63,8 @@ export class Session {
   readonly role = computed<Role | undefined>(() => this.roles()[0]);
   /** Every permission of the roles they hold now, together; follows assignments as they start and end */
   readonly permissions = computed<ReadonlySet<Permission>>(() => permissionsOf(this.user(), this.store.roles(), this.store.now()));
+  /** What roles limited to a branch allow there, by branch id, on top of permissions (Azure RBAC's scopes) */
+  readonly branchPermissions = computed(() => branchPermissionsOf(this.user(), this.store.roles(), this.store.now()));
   /** The role requires two-step sign-in and it is off: only the setup page opens (API.md, "Roles that must use…") */
   readonly twoFactorSetupRequired = computed(() => this.signedIn() && this.store.twoFactorSetupRequired());
   /**
@@ -155,8 +157,21 @@ export class Session {
     });
   }
 
-  can(permission: Permission): boolean {
-    return this.permissions().has(permission);
+  /**
+   * Whether the signed-in user has a permission: across the whole organization, or, given a branch, there too through a
+   * role limited to it. User management asks without a branch; the app's own modules ask about the branch of what
+   * they show, such as an order's branch.
+   */
+  can(permission: Permission, branchId?: string | null): boolean {
+    return this.permissions().has(permission) || (!!branchId && !!this.branchPermissions().get(branchId)?.has(permission));
+  }
+
+  /** The branches where the signed-in user has a permission through a role limited to them; with it everywhere, all */
+  branchesWith(permission: Permission): string[] {
+    if (this.permissions().has(permission)) {
+      return this.store.branches().map(branch => branch.id);
+    }
+    return [...this.branchPermissions()].filter(([, granted]) => granted.has(permission)).map(([branchId]) => branchId);
   }
 
   isSelf(user: Pick<User, 'id'> | null | undefined): boolean {

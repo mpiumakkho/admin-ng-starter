@@ -6,8 +6,8 @@ import { lucideChevronRight } from '@ng-icons/lucide';
 import { TranslatePipe } from '@ngx-translate/core';
 import { filter } from 'rxjs';
 
-import { Session } from '../../user-management';
-import { MENU, MenuItem } from './menu';
+import { AdminStore, Session } from '../../user-management';
+import { MENU, MenuItem, MenuLink } from './menu';
 import { SidebarState } from './sidebar-state';
 
 @Component({
@@ -23,6 +23,7 @@ export class SidebarComponent {
   private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
   protected readonly session = inject(Session);
+  private readonly store = inject(AdminStore);
   protected readonly state = inject(SidebarState);
 
   /** The menu without the pages the signed-in user's role does not allow, and without groups or sections left empty */
@@ -31,7 +32,7 @@ export class SidebarComponent {
       ...section,
       items: section.items
         .filter(item => this.allowed(item.permission))
-        .map(item => item.children ? { ...item, children: item.children.filter(child => this.allowed(child.permission)) } : item)
+        .map(item => item.children ? { ...item, children: item.children.filter(child => this.allowed(child.permission, child.setting)) } : item)
         .filter(item => !item.children || item.children.length),
     }))
     .filter(section => section.items.length));
@@ -82,8 +83,8 @@ export class SidebarComponent {
     });
   }
 
-  private allowed(permission: MenuItem['permission']) {
-    return !permission || this.session.can(permission);
+  private allowed(permission: MenuItem['permission'], setting?: MenuLink['setting']) {
+    return (!permission || this.session.can(permission)) && (!setting || this.store.settings()[setting]);
   }
 
   /** Opens the group that holds this address, so the current page is in view */

@@ -13,7 +13,9 @@ export type Permission =
   | 'activity.view'
   | 'activity.export'
   | 'settings.view'
-  | 'settings.manage';
+  | 'settings.manage'
+  | 'branches.view'
+  | 'branches.manage';
 
 export interface User {
   id: string;
@@ -22,6 +24,8 @@ export interface User {
   email: string;
   phone: string;
   department: string;
+  /** The branch they belong to, as a Google Workspace user is in one organizational unit; null for none */
+  branchId: string | null;
   /** Every role given to them: the ones they hold now, scheduled ones and expired ones (see roleAssignmentState) */
   roles: RoleAssignment[];
   status: UserStatus;
@@ -35,7 +39,11 @@ export interface User {
 }
 
 /** A new user: what a form edits, and the roles they start with (none: the default role from the settings) */
-export type UserDraft = Omit<User, 'id' | 'createdAt' | 'lastActiveAt' | 'twoFactor' | 'roles'> & { roles: RoleGrant[] };
+export type UserDraft = Omit<User, 'id' | 'createdAt' | 'lastActiveAt' | 'twoFactor' | 'roles' | 'branchId'> & {
+  roles: RoleGrant[];
+  /** Left out: no branch */
+  branchId?: string | null;
+};
 
 /** What PATCH /users/:id changes; roles change through role assignments */
 export type UserChanges = Partial<Omit<UserDraft, 'roles'>>;
@@ -48,6 +56,8 @@ export interface RoleAssignment {
   id: string;
   userId: string;
   roleId: string;
+  /** Its scope, as Azure RBAC's: null for the whole organization, or the one branch it applies in */
+  branchId: string | null;
   startsAt: string;
   /** null: for good */
   endsAt: string | null;
@@ -61,6 +71,8 @@ export interface RoleAssignment {
 /** A role to give someone */
 export interface RoleGrant {
   roleId: string;
+  /** Left out or null: the whole organization */
+  branchId?: string | null;
   /** Left out, or earlier than now: from now */
   startsAt?: string;
   /** null: for good */
@@ -126,6 +138,22 @@ export interface RoleAssignmentRules {
 /** A role to create or change; without assignment rules, a new role may be given for good, without a reason */
 export type RoleDraft = Omit<Role, 'id' | 'system' | 'assignment'> & { assignment?: RoleAssignmentRules };
 
+/** A site or office people belong to, and roles can be limited to */
+export interface Branch {
+  id: string;
+  /** Short, unique and upper-case, such as "CNX" */
+  code: string;
+  name: string;
+  /** Closed: it keeps its people and their roles, but nobody new joins it or gets a role there */
+  active: boolean;
+  createdAt: string;
+}
+
+export type BranchDraft = Pick<Branch, 'code' | 'name'>;
+
+/** What PATCH /branches/:id changes */
+export type BranchChanges = Partial<BranchDraft & Pick<Branch, 'active'>>;
+
 /** How user management behaves, changed on the settings page */
 export interface AdminSettings {
   /** The role a new user starts with */
@@ -144,6 +172,8 @@ export interface AdminSettings {
   passwordHistory: number;
   /** Activity older than this is deleted */
   activityRetentionDays: number;
+  /** Shows the branches page and the branch fields; turned off, the data stays */
+  branchesEnabled: boolean;
 }
 
 /** What a new password must be, from the settings; readable before signing in, for the links in emails */
@@ -175,6 +205,9 @@ export type ActivityAction =
   | 'role_assignment.removed'
   | 'role_assignment.expired'
   | 'settings.updated'
+  | 'branch.created'
+  | 'branch.updated'
+  | 'branch.deleted'
   | 'auth.sign_in'
   | 'auth.sessions_ended'
   | 'auth.two_factor_on'

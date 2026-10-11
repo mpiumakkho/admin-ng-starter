@@ -6,7 +6,8 @@ import { Permission, Role, RoleAssignment, User } from './models';
  * button never stops a request.
  *
  * - A person holds the roles of their assignments that count now (see roleAssignmentState), and has every
- *   permission of each of them, together.
+ *   permission of each of them, together. User management's own permissions come only from assignments for the whole
+ *   organization; one limited to a branch grants its permissions in that branch (branchPermissionsOf).
  * - A permission is needed for each kind of change (users.edit, roles.manage and so on).
  * - Nobody can give out more than they have: you can only give a role, or tick a permission on a role,
  *   when you hold every permission it grants yourself.
@@ -41,10 +42,26 @@ export function heldRoleIds(user: Pick<User, 'roles'> | null | undefined, now = 
   return [...new Set((user?.roles ?? []).filter(item => roleAssignmentState(item, now) !== 'expired').map(item => item.roleId))];
 }
 
-/** Every permission of the roles someone holds now; nothing when they hold none */
+/** Every permission of the roles someone holds now for the whole organization; nothing when they hold none */
 export function permissionsOf(user: Pick<User, 'roles'> | null | undefined, roles: readonly Role[], now = Date.now()): ReadonlySet<Permission> {
-  const held = new Set(activeRoleIds(user, now));
+  const held = new Set((user?.roles ?? [])
+    .filter(item => item.branchId === null && roleAssignmentState(item, now) === 'active')
+    .map(item => item.roleId));
   return new Set(roles.filter(role => held.has(role.id)).flatMap(role => role.permissions));
+}
+
+/** What someone may do in each branch through roles limited to it, on top of permissionsOf, by branch id */
+export function branchPermissionsOf(user: Pick<User, 'roles'> | null | undefined, roles: readonly Role[], now = Date.now()): ReadonlyMap<string, ReadonlySet<Permission>> {
+  const byId = new Map(roles.map(role => [role.id, role]));
+  const result = new Map<string, Set<Permission>>();
+  for (const item of user?.roles ?? []) {
+    if (item.branchId !== null && roleAssignmentState(item, now) === 'active') {
+      const granted = result.get(item.branchId) ?? new Set<Permission>();
+      byId.get(item.roleId)?.permissions.forEach(permission => granted.add(permission));
+      result.set(item.branchId, granted);
+    }
+  }
+  return result;
 }
 
 /** Whether someone holding `held` may give out every permission in `permissions` */
@@ -69,11 +86,11 @@ export function grantsEverything(role: Pick<Role, 'permissions'>, all: readonly 
 }
 
 /**
- * Whether someone can still run the system: an active user who holds, now and for good, a role with every permission.
- * Changes that would leave nobody are refused with last_administrator.
+ * Whether someone can still run the system: an active user who holds, now, for good and for the whole organization,
+ * a role with every permission. Changes that would leave nobody are refused with last_administrator.
  */
 export function administratorRemains(users: readonly User[], roles: readonly Role[], all: readonly Permission[], now = Date.now()): boolean {
   const full = new Set(roles.filter(role => grantsEverything(role, all)).map(role => role.id));
   return users.some(user => user.status === 'active' && user.roles.some(item =>
-    full.has(item.roleId) && item.endsAt === null && roleAssignmentState(item, now) === 'active'));
+    full.has(item.roleId) && item.branchId === null && item.endsAt === null && roleAssignmentState(item, now) === 'active'));
 }

@@ -392,19 +392,93 @@ describe('Session and permissions', () => {
     });
   });
 
+  describe('branches', () => {
+    it('adds, renames and closes a branch, each code once, and logs it', async () => {
+      await signInAs('admin');
+
+      const branch = await store.createBranch({ code: ' bkk-2 ', name: 'Bangkok 2' });
+      expect(branch).toMatchObject({ code: 'BKK-2', name: 'Bangkok 2', active: true });
+      await expect(store.createBranch({ code: 'Bkk-2', name: 'Again' })).rejects.toEqual(new AdminApiError('code_taken'));
+      await expect(store.createBranch({ code: 'TOO-LONG-CODE', name: 'Long' })).rejects.toEqual(new AdminApiError('invalid_request'));
+
+      await store.updateBranch(branch.id, { name: 'Bangkok East', active: false });
+      expect(store.branchesById().get(branch.id)).toMatchObject({ name: 'Bangkok East', active: false });
+      expect(store.openBranches().some(item => item.id === branch.id)).toBe(false);
+      expect(store.activity()[0]).toMatchObject({
+        action: 'branch.updated', targetId: branch.id,
+        changes: [{ field: 'name', from: 'Bangkok 2', to: 'Bangkok East' }, { field: 'active', from: 'true', to: 'false' }],
+      });
+    });
+
+    it('keeps a branch people belong to, and takes nobody into a closed one', async () => {
+      await signInAs('admin');
+      const someone = userWithRole('viewer');
+      const branch = await store.createBranch({ code: 'KKC', name: 'Khon Kaen' });
+
+      await store.updateUser(someone.id, { branchId: branch.id });
+      await expect(store.deleteBranch(branch.id)).rejects.toEqual(new AdminApiError('branch_in_use'));
+      await store.updateUser(someone.id, { branchId: null });
+      await store.updateBranch(branch.id, { active: false });
+      await expect(store.updateUser(someone.id, { branchId: branch.id })).rejects.toEqual(new AdminApiError('branch_closed'));
+      await expect(store.assignRole({ userId: someone.id, roleId: 'support', branchId: branch.id, endsAt: null })).rejects.toEqual(new AdminApiError('branch_closed'));
+      await expect(store.createUser({ ...draft('viewer'), branchId: branch.id })).rejects.toEqual(new AdminApiError('branch_closed'));
+
+      await store.deleteBranch(branch.id);
+      expect(store.branchesById().has(branch.id)).toBe(false);
+    });
+
+    it('gives a role for one branch: it allows what it allows there only, and once per branch', async () => {
+      await signInAs('admin');
+      const someone = store.users().find(user => user.status === 'active' && activeRoleIds(user).join() === 'viewer')!;
+      const grant = { userId: someone.id, roleId: 'manager', endsAt: null };
+
+      await store.assignRole({ ...grant, branchId: 'b-cnx' });
+      await expect(store.assignRole({ ...grant, branchId: 'b-cnx' })).rejects.toEqual(new AdminApiError('already_assigned'));
+      await store.assignRole({ ...grant, branchId: 'b-hkt' });
+      // A branch's assignment is not the whole organization's
+      expect(store.holdsOrWillHold(store.usersById().get(someone.id)!, 'manager', null)).toBe(false);
+      expect(store.activity()[0]).toMatchObject({ action: 'role_assignment.added', changes: expect.arrayContaining([{ field: 'branchId', to: 'b-hkt' }]) });
+
+      await session.signOut();
+      await session.signIn(someone.email, 'any-password', false);
+      expect(session.can('users.edit')).toBe(false);
+      expect(session.can('users.edit', 'b-cnx')).toBe(true);
+      expect(session.can('users.edit', 'b-hq')).toBe(false);
+      expect(session.branchesWith('users.edit').sort()).toEqual(['b-cnx', 'b-hkt']);
+      // User management itself asks across the whole organization, so the server refuses
+      await expect(store.updateUser(userWithRole('viewer').id, { phone: '0800000000' })).rejects.toEqual(new AdminApiError('forbidden'));
+    });
+
+    it('counts only roles for the whole organization toward keeping an administrator', async () => {
+      await signInAs('admin');
+      const owner = session.userId()!;
+      const others = store.users().filter(user => user.id !== owner && activeRoleIds(user).includes('admin')).map(user => user.id);
+      await store.assignRoles(others, { removeRoleId: 'admin' });
+      // Someone gets it for good, but for one branch, and for a day across the whole organization
+      const helper = store.users().find(user => user.status === 'active' && activeRoleIds(user).join() === 'viewer')!;
+      await store.assignRole({ userId: helper.id, roleId: 'admin', branchId: 'b-hq', endsAt: null });
+      await store.assignRole({ userId: helper.id, roleId: 'admin', endsAt: hours(24) });
+      await session.signOut();
+      await session.signIn(helper.email, 'any-password', false);
+      const ownerRole = store.usersById().get(owner)!.roles.find(item => item.roleId === 'admin')!;
+
+      await expect(store.removeRoleAssignment(ownerRole.id)).rejects.toEqual(new AdminApiError('last_administrator'));
+    });
+  });
+
   describe('live updates', () => {
     it('loads again when another tab changes the data, and notices when this session was ended there', async () => {
       await signInAs('admin');
       const revision = store.revision();
 
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v6' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v7' }));
       await vi.waitFor(() => expect(store.revision()).toBe(revision + 1), { timeout: 3000 });
 
       // Another tab signs this browser's session out
-      const data = JSON.parse(localStorage.getItem('admin-data-v6')!);
+      const data = JSON.parse(localStorage.getItem('admin-data-v7')!);
       data.sessions = data.sessions.filter((item: { userId: string }) => item.userId !== session.userId());
-      localStorage.setItem('admin-data-v6', JSON.stringify(data));
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v6' }));
+      localStorage.setItem('admin-data-v7', JSON.stringify(data));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v7' }));
       await vi.waitFor(() => expect(session.signedIn()).toBe(false), { timeout: 3000 });
     });
   });
@@ -421,10 +495,10 @@ describe('Session and permissions', () => {
       const revision = store.revision();
       const someone = userWithRole('viewer');
 
-      const data = JSON.parse(localStorage.getItem('admin-data-v6')!);
+      const data = JSON.parse(localStorage.getItem('admin-data-v7')!);
       data.users.find((user: { id: string }) => user.id === someone.id).department = 'Elsewhere';
-      localStorage.setItem('admin-data-v6', JSON.stringify(data));
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v6' }));
+      localStorage.setItem('admin-data-v7', JSON.stringify(data));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v7' }));
       await vi.waitFor(() => expect(store.changesWaiting()).toBe(true), { timeout: 3000 });
       expect(store.revision()).toBe(revision);
       expect(store.usersById().get(someone.id)?.department).toBe(someone.department);

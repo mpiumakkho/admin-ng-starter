@@ -4,8 +4,8 @@ import { firstValueFrom, Observable, Subscription } from 'rxjs';
 
 import { AdminApi, AdminApiError, AdminApiErrorCode } from './admin-api';
 import {
-  Activity, ActivityRange, AdminSettings, PasswordPolicy, Role, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft,
-  RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
+  RoleAssignmentChanges, RoleAssignmentDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
 /** Where the server's API starts, such as "/api" or "https://admin.example.com/api". Set by provideUserManagement(). */
@@ -25,7 +25,8 @@ const CODES: readonly AdminApiErrorCode[] = [
   'email_taken', 'not_found', 'not_invited', 'role_in_use', 'system_role', 'invalid_credentials', 'account_suspended',
   'invite_pending', 'unauthenticated', 'forbidden', 'self_change', 'email_domain', 'weak_password', 'default_role',
   'invalid_request', 'two_factor_required', 'invalid_code', 'invalid_token', 'two_factor_mandatory', 'password_reused',
-  'too_many_requests', 'already_assigned', 'last_administrator', 'assignment_too_long', 'reason_required',
+  'too_many_requests', 'already_assigned', 'last_administrator', 'assignment_too_long', 'reason_required', 'code_taken',
+  'branch_in_use', 'branch_closed',
 ];
 
 /** The /auth requests carry the refresh cookie, also to an API on another origin */
@@ -152,6 +153,24 @@ export class HttpAdminApi extends AdminApi {
 
   assignRoles(userIds: string[], change: RoleAssignmentBatch): Promise<User[]> {
     return this.send<User[]>('POST', '/role-assignments/batch', { userIds, ...change });
+  }
+
+  /* Branches */
+
+  listBranches(): Promise<Branch[]> {
+    return this.send<Branch[]>('GET', '/branches');
+  }
+
+  createBranch(draft: BranchDraft): Promise<Branch> {
+    return this.send<Branch>('POST', '/branches', draft);
+  }
+
+  updateBranch(id: string, changes: BranchChanges): Promise<Branch> {
+    return this.send<Branch>('PATCH', `/branches/${encodeURIComponent(id)}`, changes);
+  }
+
+  async deleteBranch(id: string): Promise<void> {
+    await this.send('DELETE', `/branches/${encodeURIComponent(id)}`);
   }
 
   /* Roles */

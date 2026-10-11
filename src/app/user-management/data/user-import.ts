@@ -1,5 +1,5 @@
 import { DEPARTMENTS } from './catalog';
-import { Role, UserDraft, UserStatus } from './models';
+import { Branch, Role, UserDraft, UserStatus } from './models';
 
 /** The columns of an import file; headers match without regard to case, spaces or underscores */
 export const IMPORT_COLUMNS = ['First name', 'Last name', 'Email', 'Phone', 'Department', 'Role'] as const;
@@ -10,6 +10,7 @@ const KEYS: Record<string, keyof Omit<UserDraft, 'status' | 'avatar'>> = {
   email: 'email',
   phone: 'phone',
   department: 'department',
+  branch: 'branchId',
   role: 'roles',
   roles: 'roles',
 };
@@ -37,13 +38,15 @@ export interface ImportContext {
   /** Whether the person importing may give this role */
   canAssign: (role: Role) => boolean;
   status: UserStatus;
+  /** With branches on, the ones a Branch column can name, by code or name; without, the column is left alone */
+  branches?: readonly Branch[];
 }
 
 /**
  * Reads parsed CSV rows (header first) into user drafts, and says what is wrong with each, the way the server
  * would refuse it. The role cell may name several roles, separated by semicolons, each given for good; an empty one
  * gives the default role from the settings. A role with rules for giving it (an end date or a reason) is given from
- * the person's profile instead.
+ * the person's profile instead. With branches on, an optional Branch column names an open branch by code or name.
  */
 export function checkImportRows(rows: string[][], context: ImportContext): { rows: ImportRow[]; missingColumns: string[] } {
   const [header = [], ...data] = rows;
@@ -59,6 +62,10 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
     const roles = roleTexts.length
       ? roleTexts.map(text => context.roles.find(item => item.id.toLowerCase() === text || item.name.toLowerCase() === text))
       : [context.roles.find(item => item.id === context.defaultRoleId)];
+    const branchText = value('branchId').toLowerCase();
+    const branch = context.branches && branchText
+      ? context.branches.find(item => item.code.toLowerCase() === branchText || item.name.toLowerCase() === branchText)
+      : undefined;
     const departmentText = value('department').toLowerCase();
     const department = departmentText ? DEPARTMENTS.find(item => item.toLowerCase() === departmentText) : DEPARTMENTS[0];
     const email = value('email').toLowerCase();
@@ -83,6 +90,11 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
     if (!department) {
       problems.push('Unknown department.');
     }
+    if (context.branches && branchText && !branch) {
+      problems.push('Unknown branch.');
+    } else if (branch && !branch.active) {
+      problems.push('This branch is closed. Pick an open one.');
+    }
     if (roles.some(role => !role)) {
       problems.push('Unknown role.');
     } else if (roles.some(role => !context.canAssign(role!))) {
@@ -97,6 +109,7 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
       email,
       phone: value('phone'),
       department: department ?? '',
+      branchId: branch?.id ?? null,
       roles: [...new Set(roles.filter(role => !!role).map(role => role!.id))].map(roleId => ({ roleId, endsAt: null })),
       status: context.status,
       avatar: '',

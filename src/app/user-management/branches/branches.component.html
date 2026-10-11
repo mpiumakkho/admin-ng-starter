@@ -1,0 +1,115 @@
+<ui-page-header [title]="'Branches' | translate" [subtitle]="'Sites and offices people belong to.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
+  @if (canManage()) {
+    <button uiButton type="button" (click)="add()"><ng-icon [svg]="icons.add" /> {{ 'Add branch' | translate }}</button>
+  }
+</ui-page-header>
+
+@if (!store.branchesEnabled()) {
+  <ui-alert class="branches-note" tone="info" [title]="'Branches are turned off' | translate">
+    {{ 'They do not show on the other pages until branches are turned on in the settings.' | translate }}
+    @if (session.can('settings.manage')) {
+      <a uiAlertActions uiButton variant="secondary" size="sm" routerLink="/settings">{{ 'Open the settings' | translate }}</a>
+    }
+  </ui-alert>
+}
+
+<ui-card flush fit>
+  @if (rows().length) {
+    <div class="toolbar">
+      <ui-search-input class="toolbar-search" size="sm" [value]="table.query()" (valueChange)="table.search($event)" [placeholder]="'Search name or code' | translate" [clearLabel]="'Clear search' | translate" />
+      <ui-filter-chips class="toolbar-chips" scroll [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" [ariaLabel]="'Status' | translate" />
+    </div>
+  }
+  @if (table.total()) {
+    <div class="ui-table-scroll" [uiTableMinRows]="pageSizes[0]" [uiTableScrollReset]="table">
+      <table uiTable dense class="branches-table">
+        <thead>
+          <tr>
+            <th><ui-sort-header [table]="table" key="name">{{ 'Branch' | translate }}</ui-sort-header></th>
+            <th class="hide-sm"><ui-sort-header [table]="table" key="code">{{ 'Code' | translate }}</ui-sort-header></th>
+            <th class="cell-number"><ui-sort-header [table]="table" key="people">{{ 'People' | translate }}</ui-sort-header></th>
+            <th class="cell-number hide-md"><ui-sort-header [table]="table" key="roles">{{ 'Roles given here' | translate }}</ui-sort-header></th>
+            <th>{{ 'Status' | translate }}</th>
+            @if (canManage()) {
+              <th class="ui-cell-shrink"><span class="ui-sr-only">{{ 'Actions' | translate }}</span></th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of table.pageRows(); track row.branch.id) {
+            <tr [class.branch-closed]="!row.branch.active">
+              <td class="cell-name">
+                {{ row.branch.name }}
+                <!-- Phones: the code under the name, in place of its column -->
+                <code class="branch-code name-code">{{ row.branch.code }}</code>
+              </td>
+              <td class="hide-sm"><code class="branch-code">{{ row.branch.code }}</code></td>
+              <td class="cell-number">
+                @if (row.people && session.can('users.view')) {
+                  <a class="count-link" routerLink="/users" [queryParams]="{ branch: row.branch.id }">{{ row.people }}<span class="ui-sr-only"> {{ 'people in' | translate }} {{ row.branch.name }}</span></a>
+                } @else {
+                  {{ row.people }}
+                }
+              </td>
+              <td class="cell-number hide-md">{{ row.roles }}</td>
+              <td>
+                <ui-badge [tone]="row.branch.active ? 'success' : 'neutral'" dot>{{ (row.branch.active ? 'Open' : 'Closed') | translate }}</ui-badge>
+              </td>
+              @if (canManage()) {
+                <td class="ui-cell-shrink">
+                  <button uiButton variant="ghost" size="sm" iconOnly type="button" [uiMenuTrigger]="menu" [attr.aria-label]="'actionsFor' | translate: { name: row.branch.name }">
+                    <ng-icon [svg]="icons.more" />
+                  </button>
+                  <ng-template #menu>
+                    <ui-menu>
+                      <button uiMenuItem [icon]="icons.edit" (triggered)="edit(row.branch)">{{ 'Edit' | translate }}</button>
+                      @if (row.branch.active) {
+                        <button uiMenuItem [icon]="icons.close" (triggered)="setOpen(row.branch, false)">{{ 'Close branch' | translate }}</button>
+                      } @else {
+                        <button uiMenuItem [icon]="icons.reopen" (triggered)="setOpen(row.branch, true)">{{ 'Reopen branch' | translate }}</button>
+                      }
+                      <hr uiMenuDivider />
+                      <button uiMenuItem tone="danger" [icon]="icons.remove" (triggered)="remove(row.branch)">{{ 'Delete' | translate }}</button>
+                    </ui-menu>
+                  </ng-template>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <ui-page-size [table]="table" [sizes]="pageSizes" [label]="'rangeOf' | translate: table.range()" [heading]="'Rows per page' | translate" />
+      <ui-pagination [ariaLabel]="'Pagination' | translate" [page]="table.currentPage()" (pageChange)="table.page.set($event)" [pageCount]="table.pageCount()" [firstLabel]="'First page' | translate" [previousLabel]="'Previous page' | translate" [nextLabel]="'Next page' | translate" [lastLabel]="'Last page' | translate" />
+    </div>
+  } @else if (rows().length) {
+    <ui-empty-state [icon]="icons.empty" [title]="'No branches found' | translate" [description]="'Try another search or clear the filters.' | translate">
+      <button uiButton variant="secondary" type="button" (click)="clearFilters()">{{ 'Clear filters' | translate }}</button>
+    </ui-empty-state>
+  } @else {
+    <ui-empty-state [icon]="icons.page" [title]="'No branches yet' | translate" [description]="'Add the sites or offices people work at.' | translate">
+      @if (canManage()) {
+        <button uiButton type="button" (click)="add()">{{ 'Add branch' | translate }}</button>
+      }
+    </ui-empty-state>
+  }
+</ui-card>
+
+<ui-dialog [(open)]="dialogOpen" [title]="(editing() ? 'Edit branch' : 'Add branch') | translate" [closeLabel]="'Close' | translate">
+  <form class="branch-form" id="branchForm" (ngSubmit)="save()" novalidate>
+    <ui-form-field [label]="'Name' | translate" for="branchName" required>
+      <input uiInput id="branchName" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" maxlength="100" autocomplete="off" />
+    </ui-form-field>
+    <ui-form-field [label]="'Code' | translate" for="branchCode" required [hint]="'A short code, such as CNX: up to 10 letters, digits or dashes.' | translate">
+      <input uiInput class="code-input" id="branchCode" name="code" [ngModel]="code()" (ngModelChange)="code.set($event)" maxlength="10" autocomplete="off" />
+    </ui-form-field>
+    @if (problem(); as message) {
+      <p class="branch-problem" role="alert">{{ message | translate }}</p>
+    }
+  </form>
+  <div uiDialogFooter>
+    <button uiButton variant="secondary" type="button" (click)="dialogOpen.set(false)">{{ 'Cancel' | translate }}</button>
+    <button uiButton type="submit" form="branchForm" [loading]="saving()">{{ (editing() ? 'Save changes' : 'Add branch') | translate }}</button>
+  </div>
+</ui-dialog>

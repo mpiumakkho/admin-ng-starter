@@ -4,6 +4,7 @@ import { NgIcon } from '@ng-icons/core';
 import {
   lucideArrowRight,
   lucideBan,
+  lucideBuilding2,
   lucideCheck,
   lucideEllipsis,
   lucideHistory,
@@ -119,7 +120,7 @@ export class UserDetailComponent {
     page: lucideUserRound, edit: lucidePencil, more: lucideEllipsis, suspend: lucideBan, activate: lucideUserCheck,
     reset: lucideKeyRound, remove: lucideTrash2, missing: lucideUserX, mail: lucideMail, phone: lucidePhone,
     granted: lucideCheck, denied: lucideX, role: lucideShieldCheck, history: lucideHistory, arrow: lucideArrowRight,
-    desktop: lucideMonitor, mobile: lucideSmartphone, signOut: lucideLogOut, giveRole: lucideShieldPlus,
+    desktop: lucideMonitor, mobile: lucideSmartphone, signOut: lucideLogOut, giveRole: lucideShieldPlus, branch: lucideBuilding2,
   };
   protected readonly stateLabels: Record<RoleAssignmentState, string> = { active: 'Active', scheduled: 'Scheduled', expired: 'Ended' };
   protected readonly stateTones: Record<RoleAssignmentState, UiTone> = { active: 'success', scheduled: 'info', expired: 'neutral' };
@@ -319,6 +320,10 @@ export class UserDetailComponent {
   protected sources(permission: Permission): string {
     const roles = this.store.activeRoles(this.user());
     return roles.length > 1 ? roles.filter(role => role.permissions.includes(permission)).map(role => role.name).join(', ') : '';
+  }
+
+  protected branchName(branchId: string | null): string {
+    return branchId ? this.store.branchesById().get(branchId)?.name ?? '' : '';
   }
 
   protected roleName(roleId: string): string {

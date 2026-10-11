@@ -1,13 +1,15 @@
 import { activeRoleIds } from './access-rules';
 import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, DEPARTMENTS } from './catalog';
 import {
-  Activity, ActivityAction, ActivityChange, AdminSettings, fullName, Role, RoleAssignment, RoleAssignmentRules, User, UserSession, UserStatus,
+  Activity, ActivityAction, ActivityChange, AdminSettings, Branch, fullName, Role, RoleAssignment, RoleAssignmentRules, User, UserSession,
+  UserStatus,
 } from './models';
 import { uuidV7 } from './uuid';
 
 export interface AdminData {
   users: User[];
   roles: Role[];
+  branches: Branch[];
   activity: Activity[];
   settings: AdminSettings;
   /** Who is signed in where */
@@ -76,7 +78,7 @@ const ROLES: Role[] = withRules([
     name: 'Manager',
     description: 'Manages people in their teams and reads the activity log',
     tone: 'info',
-    permissions: ['users.view', 'users.create', 'users.edit', 'roles.view', 'activity.view', 'activity.export', 'settings.view'],
+    permissions: ['users.view', 'users.create', 'users.edit', 'roles.view', 'activity.view', 'activity.export', 'settings.view', 'branches.view'],
     system: true,
   },
   {
@@ -130,6 +132,17 @@ function random(seed: number) {
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/** The sample organization's branches: three open, and one closed with nobody left in it */
+const BRANCHES: Omit<Branch, 'createdAt'>[] = [
+  { id: 'b-hq', code: 'HQ', name: 'Head office', active: true },
+  { id: 'b-cnx', code: 'CNX', name: 'Chiang Mai', active: true },
+  { id: 'b-hkt', code: 'HKT', name: 'Phuket', active: true },
+  { id: 'b-pyx', code: 'PYX', name: 'Pattaya', active: false },
+];
+
+/** Where people work, by their place in the list: half at the head office, the rest in the two other open branches */
+const BRANCH_ROTA = ['b-hq', 'b-hq', 'b-cnx', 'b-hkt'];
+
 /** The role someone was given first: the sample gives everyone one, for good, when they joined */
 function firstRole(user: User): string {
   return user.roles[0].roleId;
@@ -156,6 +169,7 @@ export function createMockData(now = Date.now()): AdminData {
       email: `${firstName}.${lastName}`.toLowerCase() + '@example.com',
       phone: `08${Math.floor(10000000 + next() * 89999999)}`,
       department: isOwner ? 'Operations' : pick(DEPARTMENTS),
+      branchId: BRANCH_ROTA[index % BRANCH_ROTA.length],
       status,
       // About two thirds have a photo; the rest show initials
       avatar: isOwner ? 'assets/images/faces/face8.jpg' : next() < 0.66 ? `assets/images/faces/face${1 + (index % 27)}.jpg` : '',
@@ -164,7 +178,7 @@ export function createMockData(now = Date.now()): AdminData {
     };
     // Given for good when they joined: by the owner, or by nobody for the owner's own
     const assignment: RoleAssignment = {
-      id: `ra-${id}-1`, userId: id, roleId, startsAt: user.createdAt, endsAt: null, reason: '',
+      id: `ra-${id}-1`, userId: id, roleId, branchId: null, startsAt: user.createdAt, endsAt: null, reason: '',
       assignedById: isOwner ? null : 'u-001', assignedAt: user.createdAt,
     };
     return { ...user, roles: [assignment] };
@@ -255,29 +269,32 @@ export function createMockData(now = Date.now()): AdminData {
   // Some people hold a second role, some for a time: one for good, one ending in a few days, one for a project, one
   // that starts next week and one that has ended. Given by the owner; this draws no random numbers.
   const activeWith = (roleId: string) => users.filter(user => user.status === 'active' && firstRole(user) === roleId);
-  const extra: [user: User | undefined, roleId: string, startDay: number, endDay: number | null, reason: string][] = [
-    [activeWith('support')[1], 'auditor', -40, null, 'Also checks the activity log every quarter'],
-    [activeWith('viewer')[1], 'manager', -11, 3, 'Covers for the team manager on leave'],
-    [activeWith('viewer')[2], 'it-operations', -5, 20, 'Moving to the new servers'],
-    [activeWith('support')[2], 'hr', 5, 35, 'Hiring season'],
-    [activeWith('viewer')[3], 'security', -32, -2, 'Security review'],
+  const extra: [user: User | undefined, roleId: string, branchId: string | null, startDay: number, endDay: number | null, reason: string][] = [
+    [activeWith('support')[1], 'auditor', null, -40, null, 'Also checks the activity log every quarter'],
+    [activeWith('viewer')[1], 'manager', null, -11, 3, 'Covers for the team manager on leave'],
+    [activeWith('viewer')[2], 'it-operations', null, -5, 20, 'Moving to the new servers'],
+    [activeWith('support')[2], 'hr', null, 5, 35, 'Hiring season'],
+    [activeWith('viewer')[3], 'security', null, -32, -2, 'Security review'],
+    // Limited to one branch: leads the team in Chiang Mai only
+    [activeWith('support')[3], 'team-lead', 'b-cnx', -20, null, 'Leads the Chiang Mai team'],
   ];
   const owner = users[0];
   const office = devices.get(owner.id)!.desktop;
   const expiryLogged: string[] = [];
-  for (const [user, roleId, startDay, endDay, reason] of extra) {
+  for (const [user, roleId, branchId, startDay, endDay, reason] of extra) {
     if (!user) {
       continue;
     }
     const assignedAt = now + Math.min(startDay, -1) * DAY;
     const assignment: RoleAssignment = {
-      id: `ra-${user.id}-2`, userId: user.id, roleId, startsAt: new Date(now + startDay * DAY).toISOString(),
+      id: `ra-${user.id}-2`, userId: user.id, roleId, branchId, startsAt: new Date(now + startDay * DAY).toISOString(),
       endsAt: endDay === null ? null : new Date(now + endDay * DAY).toISOString(), reason, assignedById: owner.id,
       assignedAt: new Date(assignedAt).toISOString(),
     };
     user.roles.push(assignment);
     const changes: ActivityChange[] = [
       { field: 'roleId', to: roleId },
+      ...(branchId ? [{ field: 'branchId', to: branchId }] : []),
       ...(startDay > 0 ? [{ field: 'startsAt', to: assignment.startsAt }] : []),
       ...(assignment.endsAt ? [{ field: 'endsAt', to: assignment.endsAt }] : []),
       { field: 'reason', to: reason },
@@ -295,8 +312,12 @@ export function createMockData(now = Date.now()): AdminData {
   }
   activity.sort((a, b) => b.at.localeCompare(a.at));
 
+  // A year ago, before the first people joined
+  const branches = BRANCHES.map(branch => ({ ...branch, createdAt: new Date(now - 430 * DAY).toISOString() }));
   return {
-    users, roles: structuredClone([...ROLES, ...CUSTOM_ROLES]), activity, settings: { ...DEFAULT_SETTINGS },
+    users, roles: structuredClone([...ROLES, ...CUSTOM_ROLES]), branches, activity,
+    // The sample shows branches; a new installation starts without them
+    settings: { ...DEFAULT_SETTINGS, branchesEnabled: true },
     sessions: createMockSessions(users, now), expiryLogged,
   };
 }

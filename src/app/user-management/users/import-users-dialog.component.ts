@@ -64,6 +64,7 @@ export class ImportUsersDialog {
       defaultRoleId: settings.defaultRoleId,
       canAssign: role => this.session.canAssign(role),
       status: this.status(),
+      branches: settings.branchesEnabled ? this.store.branches() : undefined,
     });
   });
 
@@ -90,10 +91,13 @@ export class ImportUsersDialog {
   /** A file with the columns and two sample rows, to fill in */
   protected downloadTemplate() {
     const roles = this.store.roles().filter(role => this.session.canAssign(role));
+    // With branches on, a Branch column too, by code
+    const branch = this.store.branchesEnabled() ? this.store.openBranches()[0]?.code ?? '' : null;
+    const withBranch = (row: string[]) => branch === null ? row : [...row.slice(0, 5), row[0] === 'First name' ? 'Branch' : branch, ...row.slice(5)];
     downloadText('users-template.csv', toCsv([
-      [...IMPORT_COLUMNS],
-      ['Ann', 'Smith', 'ann.smith@example.com', '0812345678', DEPARTMENTS[0], roles[0]?.name ?? ''],
-      ['Somchai', 'Jaidee', 'somchai.j@example.com', '', DEPARTMENTS[1], roles.at(-1)?.name ?? ''],
+      withBranch([...IMPORT_COLUMNS]),
+      withBranch(['Ann', 'Smith', 'ann.smith@example.com', '0812345678', DEPARTMENTS[0], roles[0]?.name ?? '']),
+      withBranch(['Somchai', 'Jaidee', 'somchai.j@example.com', '', DEPARTMENTS[1], roles.at(-1)?.name ?? '']),
     ]));
   }
 

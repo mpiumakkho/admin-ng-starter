@@ -10,6 +10,7 @@ const PAGES = [
   { path: '/users/u-002?tab=security', ready: '.device' },
   { path: '/users/new', ready: '#firstName' },
   { path: '/roles', ready: 'ui-page-header' },
+  { path: '/branches', ready: '.branches-table tbody tr' },
   { path: '/activity', ready: '.log tbody tr' },
   { path: '/settings', ready: '#passwordMinLength' },
   { path: '/ui-kit', ready: 'ui-page-header' },
@@ -61,7 +62,7 @@ for (const theme of ['light', 'dark'] as const) {
       await rows.nth(1).getByRole('checkbox').check();
       await expectAccessible(page, 'the users list with people selected');
       await page.locator('ui-bulk-bar').getByRole('button', { name: 'Give role' }).click();
-      await expect(page.locator('dialog[open] select')).toBeVisible();
+      await expect(page.locator('dialog[open] select[id$="-role"]')).toBeVisible();
       await expectAccessible(page, 'the give role dialog');
       await page.keyboard.press('Escape');
 

@@ -24,6 +24,7 @@ import {
   UiOption,
   UiPageHeader,
   UiSegmented,
+  UiSwitch,
   UiToastService,
 } from '../ui';
 
@@ -46,7 +47,7 @@ function validDomains(control: AbstractControl): ValidationErrors | null {
   host: { class: 'page-fit' },
   imports: [
     ReactiveFormsModule, NgIcon, TranslatePipe, UiPageHeader, UiAlert, UiCard, UiCardFooter, UiButton, UiCheckbox, UiFormField, UiInput,
-    UiSegmented,
+    UiSegmented, UiSwitch,
   ],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
@@ -72,6 +73,7 @@ export class SettingsComponent implements OnInit {
     passwordMinLength: [8],
     passwordHistory: [0],
     activityRetentionDays: [730],
+    branchesEnabled: [false],
   });
 
   protected readonly expiryOptions = computed<UiOption<number>[]>(() => {

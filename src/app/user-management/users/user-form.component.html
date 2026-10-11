@@ -51,6 +51,16 @@
               }
             </select>
           </ui-form-field>
+          @if (store.branchesEnabled()) {
+            <ui-form-field [label]="'Branch' | translate" for="branchId" [optionalLabel]="'(optional)' | translate">
+              <select uiInput id="branchId" formControlName="branchId">
+                <option value="">{{ 'No branch' | translate }}</option>
+                @for (branch of branchChoices(); track branch.id) {
+                  <option [value]="branch.id">{{ branch.active ? branch.name : ('closedBranch' | translate: { name: branch.name }) }}</option>
+                }
+              </select>
+            </ui-form-field>
+          }
         </div>
       </section>
 
@@ -82,6 +92,9 @@
                   <li class="grant">
                     <app-role-badge [roleId]="grant.roleId" />
                     <span class="grant-when">
+                      @if (grant.branchId) {
+                        {{ branchName(grant.branchId) }} ·
+                      }
                       @if (grant.startsAt) {
                         {{ 'fromDate' | translate: { date: (grant.startsAt | localDate) } }} ·
                       }

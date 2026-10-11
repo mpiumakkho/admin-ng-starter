@@ -1,6 +1,6 @@
 import {
-  Activity, ActivityRange, AdminSettings, PasswordPolicy, Role, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft,
-  RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
+  RoleAssignmentChanges, RoleAssignmentDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
 /** Why the server turned a request down; the UI turns each code into a message */
@@ -49,7 +49,13 @@ export type AdminApiErrorCode =
   /** The role must end within its maxDays, or this end is too far */
   | 'assignment_too_long'
   /** The role asks for a reason, and none was given */
-  | 'reason_required';
+  | 'reason_required'
+  /** Another branch already has this code */
+  | 'code_taken'
+  /** People still belong to the branch, or hold a role there now or later */
+  | 'branch_in_use'
+  /** Nobody new joins a closed branch or gets a role there */
+  | 'branch_closed';
 
 export class AdminApiError extends Error {
   constructor(readonly code: AdminApiErrorCode) {
@@ -112,6 +118,13 @@ export abstract class AdminApi {
   abstract removeRoleAssignment(id: string): Promise<User>;
   /** Gives several people a role, or takes one away from them: all or nothing; answers with the ones that changed */
   abstract assignRoles(userIds: string[], change: RoleAssignmentBatch): Promise<User[]>;
+
+  /* Branches: everyone signed in can read them, to show branch names */
+
+  abstract listBranches(): Promise<Branch[]>;
+  abstract createBranch(draft: BranchDraft): Promise<Branch>;
+  abstract updateBranch(id: string, changes: BranchChanges): Promise<Branch>;
+  abstract deleteBranch(id: string): Promise<void>;
 
   /* Roles: everyone signed in can read them, to show role names */
 
