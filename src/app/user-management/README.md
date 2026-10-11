@@ -128,6 +128,10 @@ In the accessible view (`UiAccessibleViewService`) the page never changes by its
 
 Some rules go beyond single permissions, so nobody can raise their own access or lock everyone out: nobody gives out a role or permission they do not have, manages a person or edits a role that allows more than their own, or changes their own role, status or role permissions. `data/access-rules.ts` has them, and `LocalAdminApi` enforces them as a server would, taking only the fields each request may set.
 
+### Reasons
+
+The changes that take or reset someone's access ask why, as Microsoft Entra asks for a justification: suspending or reactivating someone, deleting people, taking a role away, resetting someone's password or two-step sign-in, and signing someone out of their devices. Where the page already asks before such a change, the question takes a Reason field; the settings decide where it is required, and a change that asks nothing first asks only then. `ReasonPrompt` (`shared/reason-prompt.ts`) does this over `UiConfirmService.prompt`. The activity log keeps the reason as `Activity.reason`, shows it under the details and in the entry, searches and exports it; a profile's activity shows it too. A new role assignment's own reason is its entry's reason. [API.md](API.md#reasons) has the requests.
+
 ## Settings
 
 The settings page (`settings.view` to open, `settings.manage` to change) decides:
@@ -139,7 +143,8 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 - which roles must turn on two-step sign-in before anything else (the guards then keep them on `/setup-two-factor`);
 - the password rules: the shortest password and how many recent passwords may not be used again;
 - how long the activity log keeps each entry;
-- whether people belong to branches (see [Branches](#branches)).
+- whether people belong to branches (see [Branches](#branches));
+- which changes must have a reason (see [Reasons](#reasons)); suspending or reactivating someone and deleting people on a new installation.
 
 `AdminStore.settings` holds them for any page that needs them.
 
