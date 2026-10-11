@@ -36,7 +36,7 @@ Each sign-in is one **session**, which lasts until someone ends it or the refres
 | `GET /me` | | The signed-in `User` |
 | `POST /me/password` | `{ currentPassword, newPassword }` | Nothing. `invalid_credentials` when the current password is wrong; `weak_password` or `password_reused` when the new one breaks the password rules below |
 
-Sign-in refusals: `invalid_credentials`, `account_suspended` (status `suspended`), `invite_pending` (status `invited`), `two_factor_required`, `invalid_code`. Wrong passwords count: after 5 in a row the account is locked for a minute, then twice as long each time (up to 30 minutes), answering `invalid_credentials` all the while so nobody learns which accounts exist. Too many attempts from one address are refused with `429` `too_many_requests`. On success, record the session (browser, OS, IP) for the devices list, write an `auth.sign_in` entry to the activity log and update `lastActiveAt`.
+Sign-in refusals: `invalid_credentials`, `account_suspended` (status `suspended`), `invite_pending` (status `invited`), `two_factor_required`, `invalid_code`. Wrong passwords count: after 5 in a row the account is locked for a minute, then twice as long each time (up to 30 minutes), answering `invalid_credentials` all the while so nobody learns which accounts exist. Too many attempts from one address are refused with `429` `too_many_requests`. On success, record the session (browser, OS, IP) for the devices list, write an `auth.sign_in` entry to the activity log and update `lastActiveAt`, which each refresh updates too: it is when the person last used the app.
 
 Failures are logged as well, as audits ask (ISO 27001, the Bank of Thailand's IT risk rules): a refused sign-in of an account that exists writes `auth.sign_in_failed`, the person as both actor and target, with the IP, browser and OS of the attempt and `cause` among the changes: `password` (wrong), `code` (wrong), `locked` (refused while locked, whatever the password), `suspended` or `invited`. A wrong password or code on `POST /me/reauthenticate` writes one too. The wrong attempt that locks the account writes `auth.account_locked` with `lockMinutes`. An email that belongs to nobody is not logged, so the log holds no stray input.
 
@@ -63,6 +63,20 @@ An invited user gets an email with a link to set their password; resetting someo
 Invitation links work for `inviteExpiryDays` from the settings; reset links for one hour. Each works once, and a newer link of the same kind replaces the older ones. These requests carry neither the access token nor the cookie.
 
 With the sample data (`LocalAdminApi`, or `localBackend`) there is no mail server: each email is written to the browser console as `[sample email] To ann@example.com: … http://…/activate?token=…`, so the links can be tried in development.
+
+### Emails about your account
+
+As Google and Microsoft do, the server also tells people by email when something happens to their account, so a stranger's sign-in or change does not go unnoticed. Each is sent after the change commits, and none fails the request:
+
+| When | To |
+| --- | --- |
+| A sign-in from a browser and system (such as Chrome on Windows) the person never signed in with before; not their first sign-in | The person, with the device, IP address and time |
+| A role is given to someone active (`role_assignment.added`) | The person, with the role, its scope and dates |
+| Someone changes the person's email | The old address |
+| The person's password changes (`POST /me/password`, or a reset link), once they have signed in before | The person |
+| The server suspends an account nobody used for the settings' `suspendInactiveDays` | The person |
+
+Email is the only channel for now; LINE or another channel can be added alongside it later.
 
 ## Password rules
 
@@ -252,7 +266,7 @@ The server writes the log itself, one entry per change, with `actorId` from the 
 | `GET /settings` | | `AdminSettings` | Anyone signed in |
 | `PATCH /settings` | `Partial<AdminSettings>` | The `AdminSettings` | `settings.manage` |
 
-`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none; limited to their branch when someone adds them through a branch (see Branch administrators). `branchesEnabled` (`false` on a new installation) turns branches on. `reasonsRequired` (see Reasons; `["status", "delete"]` on a new installation) lists the changes that need a reason; an unknown item is `invalid_request`, and the list is stored without duplicates. `reauthMinutes` (0 to 1440; 10 on a new installation) is how long a sign-in or a confirmed password lets the person make the changes under Confirming who you are. Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (90 to 3650: at least 90 days, as Thailand's Computer-Related Crime Act, section 26, has service providers keep traffic data; an installation that kept less keeps 90). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the three lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
+`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none; limited to their branch when someone adds them through a branch (see Branch administrators). `branchesEnabled` (`false` on a new installation) turns branches on. `reasonsRequired` (see Reasons; `["status", "delete"]` on a new installation) lists the changes that need a reason; an unknown item is `invalid_request`, and the list is stored without duplicates. `reauthMinutes` (0 to 1440; 10 on a new installation) is how long a sign-in or a confirmed password lets the person make the changes under Confirming who you are. `suspendInactiveDays` (0 to 3650; 0, off, on a new installation): every night the server suspends active accounts whose `lastActiveAt` (or `createdAt`, for someone who never signed in) is older than that, as IT audits ask of accounts nobody uses, and writes `user.suspended` for each with `actorId: null` and `inactiveDays` among the changes, then emails them; never the last active user who can run the system (rule 6). Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (90 to 3650: at least 90 days, as Thailand's Computer-Related Crime Act, section 26, has service providers keep traffic data; an installation that kept less keeps 90). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the three lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app, and by the server too: a session that made no request for that long (give or take the minute `lastSeenAt` is kept to) ends, so its next request, or refresh, is `401` `unauthenticated`. A browser left asleep with the refresh cookie gets nothing from it.
 
 ## Rules the server must check
 
