@@ -92,6 +92,26 @@ The settings can require it for some roles (`twoFactorRoleIds`). Someone who hol
 
 The app checks the same thing after signing in, and whenever a request answers `two_factor_mandatory`, and sends the person to `/setup-two-factor` until it is on. The settings page warns an administrator who is about to add their own role that way.
 
+## Confirming who you are
+
+As GitHub's sudo mode and Microsoft Entra's reauthentication ask for the password again, the changes that could take the system over or shut people out go through only when the person signed in, or confirmed their password, within the settings' `reauthMinutes` (10 on a new installation; `0` never asks). Refreshing the token does not count. Otherwise refuse them with `403` `reauth_required`, once the request is known to be allowed (the permission, and who the person may manage) and before anything changes:
+
+| Change | Requests |
+| --- | --- |
+| Giving, changing or taking away roles | `POST /users` and `POST /users/import`, which give the new users roles; `POST /role-assignments`, `PATCH /role-assignments/:id`, `DELETE /role-assignments/:id`, `POST /role-assignments/batch` |
+| What a role allows | `PATCH /roles/:id` when `permissions` change, `DELETE /roles/:id` |
+| Deleting people | `POST /users/delete` |
+| Someone else's sign-in | `POST /users/:id/reset-password`, `POST /users/:id/two-factor/reset`, and `DELETE /sessions/:id` and `POST /users/:id/sessions/end`, each for someone else |
+| The settings | `PATCH /settings` |
+
+The list is fixed, so whoever changes the settings cannot take one of them off it; the settings decide only how long a confirmation lasts.
+
+| Request | Body | Answer |
+| --- | --- | --- |
+| `POST /me/reauthenticate` | `{ password, code? }` | Nothing. Notes the time on the session of the access token. A wrong password is `invalid_credentials`; with two-step sign-in on, no `code` is `two_factor_required` and a wrong one `invalid_code` |
+
+Wrong passwords and codes count towards locking the account, as at sign-in, and too many attempts from one address are refused with `429` `too_many_requests`. When a change is refused with `reauth_required`, the app asks for the password (and the code, with two-step sign-in on) over the page and sends the same request again, so nothing typed is lost; closing that dialog leaves the change unsent.
+
 ## Live updates
 
 With `provideUserManagement({ api: HttpAdminApi, liveUpdates: true })`, the app reads the event stream at `GET /events` and loads its data again whenever a message arrives, so changes made by other people show without a reload. `EventSource` cannot send an `Authorization` header, so `HttpAdminApi` reads the stream through `HttpClient` with the access token, and connects again (refreshing the token first if needed) when the stream closes.
@@ -210,7 +230,7 @@ The server writes the log itself, one entry per change, with `actorId` from the 
 | `GET /settings` | | `AdminSettings` | Anyone signed in |
 | `PATCH /settings` | `Partial<AdminSettings>` | The `AdminSettings` | `settings.manage` |
 
-`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none. `branchesEnabled` (`false` on a new installation) turns branches on. `reasonsRequired` (see Reasons; `["status", "delete"]` on a new installation) lists the changes that need a reason; an unknown item is `invalid_request`, and the list is stored without duplicates. Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the three lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
+`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none. `branchesEnabled` (`false` on a new installation) turns branches on. `reasonsRequired` (see Reasons; `["status", "delete"]` on a new installation) lists the changes that need a reason; an unknown item is `invalid_request`, and the list is stored without duplicates. `reauthMinutes` (0 to 1440; 10 on a new installation) is how long a sign-in or a confirmed password lets the person make the changes under Confirming who you are. Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the three lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
 
 ## Rules the server must check
 
@@ -232,7 +252,7 @@ Refuse a request with a 4xx status and a body such as `{ "code": "email_taken" }
 | Status | Codes |
 | --- | --- |
 | `401` | `unauthenticated` (no access token, or one that has run out or whose session has ended), `invalid_credentials`, `two_factor_required`, `invalid_code` |
-| `403` | `forbidden`, `self_change`, `account_suspended`, `invite_pending`, `two_factor_mandatory`: the role requires two-step sign-in and it is off |
+| `403` | `forbidden`, `self_change`, `account_suspended`, `invite_pending`, `two_factor_mandatory`: the role requires two-step sign-in and it is off; `reauth_required`: the change needs the password confirmed again |
 | `404` | `not_found` |
 | `400` | `invalid_request`: a field the request may not set, or a value of the wrong kind; `invalid_token`: an email link that has expired or was used |
 | `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role`, `already_assigned`, `last_administrator`, `code_taken`, `branch_in_use`, `branch_closed`, `role_conflict` |
