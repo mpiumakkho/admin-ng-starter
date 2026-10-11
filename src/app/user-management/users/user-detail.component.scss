@@ -376,3 +376,12 @@ ui-page-header {
   color: var(--ui-muted);
   font-size: .8125rem;
 }
+
+// Why, under the sentence of an entry that has a reason
+.activity-reason {
+  display: block;
+  margin-top: .125rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  font-style: italic;
+}

@@ -91,7 +91,14 @@ export interface RoleAssignmentChanges {
 }
 
 /** POST /role-assignments/batch: give several people a role, or take one away from them */
-export type RoleAssignmentBatch = { add: RoleGrant } | { removeRoleId: string };
+/** A role for several people, or one taken away from them, with a reason (see ReasonAction) */
+export type RoleAssignmentBatch = { add: RoleGrant } | { removeRoleId: string; reason?: string };
+
+/**
+ * The changes that take or reset someone's access, which carry a reason the activity log keeps, as Microsoft Entra asks
+ * for a justification; the settings' reasonsRequired lists those that must have one (API.md, "Reasons")
+ */
+export type ReasonAction = 'status' | 'delete' | 'removeRole' | 'resetSignIn' | 'endSessions';
 
 /** A browser someone is signed in on */
 export interface UserSession {
@@ -174,6 +181,8 @@ export interface AdminSettings {
   activityRetentionDays: number;
   /** Shows the branches page and the branch fields; turned off, the data stays */
   branchesEnabled: boolean;
+  /** The changes that must have a reason */
+  reasonsRequired: ReasonAction[];
 }
 
 /** What a new password must be, from the settings; readable before signing in, for the links in emails */
@@ -238,6 +247,8 @@ export interface Activity {
   browser: string;
   os: string;
   changes?: ActivityChange[];
+  /** Why, as the person who made the change gave it */
+  reason?: string;
 }
 
 export function fullName(user: Pick<User, 'firstName' | 'lastName'>): string {

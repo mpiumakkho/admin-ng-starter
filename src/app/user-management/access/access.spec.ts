@@ -258,7 +258,7 @@ describe('Session and permissions', () => {
       const someone = store.users().find(user => user.status === 'active' && user.id !== session.userId() && user.lastActiveAt)!;
       expect((await store.listSessions(someone.id)).length).toBeGreaterThan(0);
 
-      await store.setUserStatus([someone.id], 'suspended');
+      await store.setUserStatus([someone.id], 'suspended', 'Left the company');
       expect(await store.listSessions(someone.id)).toEqual([]);
     });
   });
@@ -310,7 +310,7 @@ describe('Session and permissions', () => {
       expect(activeRoleIds(user, Date.now() + 2 * 60 * 60_000)).toEqual(['viewer']);
       expect(store.activity()[0]).toMatchObject({
         action: 'role_assignment.added', targetId: someone.id,
-        changes: [{ field: 'roleId', to: 'support' }, { field: 'endsAt' }, { field: 'reason', to: 'Covering for a colleague' }],
+        changes: [{ field: 'roleId', to: 'support' }, { field: 'endsAt' }], reason: 'Covering for a colleague',
       });
     });
 
@@ -359,8 +359,8 @@ describe('Session and permissions', () => {
 
       await expect(store.removeRoleAssignment(ownerRole.id)).rejects.toEqual(new AdminApiError('last_administrator'));
       await expect(store.updateRoleAssignment(ownerRole.id, { endsAt: hours(48) })).rejects.toEqual(new AdminApiError('last_administrator'));
-      await expect(store.setUserStatus([owner], 'suspended')).rejects.toEqual(new AdminApiError('last_administrator'));
-      await expect(store.deleteUsers([owner])).rejects.toEqual(new AdminApiError('last_administrator'));
+      await expect(store.setUserStatus([owner], 'suspended', 'Test')).rejects.toEqual(new AdminApiError('last_administrator'));
+      await expect(store.deleteUsers([owner], 'Test')).rejects.toEqual(new AdminApiError('last_administrator'));
     });
 
     it('ends an assignment on time: the role stops counting, and the server logs it once', async () => {
@@ -389,6 +389,44 @@ describe('Session and permissions', () => {
       await store.assignRole({ userId: userWithRole('viewer').id, roleId: role.id, startsAt: hours(24), endsAt: hours(48) });
 
       await expect(store.deleteRole(role.id)).rejects.toEqual(new AdminApiError('role_in_use'));
+    });
+  });
+
+  describe('reasons', () => {
+    it('asks for a reason where the settings say so, and keeps any given in the log', async () => {
+      await signInAs('admin');
+      const someone = store.users().find(user => user.status === 'active' && activeRoleIds(user).join() === 'viewer')!;
+
+      // Suspending needs one on a new installation
+      await expect(store.setUserStatus([someone.id], 'suspended')).rejects.toEqual(new AdminApiError('reason_required'));
+      await expect(store.setUserStatus([someone.id], 'suspended', '   ')).rejects.toEqual(new AdminApiError('reason_required'));
+      await store.setUserStatus([someone.id], 'suspended', '  Left the company ');
+      expect(store.activity()[0]).toMatchObject({ action: 'user.suspended', targetId: someone.id, reason: 'Left the company' });
+
+      // Taking a role away does not, but keeps one given
+      const user = await store.assignRole({ userId: someone.id, roleId: 'support', endsAt: null });
+      await store.removeRoleAssignment(user.roles.find(item => item.roleId === 'support')!.id, 'Project over');
+      expect(store.activity()[0]).toMatchObject({ action: 'role_assignment.removed', reason: 'Project over' });
+      await store.assignRole({ userId: someone.id, roleId: 'support', endsAt: null });
+      await store.assignRoles([someone.id], { removeRoleId: 'support' });
+      expect(store.activity()[0].reason).toBeUndefined();
+    });
+
+    it('follows the settings, and never asks about your own sessions', async () => {
+      await signInAs('admin');
+      const someone = userWithRole('viewer');
+      await store.updateSettings({ reasonsRequired: ['removeRole', 'endSessions'] });
+      expect(store.activity()[0].changes).toEqual([{ field: 'reasonsRequired', added: ['removeRole', 'endSessions'], removed: ['status', 'delete'] }]);
+      await expect(store.updateSettings({ reasonsRequired: ['nope'] as never })).rejects.toEqual(new AdminApiError('invalid_request'));
+
+      await store.setUserStatus([someone.id], 'suspended');
+      await store.assignRole({ userId: someone.id, roleId: 'support', endsAt: null });
+      await expect(store.assignRoles([someone.id], { removeRoleId: 'support' })).rejects.toEqual(new AdminApiError('reason_required'));
+      await expect(store.endSessions(someone.id)).rejects.toEqual(new AdminApiError('reason_required'));
+      await expect(store.endSessions(session.userId()!)).resolves.toBeUndefined();
+      // A role given has its own reason, not the request's
+      await expect(TestBed.inject(AdminApi).assignRoles([someone.id], { add: { roleId: 'auditor', endsAt: null }, reason: 'x' } as never))
+        .rejects.toEqual(new AdminApiError('invalid_request'));
     });
   });
 

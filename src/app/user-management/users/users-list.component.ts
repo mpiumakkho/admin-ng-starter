@@ -23,7 +23,6 @@ import {
   UiButton,
   UiCard,
   UiCheckbox,
-  UiConfirmService,
   UiEmptyState,
   UiFilterChips,
   UiInput,
@@ -53,6 +52,7 @@ import { RoleBadges, StatusBadge } from '../shared/badges';
 import { ExportMenu } from '../shared/export-menu.component';
 import { TableExport } from '../shared/table-export';
 import { errorMessage } from '../shared/errors';
+import { ReasonPrompt } from '../shared/reason-prompt';
 import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import { ImportUsersDialog } from './import-users-dialog.component';
@@ -111,7 +111,7 @@ export class UsersListComponent {
   protected readonly session = inject(Session);
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
-  private readonly confirm = inject(UiConfirmService);
+  private readonly reasons = inject(ReasonPrompt);
   private readonly toast = inject(UiToastService);
 
   protected readonly icons = {
@@ -293,9 +293,22 @@ export class UsersListComponent {
   /* Actions */
 
   protected async setStatusFor(users: User[], status: UserStatus) {
+    const suspend = status === 'suspended';
+    const one = users.length === 1;
+    const reason = await this.reasons.ask('status', {
+      title: one
+        ? this.translate.instant(suspend ? 'confirm.suspendUser' : 'confirm.activateUser', { name: fullName(users[0]) })
+        : this.translate.instant(suspend ? 'confirm.suspendUsers' : 'confirm.activateUsers', { count: users.length }),
+      message: this.translate.instant(suspend ? 'They are signed out and cannot sign in until reactivated.' : 'They can sign in again.'),
+      confirmLabel: this.translate.instant(suspend ? 'Suspend' : 'Activate'),
+      tone: suspend ? 'danger' : 'primary',
+    }, true);
+    if (reason === null) {
+      return;
+    }
     this.busy.set(true);
     try {
-      await this.store.setUserStatus(users.map(user => user.id), status);
+      await this.store.setUserStatus(users.map(user => user.id), status, reason || undefined);
       const key = status === 'suspended' ? 'toast.suspended' : 'toast.activated';
       this.toast.show(this.translate.instant(key, { count: users.length }));
       this.table.clearSelection();
@@ -307,8 +320,17 @@ export class UsersListComponent {
   }
 
   protected async resetPassword(user: User) {
+    const reason = await this.reasons.ask('resetSignIn', {
+      title: this.translate.instant('confirm.resetPassword', { name: fullName(user) }),
+      message: this.translate.instant('Their password stops working and they get an email to set a new one.'),
+      confirmLabel: this.translate.instant('Reset password'),
+      tone: 'danger',
+    }, true);
+    if (reason === null) {
+      return;
+    }
     try {
-      await this.store.resetPassword(user.id);
+      await this.store.resetPassword(user.id, reason || undefined);
       this.toast.show(this.translate.instant('toast.passwordReset', { email: user.email }), 'info');
     } catch (error) {
       this.showError(error);
@@ -320,21 +342,20 @@ export class UsersListComponent {
       this.toast.show(this.translate.instant('You cannot delete your own account.'), 'error');
       return;
     }
-    const confirmed = await this.confirm.ask({
+    const reason = await this.reasons.ask('delete', {
       title: users.length === 1
         ? this.translate.instant('confirm.deleteUser', { name: fullName(users[0]) })
         : this.translate.instant('confirm.deleteUsers', { count: users.length }),
       message: this.translate.instant('They lose access right away. This cannot be undone.'),
       confirmLabel: this.translate.instant('Delete'),
-      cancelLabel: this.translate.instant('Cancel'),
       tone: 'danger',
     });
-    if (!confirmed) {
+    if (reason === null) {
       return;
     }
     this.busy.set(true);
     try {
-      await this.store.deleteUsers(users.map(user => user.id));
+      await this.store.deleteUsers(users.map(user => user.id), reason || undefined);
       this.toast.show(this.translate.instant('toast.deleted', { count: users.length }));
       this.table.clearSelection();
     } catch (error) {

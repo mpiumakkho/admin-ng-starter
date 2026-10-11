@@ -57,6 +57,7 @@ import { fullName, Permission, RoleAssignment, UserSession, UserStatus } from '.
 import { ActivityText } from '../shared/activity-text';
 import { RoleBadge, RoleBadges, StatusBadge } from '../shared/badges';
 import { errorMessage } from '../shared/errors';
+import { ReasonPrompt } from '../shared/reason-prompt';
 import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import { RoleAssignmentDialog } from './role-assignment-dialog.component';
@@ -109,6 +110,7 @@ export class UserDetailComponent {
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
   private readonly confirm = inject(UiConfirmService);
+  private readonly reasons = inject(ReasonPrompt);
   private readonly toast = inject(UiToastService);
   private readonly i18n = translationsChanged();
 
@@ -246,16 +248,15 @@ export class UserDetailComponent {
     if (!user) {
       return;
     }
-    const confirmed = await this.confirm.ask({
+    const reason = await this.reasons.ask('resetSignIn', {
       title: this.translate.instant('resetTwoFactorTitle', { name: fullName(user) }),
       message: this.translate.instant('Use this when they lose their phone. They can sign in with just their password until they turn it on again.'),
       confirmLabel: this.translate.instant('Turn off'),
-      cancelLabel: this.translate.instant('Cancel'),
       tone: 'danger',
     });
-    if (confirmed) {
+    if (reason !== null) {
       try {
-        await this.store.resetTwoFactor(user.id);
+        await this.store.resetTwoFactor(user.id, reason || undefined);
         this.toast.show(this.translate.instant('Two-step sign-in is off.'));
       } catch (error) {
         this.showError(error);
@@ -264,9 +265,19 @@ export class UserDetailComponent {
   }
 
   protected async endSession(session: UserSession) {
+    // Someone else's needs a reason when the settings say so; your own never does
+    const reason = this.isSelf() ? '' : await this.reasons.ask('endSessions', {
+      title: this.translate.instant('endSessionTitle', { name: this.name(), device: `${session.browser} · ${session.os}` }),
+      message: this.translate.instant('They need to sign in again on that device.'),
+      confirmLabel: this.translate.instant('Sign out'),
+      tone: 'danger',
+    }, true);
+    if (reason === null) {
+      return;
+    }
     this.ending.set(session.id);
     try {
-      await this.store.endSession(session.id);
+      await this.store.endSession(session.id, reason || undefined);
       this.toast.show(this.translate.instant('Signed out of that device.'));
       await this.loadSessions(this.id());
     } catch (error) {
@@ -278,19 +289,21 @@ export class UserDetailComponent {
 
   protected async endOtherSessions() {
     const self = this.isSelf();
-    const confirmed = await this.confirm.ask({
+    const options = {
       title: this.translate.instant(self ? 'Sign out of all other devices?' : 'endAllSessionsTitle', { name: this.name() }),
       message: this.translate.instant(self ? 'You stay signed in here.' : 'They need to sign in again everywhere.'),
       confirmLabel: this.translate.instant('Sign out'),
       cancelLabel: this.translate.instant('Cancel'),
-      tone: 'danger',
-    });
-    if (!confirmed) {
+      tone: 'danger' as const,
+    };
+    // Your own devices need no reason
+    const reason = self ? (await this.confirm.ask(options) ? '' : null) : await this.reasons.ask('endSessions', options);
+    if (reason === null) {
       return;
     }
     this.ending.set('all');
     try {
-      await this.store.endSessions(this.id());
+      await this.store.endSessions(this.id(), reason || undefined);
       this.toast.show(this.translate.instant(self ? 'Signed out of your other devices.' : 'Signed out everywhere.'));
       await this.loadSessions(this.id());
     } catch (error) {
@@ -346,18 +359,17 @@ export class UserDetailComponent {
       return;
     }
     const role = this.roleName(assignment.roleId);
-    const ok = await this.confirm.ask({
+    const reason = await this.reasons.ask('removeRole', {
       title: this.translate.instant('removeRoleTitle', { role, name: fullName(user) }),
       message: this.translate.instant('It ends now. The activity log keeps a record of it.'),
       confirmLabel: this.translate.instant('Take away'),
-      cancelLabel: this.translate.instant('Cancel'),
       tone: 'danger',
     });
-    if (!ok) {
+    if (reason === null) {
       return;
     }
     try {
-      await this.store.removeRoleAssignment(assignment.id);
+      await this.store.removeRoleAssignment(assignment.id, reason || undefined);
       this.toast.show(this.translate.instant('Role taken away.'));
     } catch (error) {
       this.showError(error);
@@ -369,8 +381,18 @@ export class UserDetailComponent {
     if (!user) {
       return;
     }
+    const suspend = status === 'suspended';
+    const reason = await this.reasons.ask('status', {
+      title: this.translate.instant(suspend ? 'confirm.suspendUser' : 'confirm.activateUser', { name: fullName(user) }),
+      message: this.translate.instant(suspend ? 'They are signed out and cannot sign in until reactivated.' : 'They can sign in again.'),
+      confirmLabel: this.translate.instant(suspend ? 'Suspend' : 'Activate'),
+      tone: suspend ? 'danger' : 'primary',
+    }, true);
+    if (reason === null) {
+      return;
+    }
     try {
-      await this.store.setUserStatus([user.id], status);
+      await this.store.setUserStatus([user.id], status, reason || undefined);
       this.toast.show(this.translate.instant(status === 'suspended' ? 'toast.suspended' : 'toast.activated', { count: 1 }));
     } catch (error) {
       this.showError(error);
@@ -382,8 +404,18 @@ export class UserDetailComponent {
     if (!user) {
       return;
     }
+    // Someone else's needs a reason when the settings say so
+    const reason = this.isSelf() ? '' : await this.reasons.ask('resetSignIn', {
+      title: this.translate.instant('confirm.resetPassword', { name: fullName(user) }),
+      message: this.translate.instant('Their password stops working and they get an email to set a new one.'),
+      confirmLabel: this.translate.instant('Reset password'),
+      tone: 'danger',
+    }, true);
+    if (reason === null) {
+      return;
+    }
     try {
-      await this.store.resetPassword(user.id);
+      await this.store.resetPassword(user.id, reason || undefined);
       this.toast.show(this.translate.instant('toast.passwordReset', { email: user.email }), 'info');
     } catch (error) {
       this.showError(error);
@@ -395,18 +427,17 @@ export class UserDetailComponent {
     if (!user || this.isSelf()) {
       return;
     }
-    const confirmed = await this.confirm.ask({
+    const reason = await this.reasons.ask('delete', {
       title: this.translate.instant('confirm.deleteUser', { name: fullName(user) }),
       message: this.translate.instant('They lose access right away. This cannot be undone.'),
       confirmLabel: this.translate.instant('Delete'),
-      cancelLabel: this.translate.instant('Cancel'),
       tone: 'danger',
     });
-    if (!confirmed) {
+    if (reason === null) {
       return;
     }
     try {
-      await this.store.deleteUsers([user.id]);
+      await this.store.deleteUsers([user.id], reason || undefined);
       this.toast.show(this.translate.instant('toast.deleted', { count: 1 }));
       this.router.navigate(['/users']);
     } catch (error) {

@@ -78,11 +78,15 @@
                   </div>
                 </div>
               </td>
-              <td class="hide-md cell-details" [class.is-empty]="!row.summary" [attr.title]="row.summary || null">
+              <td class="hide-md cell-details" [class.is-empty]="!row.summary && !row.entry.reason" [attr.title]="row.summary || null">
                 @if (row.summary) {
-                  {{ row.summary }}
-                } @else {
+                  <span class="cell-main">{{ row.summary }}</span>
+                } @else if (!row.entry.reason) {
                   <span class="muted">—</span>
+                }
+                @if (row.entry.reason; as reason) {
+                  <!-- Why, as the person gave it -->
+                  <span class="cell-sub cell-reason" [attr.title]="reason">“{{ reason }}”</span>
                 }
               </td>
               <td class="hide-lg cell-ip">

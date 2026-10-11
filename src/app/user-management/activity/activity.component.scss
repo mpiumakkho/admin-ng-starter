@@ -142,6 +142,22 @@
   color: var(--ui-text);
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  // The summary and the reason, a line each
+  > .cell-main,
+  > .cell-reason {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  > .cell-main {
+    color: inherit;
+  }
+}
+
+.cell-reason {
+  color: var(--ui-muted);
+  font-style: italic;
 }
 
 .mono {

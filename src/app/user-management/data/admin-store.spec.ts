@@ -76,8 +76,8 @@ describe('AdminStore', () => {
     const [first, second] = store.users().filter(user => user.status === 'active' && user.id !== session.userId());
     const before = store.activity().length;
 
-    await store.setUserStatus([first.id, second.id], 'suspended');
-    await store.setUserStatus([first.id], 'suspended');
+    await store.setUserStatus([first.id, second.id], 'suspended', 'On leave');
+    await store.setUserStatus([first.id], 'suspended', 'On leave');
 
     expect(store.usersById().get(first.id)?.status).toBe('suspended');
     expect(store.usersById().get(second.id)?.status).toBe('suspended');
@@ -122,7 +122,7 @@ describe('AdminStore', () => {
 
   it('keeps changes for the next visit', async () => {
     const other = store.users().find(user => user.id !== session.userId())!;
-    await store.deleteUsers([other.id]);
+    await store.deleteUsers([other.id], 'Left the company');
 
     const next = new LocalAdminApi();
     expect((await next.listUsers()).length).toBe(47);

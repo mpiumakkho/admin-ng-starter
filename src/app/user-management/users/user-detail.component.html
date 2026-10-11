@@ -181,6 +181,9 @@
             @for (entry of recentActivity(); track entry.id) {
               <ui-timeline-item [icon]="activityMeta[entry.action].icon" [tone]="activityMeta[entry.action].tone" [time]="entry.at | timeAgo">
                 <app-activity-text [entry]="entry" />
+                @if (entry.reason; as reason) {
+                  <span class="activity-reason">“{{ reason }}”</span>
+                }
               </ui-timeline-item>
             }
           </ui-timeline>

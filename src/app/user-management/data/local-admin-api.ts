@@ -4,12 +4,12 @@ import {
   activeRoleIds, administratorRemains, canManageRole, canManageUser, holdsAll, permissionsOf, roleAssignmentState, SELF_EDITABLE_FIELDS,
 } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
-import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, ROLE_TONES, STATUS_META } from './catalog';
+import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, REASON_ACTIONS, ROLE_TONES, STATUS_META } from './catalog';
 import { AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, EmailLink } from './mock-data';
 import {
   Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, fullName, PasswordPolicy,
   Permission, Role, RoleAssignment, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleAssignmentRules, RoleDraft,
-  RoleGrant, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  ReasonAction, RoleGrant, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 import { createSecret, otpauthUri, verifyTotp } from './totp';
 import { uuidV7 } from './uuid';
@@ -228,12 +228,13 @@ export class LocalAdminApi extends AdminApi {
     return this.respond(user);
   }
 
-  async setUserStatus(ids: string[], status: UserStatus): Promise<User[]> {
+  async setUserStatus(ids: string[], status: UserStatus, reason?: string): Promise<User[]> {
     const actor = this.actor('users.edit');
     if (ids.includes(actor.id)) {
       throw new AdminApiError('self_change');
     }
     ids.forEach(id => this.findManageable(actor, id));
+    const why = this.requireReason('status', reason);
     this.commitUsers(this.data.users.map(user => ids.includes(user.id) ? { ...user, status } : user), false);
     const changed: User[] = [];
     this.data.users = this.data.users.map(user => {
@@ -247,34 +248,37 @@ export class LocalAdminApi extends AdminApi {
       }
       this.log(actor.id, status === 'suspended' ? 'user.suspended' : 'user.activated', fullName(user), user.id, [
         { field: 'status', from: user.status, to: status },
-      ]);
+      ], why);
       return updated;
     });
     return this.respond(changed);
   }
 
-  async deleteUsers(ids: string[]): Promise<void> {
+  async deleteUsers(ids: string[], reason?: string): Promise<void> {
     const actor = this.actor('users.delete');
     if (ids.includes(actor.id)) {
       throw new AdminApiError('self_change');
     }
     const users = ids.map(id => this.findManageable(actor, id));
+    const why = this.requireReason('delete', reason);
     this.commitUsers(this.data.users.filter(user => !ids.includes(user.id)), false);
     for (const user of users) {
       this.log(actor.id, 'user.deleted', fullName(user), undefined, [
         { field: 'email', from: user.email },
         { field: 'roles', added: [], removed: activeRoleIds(user) },
-      ]);
+      ], why);
     }
     this.data.users = this.data.users.filter(user => !ids.includes(user.id));
     this.data.sessions = this.data.sessions.filter(session => !ids.includes(session.userId));
     return this.respond(undefined);
   }
 
-  async resetPassword(id: string): Promise<void> {
+  async resetPassword(id: string, reason?: string): Promise<void> {
     const actor = this.actor('users.edit');
     const user = this.findManageable(actor, id);
-    this.log(actor.id, 'user.password_reset', fullName(user), id);
+    // Your own needs no reason
+    const why = id === actor.id ? '' : this.requireReason('resetSignIn', reason);
+    this.log(actor.id, 'user.password_reset', fullName(user), id, undefined, why);
     this.sendLink(user, 'reset');
     // The old password stops working, so the sessions it opened end too
     if (id !== actor.id) {
@@ -346,22 +350,24 @@ export class LocalAdminApi extends AdminApi {
     return this.respond(updated);
   }
 
-  async removeRoleAssignment(id: string): Promise<User> {
+  async removeRoleAssignment(id: string, reason?: string): Promise<User> {
     const actor = this.actor('users.edit');
     const { user, assignment } = this.findAssignment(actor, id);
     this.assertCanAssign(actor, assignment.roleId);
+    const why = this.requireReason('removeRole', reason);
     const updated = { ...user, roles: user.roles.filter(item => item.id !== id) };
     this.commitUsers(this.data.users.map(item => item.id === user.id ? updated : item));
     this.data.expiryLogged = (this.data.expiryLogged ?? []).filter(item => item !== id);
-    this.log(actor.id, 'role_assignment.removed', fullName(user), user.id, [{ field: 'roleId', from: assignment.roleId }]);
+    this.log(actor.id, 'role_assignment.removed', fullName(user), user.id, [{ field: 'roleId', from: assignment.roleId }], why);
     return this.respond(updated);
   }
 
   async assignRoles(userIds: string[], input: RoleAssignmentBatch): Promise<User[]> {
     const actor = this.actor('users.edit');
     check(Array.isArray(userIds) && userIds.every(id => typeof id === 'string'));
-    const change = fields(input, ['add', 'removeRoleId']);
-    check(('add' in change) !== ('removeRoleId' in change));
+    const change = fields(input, ['add', 'removeRoleId', 'reason']);
+    // A reason goes with taking a role away; a role given has its own
+    check(('add' in change) !== ('removeRoleId' in change) && !('add' in change && 'reason' in change));
     const ids = [...new Set(userIds)];
     if (ids.includes(actor.id)) {
       throw new AdminApiError('self_change');
@@ -372,6 +378,7 @@ export class LocalAdminApi extends AdminApi {
       && (branchId === undefined || item.branchId === branchId) && roleAssignmentState(item, now) !== 'expired');
     const added: [User, RoleAssignment][] = [];
     const changed: User[] = [];
+    let why = '';
     let next = this.data.users;
     if ('add' in change) {
       const grant = grantInput(fields(change['add'], GRANT_FIELDS));
@@ -386,6 +393,7 @@ export class LocalAdminApi extends AdminApi {
       const roleId = change['removeRoleId'];
       check(typeof roleId === 'string');
       this.assertCanAssign(actor, roleId as string);
+      why = this.requireReason('removeRole', change['reason']);
       for (const user of users.filter(item => holds(item, roleId as string))) {
         const updated = { ...user, roles: user.roles.filter(item => item.roleId !== roleId || roleAssignmentState(item, now) === 'expired') };
         changed.push(updated);
@@ -398,7 +406,7 @@ export class LocalAdminApi extends AdminApi {
     }
     if ('removeRoleId' in change) {
       for (const user of changed) {
-        this.log(actor.id, 'role_assignment.removed', fullName(user), user.id, [{ field: 'roleId', from: change['removeRoleId'] as string }]);
+        this.log(actor.id, 'role_assignment.removed', fullName(user), user.id, [{ field: 'roleId', from: change['removeRoleId'] as string }], why);
       }
     }
     return this.respond(changed);
@@ -591,6 +599,7 @@ export class LocalAdminApi extends AdminApi {
       ...changes,
       allowedDomains: [...new Set((changes.allowedDomains ?? current.allowedDomains).map(domain => domain.trim().toLowerCase()).filter(Boolean))],
       twoFactorRoleIds: [...new Set(changes.twoFactorRoleIds ?? current.twoFactorRoleIds)],
+      reasonsRequired: [...new Set(changes.reasonsRequired ?? current.reasonsRequired)],
     };
     this.data.settings = settings;
     const diff: ActivityChange[] = ([
@@ -599,9 +608,11 @@ export class LocalAdminApi extends AdminApi {
     ] as const)
       .filter(field => current[field] !== settings[field])
       .map(field => ({ field, from: String(current[field]), to: String(settings[field]) }));
-    for (const field of ['allowedDomains', 'twoFactorRoleIds'] as const) {
-      const added = settings[field].filter(item => !current[field].includes(item));
-      const removed = current[field].filter(item => !settings[field].includes(item));
+    for (const field of ['allowedDomains', 'twoFactorRoleIds', 'reasonsRequired'] as const) {
+      const before: readonly string[] = current[field];
+      const after: readonly string[] = settings[field];
+      const added = after.filter(item => !before.includes(item));
+      const removed = before.filter(item => !after.includes(item));
       if (added.length || removed.length) {
         diff.push({ field, added, removed });
       }
@@ -625,27 +636,30 @@ export class LocalAdminApi extends AdminApi {
     return this.respond(sessions);
   }
 
-  async endSession(sessionId: string): Promise<void> {
+  async endSession(sessionId: string, reason?: string): Promise<void> {
     const actor = this.actor();
     const session = this.data.sessions.find(item => item.id === sessionId);
     if (!session) {
       throw new AdminApiError('not_found');
     }
     const user = this.assertCanSeeSecurity(actor, session.userId);
+    // Your own needs no reason
+    const why = user.id === actor.id ? '' : this.requireReason('endSessions', reason);
     this.data.sessions = this.data.sessions.filter(item => item.id !== sessionId);
-    this.log(actor.id, 'auth.sessions_ended', fullName(user), user.id, [{ field: 'devices', added: [], removed: [deviceName(session)] }]);
+    this.log(actor.id, 'auth.sessions_ended', fullName(user), user.id, [{ field: 'devices', added: [], removed: [deviceName(session)] }], why);
     return this.respond(undefined);
   }
 
-  async endSessions(userId: string): Promise<void> {
+  async endSessions(userId: string, reason?: string): Promise<void> {
     const actor = this.actor();
     const user = this.assertCanSeeSecurity(actor, userId);
+    const why = userId === actor.id ? '' : this.requireReason('endSessions', reason);
     // Your own: everywhere but this browser
     const here = this.currentSession()?.session.id;
     const ended = this.data.sessions.filter(session => session.userId === userId && session.id !== here);
     this.data.sessions = this.data.sessions.filter(session => !ended.includes(session));
     if (ended.length) {
-      this.log(actor.id, 'auth.sessions_ended', fullName(user), user.id, [{ field: 'devices', added: [], removed: ended.map(deviceName) }]);
+      this.log(actor.id, 'auth.sessions_ended', fullName(user), user.id, [{ field: 'devices', added: [], removed: ended.map(deviceName) }], why);
     }
     return this.respond(undefined);
   }
@@ -689,15 +703,16 @@ export class LocalAdminApi extends AdminApi {
     return this.respond(user);
   }
 
-  async resetTwoFactor(userId: string): Promise<User> {
+  async resetTwoFactor(userId: string, reason?: string): Promise<User> {
     const actor = this.actor('users.edit');
     // Your own goes through disableTwoFactor, with a code
     if (userId === actor.id) {
       throw new AdminApiError('self_change');
     }
     this.findManageable(actor, userId);
+    const why = this.requireReason('resetSignIn', reason);
     const user = this.setTwoFactor(userId, false);
-    this.log(actor.id, 'auth.two_factor_off', fullName(user), user.id);
+    this.log(actor.id, 'auth.two_factor_off', fullName(user), user.id, undefined, why);
     return this.respond(user);
   }
 
@@ -822,8 +837,7 @@ export class LocalAdminApi extends AdminApi {
       ...(assignment.branchId ? [{ field: 'branchId', to: assignment.branchId }] : []),
       ...(assignment.startsAt > assignment.assignedAt ? [{ field: 'startsAt', to: assignment.startsAt }] : []),
       ...(assignment.endsAt ? [{ field: 'endsAt', to: assignment.endsAt }] : []),
-      ...(assignment.reason ? [{ field: 'reason', to: assignment.reason }] : []),
-    ]);
+    ], assignment.reason);
   }
 
   /**
@@ -1014,8 +1028,21 @@ export class LocalAdminApi extends AdminApi {
   }
 
   /** Writes an entry; with no actor, the server did it by itself, from no browser */
-  private log(actorId: string | null, action: ActivityAction, targetLabel: string, targetId?: string, changes?: ActivityChange[]) {
-    this.data.activity = [logEntry(actorId, action, targetLabel, targetId, changes, actorId ? this.client : undefined), ...this.data.activity];
+  private log(actorId: string | null, action: ActivityAction, targetLabel: string, targetId?: string, changes?: ActivityChange[], reason = '') {
+    this.data.activity = [logEntry(actorId, action, targetLabel, targetId, changes, actorId ? this.client : undefined, undefined, reason), ...this.data.activity];
+  }
+
+  /**
+   * The reason a change gives, trimmed: what the log keeps. reason_required when the settings require one for the action
+   * and it is blank (API.md, "Reasons")
+   */
+  private requireReason(action: ReasonAction, reason: unknown): string {
+    check(reason === undefined || (typeof reason === 'string' && reason.length <= MAX_REASON_LENGTH));
+    const text = ((reason as string | undefined) ?? '').trim();
+    if (!text && this.data.settings.reasonsRequired.includes(action)) {
+      throw new AdminApiError('reason_required');
+    }
+    return text;
   }
 
   /** Saves the data and answers after a short delay, with a copy so callers cannot change the store */
@@ -1149,9 +1176,12 @@ function roleChanges(input: unknown): Partial<RoleDraft> {
 
 function logEntry(
   actorId: string | null, action: ActivityAction, targetLabel: string, targetId: string | undefined, changes: ActivityChange[] | undefined,
-  client = { ip: '', browser: '', os: '' }, at = new Date().toISOString(),
+  client = { ip: '', browser: '', os: '' }, at = new Date().toISOString(), reason = '',
 ): Activity {
-  return { id: uuidV7(new Date(at).getTime()), at, actorId, action, targetLabel, targetId, ...client, changes: changes?.length ? changes : undefined };
+  return {
+    id: uuidV7(new Date(at).getTime()), at, actorId, action, targetLabel, targetId, ...client, changes: changes?.length ? changes : undefined,
+    ...(reason ? { reason } : {}),
+  };
 }
 
 /**
@@ -1187,11 +1217,14 @@ const SETTINGS_RANGES: Record<string, [min: number, max: number]> = {
 };
 
 function settingsChanges(input: unknown): Partial<AdminSettings> {
-  const changes = fields(input, ['defaultRoleId', 'allowedDomains', 'twoFactorRoleIds', 'branchesEnabled', ...Object.keys(SETTINGS_RANGES)]);
+  const changes = fields(input, [
+    'defaultRoleId', 'allowedDomains', 'twoFactorRoleIds', 'branchesEnabled', 'reasonsRequired', ...Object.keys(SETTINGS_RANGES),
+  ]);
   check(changes['branchesEnabled'] === undefined || typeof changes['branchesEnabled'] === 'boolean');
   check(changes['defaultRoleId'] === undefined || typeof changes['defaultRoleId'] === 'string');
-  check(['allowedDomains', 'twoFactorRoleIds'].every(field => changes[field] === undefined
+  check(['allowedDomains', 'twoFactorRoleIds', 'reasonsRequired'].every(field => changes[field] === undefined
     || (Array.isArray(changes[field]) && (changes[field] as unknown[]).every(item => typeof item === 'string'))));
+  check(changes['reasonsRequired'] === undefined || (changes['reasonsRequired'] as string[]).every(item => item in REASON_ACTIONS));
   check(Object.entries(SETTINGS_RANGES).every(([field, [min, max]]) => changes[field] === undefined
     || (Number.isInteger(changes[field]) && (changes[field] as number) >= min && (changes[field] as number) <= max)));
   return changes as Partial<AdminSettings>;

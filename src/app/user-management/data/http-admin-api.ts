@@ -121,16 +121,16 @@ export class HttpAdminApi extends AdminApi {
     return this.send<User>('PATCH', `/users/${encodeURIComponent(id)}`, changes);
   }
 
-  setUserStatus(ids: string[], status: UserStatus): Promise<User[]> {
-    return this.send<User[]>('POST', '/users/status', { ids, status });
+  setUserStatus(ids: string[], status: UserStatus, reason?: string): Promise<User[]> {
+    return this.send<User[]>('POST', '/users/status', { ids, status, ...withReason(reason) });
   }
 
-  async deleteUsers(ids: string[]): Promise<void> {
-    await this.send('POST', '/users/delete', { ids });
+  async deleteUsers(ids: string[], reason?: string): Promise<void> {
+    await this.send('POST', '/users/delete', { ids, ...withReason(reason) });
   }
 
-  async resetPassword(id: string): Promise<void> {
-    await this.send('POST', `/users/${encodeURIComponent(id)}/reset-password`);
+  async resetPassword(id: string, reason?: string): Promise<void> {
+    await this.send('POST', `/users/${encodeURIComponent(id)}/reset-password`, withReason(reason));
   }
 
   async resendInvite(id: string): Promise<void> {
@@ -147,8 +147,8 @@ export class HttpAdminApi extends AdminApi {
     return this.send<User>('PATCH', `/role-assignments/${encodeURIComponent(id)}`, changes);
   }
 
-  removeRoleAssignment(id: string): Promise<User> {
-    return this.send<User>('DELETE', `/role-assignments/${encodeURIComponent(id)}`);
+  removeRoleAssignment(id: string, reason?: string): Promise<User> {
+    return this.send<User>('DELETE', `/role-assignments/${encodeURIComponent(id)}`, withReason(reason));
   }
 
   assignRoles(userIds: string[], change: RoleAssignmentBatch): Promise<User[]> {
@@ -214,12 +214,12 @@ export class HttpAdminApi extends AdminApi {
     return this.send<UserSession[]>('GET', `/users/${encodeURIComponent(userId)}/sessions`);
   }
 
-  async endSession(sessionId: string): Promise<void> {
-    await this.send('DELETE', `/sessions/${encodeURIComponent(sessionId)}`);
+  async endSession(sessionId: string, reason?: string): Promise<void> {
+    await this.send('DELETE', `/sessions/${encodeURIComponent(sessionId)}`, withReason(reason));
   }
 
-  async endSessions(userId: string): Promise<void> {
-    await this.send('POST', `/users/${encodeURIComponent(userId)}/sessions/end`);
+  async endSessions(userId: string, reason?: string): Promise<void> {
+    await this.send('POST', `/users/${encodeURIComponent(userId)}/sessions/end`, withReason(reason));
   }
 
   /* Two-step sign-in */
@@ -236,8 +236,8 @@ export class HttpAdminApi extends AdminApi {
     return this.send<User>('POST', '/me/two-factor/disable', { code });
   }
 
-  resetTwoFactor(userId: string): Promise<User> {
-    return this.send<User>('POST', `/users/${encodeURIComponent(userId)}/two-factor/reset`);
+  resetTwoFactor(userId: string, reason?: string): Promise<User> {
+    return this.send<User>('POST', `/users/${encodeURIComponent(userId)}/two-factor/reset`, withReason(reason));
   }
 
   /* Live updates */
@@ -417,4 +417,9 @@ export function toApiError(error: unknown): unknown {
 
 function unauthenticated(error: unknown): boolean {
   return error instanceof AdminApiError && error.code === 'unauthenticated';
+}
+
+/** The body of a request that takes a reason: none when there is no reason */
+function withReason(reason: string | undefined): { reason: string } | undefined {
+  return reason ? { reason } : undefined;
 }

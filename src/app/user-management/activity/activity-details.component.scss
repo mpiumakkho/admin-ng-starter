@@ -127,3 +127,8 @@
   gap: .25rem;
   margin-block: -.375rem;
 }
+
+// A reason is a sentence: it takes the whole row
+.event-reason {
+  grid-column: 1 / -1;
+}

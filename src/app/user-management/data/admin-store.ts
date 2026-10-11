@@ -250,8 +250,8 @@ export class AdminStore {
     return user;
   }
 
-  async setUserStatus(ids: string[], status: UserStatus): Promise<void> {
-    const changed = await this.call(() => this.api.setUserStatus(ids, status));
+  async setUserStatus(ids: string[], status: UserStatus, reason?: string): Promise<void> {
+    const changed = await this.call(() => this.api.setUserStatus(ids, status, reason));
     const byId = new Map(changed.map(user => [user.id, user]));
     this.users.update(users => users.map(user => byId.get(user.id) ?? user));
     await this.refreshActivity();
@@ -267,8 +267,8 @@ export class AdminStore {
     return this.afterUserChange(await this.call(() => this.api.updateRoleAssignment(id, changes)));
   }
 
-  async removeRoleAssignment(id: string): Promise<User> {
-    return this.afterUserChange(await this.call(() => this.api.removeRoleAssignment(id)));
+  async removeRoleAssignment(id: string, reason?: string): Promise<User> {
+    return this.afterUserChange(await this.call(() => this.api.removeRoleAssignment(id, reason)));
   }
 
   /** Gives several people a role, or takes one away; answers with the people that changed */
@@ -290,14 +290,14 @@ export class AdminStore {
       && roleAssignmentState(item, now) !== 'expired');
   }
 
-  async deleteUsers(ids: string[]): Promise<void> {
-    await this.call(() => this.api.deleteUsers(ids));
+  async deleteUsers(ids: string[], reason?: string): Promise<void> {
+    await this.call(() => this.api.deleteUsers(ids, reason));
     this.users.update(users => users.filter(user => !ids.includes(user.id)));
     await this.refreshActivity();
   }
 
-  async resetPassword(id: string): Promise<void> {
-    await this.call(() => this.api.resetPassword(id));
+  async resetPassword(id: string, reason?: string): Promise<void> {
+    await this.call(() => this.api.resetPassword(id, reason));
     await this.refreshActivity();
   }
 
@@ -385,13 +385,13 @@ export class AdminStore {
     return this.call(() => this.api.listSessions(userId));
   }
 
-  async endSession(sessionId: string): Promise<void> {
-    await this.call(() => this.api.endSession(sessionId));
+  async endSession(sessionId: string, reason?: string): Promise<void> {
+    await this.call(() => this.api.endSession(sessionId, reason));
     await this.refreshActivity();
   }
 
-  async endSessions(userId: string): Promise<void> {
-    await this.call(() => this.api.endSessions(userId));
+  async endSessions(userId: string, reason?: string): Promise<void> {
+    await this.call(() => this.api.endSessions(userId, reason));
     await this.refreshActivity();
   }
 
@@ -408,8 +408,8 @@ export class AdminStore {
     return this.afterUserChange(await this.call(() => this.api.disableTwoFactor(code), false));
   }
 
-  async resetTwoFactor(userId: string): Promise<User> {
-    return this.afterUserChange(await this.call(() => this.api.resetTwoFactor(userId)));
+  async resetTwoFactor(userId: string, reason?: string): Promise<User> {
+    return this.afterUserChange(await this.call(() => this.api.resetTwoFactor(userId, reason)));
   }
 
   private async afterUserChange(user: User): Promise<User> {

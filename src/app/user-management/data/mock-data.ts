@@ -244,6 +244,16 @@ export function createMockData(now = Date.now()): AdminData {
 
   // Ids from a generator of their own, so the rest of the sample stays as it was
   const idRandom = random(20261009);
+  // Reasons too, as the settings ask for one when suspending or reactivating someone
+  const reasonRandom = random(20261011);
+  const reasonsFor: Partial<Record<ActivityAction, string[]>> = {
+    'user.suspended': ['Left the company', 'On long leave', 'Asked by their manager', 'Shared their password'],
+    'user.activated': ['Back from leave', 'Rejoined the team', 'Cleared by their manager'],
+  };
+  const reasonFor = (action: ActivityAction) => {
+    const reasons = reasonsFor[action];
+    return reasons ? { reason: reasons[Math.floor(reasonRandom() * reasons.length)] } : {};
+  };
   const activity: Activity[] = Array.from({ length: 60 }, () => {
     const action = pick(actions);
     const actor = pick(admins);
@@ -263,6 +273,7 @@ export function createMockData(now = Date.now()): AdminData {
       targetId: isSignIn ? actor.id : isRole ? role.id : user.id,
       ...(next() < 0.8 ? device.desktop : device.phone),
       changes: changesFor(action, user, role),
+      ...reasonFor(action),
     };
   });
 
@@ -297,14 +308,13 @@ export function createMockData(now = Date.now()): AdminData {
       ...(branchId ? [{ field: 'branchId', to: branchId }] : []),
       ...(startDay > 0 ? [{ field: 'startsAt', to: assignment.startsAt }] : []),
       ...(assignment.endsAt ? [{ field: 'endsAt', to: assignment.endsAt }] : []),
-      { field: 'reason', to: reason },
     ];
-    const entry = (at: number, action: ActivityAction, actorId: string | null, entryChanges: ActivityChange[]): Activity => ({
+    const entry = (at: number, action: ActivityAction, actorId: string | null, entryChanges: ActivityChange[], why = ''): Activity => ({
       id: uuidV7(at, bytes => bytes.forEach((_, byte) => bytes[byte] = Math.floor(idRandom() * 256))),
       at: new Date(at).toISOString(), actorId, action, targetLabel: fullName(user), targetId: user.id,
-      ...(actorId ? office : { ip: '', browser: '', os: '' }), changes: entryChanges,
+      ...(actorId ? office : { ip: '', browser: '', os: '' }), changes: entryChanges, ...(why ? { reason: why } : {}),
     });
-    activity.push(entry(assignedAt, 'role_assignment.added', owner.id, changes));
+    activity.push(entry(assignedAt, 'role_assignment.added', owner.id, changes, reason));
     if (endDay !== null && endDay < 0) {
       activity.push(entry(now + endDay * DAY, 'role_assignment.expired', null, [{ field: 'roleId', from: roleId }]));
       expiryLogged.push(assignment.id);

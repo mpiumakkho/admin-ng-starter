@@ -2,8 +2,8 @@ import { inject, Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 
 import { AdminStore } from '../data/admin-store';
-import { ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, STATUS_META } from '../data/catalog';
-import { Activity, ActivityChange, fullName, UserStatus } from '../data/models';
+import { ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, REASON_ACTIONS, STATUS_META } from '../data/catalog';
+import { Activity, ActivityChange, fullName, ReasonAction, UserStatus } from '../data/models';
 import { idleTimeoutLabel, localDate, passwordHistoryLabel, retentionLabel } from '../shared/formatting';
 
 /** Where an entry's target can be opened, if it still exists */
@@ -108,8 +108,12 @@ export class ActivityFormat {
     return label ? this.translate.instant(label) : key;
   }
 
-  /** One item of a list change: a permission's label, a role's name, or the item itself (a domain, a device) */
+  /** One item of a list change: a permission's label, a role's name, a change that needs a reason, or the item itself */
   listItem(field: string, key: string): string {
+    if (field === 'reasonsRequired') {
+      const label = REASON_ACTIONS[key as ReasonAction];
+      return label ? this.translate.instant(label) : key;
+    }
     return field === 'twoFactorRoleIds' || field === 'roles' ? this.store.rolesById().get(key)?.name ?? key : this.permission(key);
   }
 

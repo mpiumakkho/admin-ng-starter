@@ -7,8 +7,10 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
-import { ACTIVITY_RETENTION_DAYS, INVITE_EXPIRY_DAYS, PASSWORD_HISTORY, PASSWORD_MIN_LENGTHS, SESSION_TIMEOUT_MINUTES } from '../data/catalog';
-import { AdminSettings } from '../data/models';
+import {
+  ACTIVITY_RETENTION_DAYS, INVITE_EXPIRY_DAYS, PASSWORD_HISTORY, PASSWORD_MIN_LENGTHS, REASON_ACTIONS, SESSION_TIMEOUT_MINUTES,
+} from '../data/catalog';
+import { AdminSettings, ReasonAction } from '../data/models';
 import { errorMessage } from '../shared/errors';
 import { idleTimeoutLabel, passwordHistoryLabel, retentionLabel } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
@@ -74,7 +76,11 @@ export class SettingsComponent implements OnInit {
     passwordHistory: [0],
     activityRetentionDays: [730],
     branchesEnabled: [false],
+    reasonsRequired: [[] as ReasonAction[]],
   });
+
+  /** The changes that can require a reason, in the order of REASON_ACTIONS */
+  protected readonly reasonActions = (Object.keys(REASON_ACTIONS) as ReasonAction[]).map(key => ({ key, label: REASON_ACTIONS[key] }));
 
   protected readonly expiryOptions = computed<UiOption<number>[]>(() => {
     this.i18n();
@@ -143,6 +149,15 @@ export class SettingsComponent implements OnInit {
     const control = this.form.controls.twoFactorRoleIds;
     const others = control.value.filter(id => id !== roleId);
     control.setValue(required ? [...others, roleId] : others);
+    control.markAsDirty();
+  }
+
+  /** Ticks or unticks a change that must have a reason */
+  protected toggleReason(action: ReasonAction, required: boolean) {
+    const control = this.form.controls.reasonsRequired;
+    const others = control.value.filter(item => item !== action);
+    // In the order of the list, as the log shows them
+    control.setValue(this.reasonActions.map(item => item.key).filter(key => key === action ? required : others.includes(key)));
     control.markAsDirty();
   }
 

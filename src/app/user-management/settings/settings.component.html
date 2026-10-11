@@ -84,7 +84,7 @@
       <section class="settings-section">
         <div class="section-intro">
           <h2>{{ 'Activity log' | translate }}</h2>
-          <p>{{ 'How long each change stays in the log.' | translate }}</p>
+          <p>{{ 'How long each change stays in the log, and which changes must say why.' | translate }}</p>
         </div>
         <ui-form-field [label]="'Keep activity for' | translate" for="activityRetentionDays" [hint]="'Older entries are deleted every night. Export them first if you need them.' | translate">
           <select uiInput id="activityRetentionDays" formControlName="activityRetentionDays" class="select-input">
@@ -92,6 +92,14 @@
               <option [ngValue]="option.value">{{ option.label }}</option>
             }
           </select>
+        </ui-form-field>
+        <ui-form-field [label]="'Ask for a reason when' | translate" [hint]="'The person making the change has to say why, and the log keeps it.' | translate">
+          <div class="reason-checks" role="group" [attr.aria-label]="'Ask for a reason when' | translate">
+            @for (action of reasonActions; track action.key) {
+              <ui-checkbox [checked]="form.controls.reasonsRequired.value.includes(action.key)" [disabled]="!canManage()"
+                (changed)="toggleReason(action.key, $event)">{{ action.label | translate }}</ui-checkbox>
+            }
+          </div>
         </ui-form-field>
       </section>
     </div>

@@ -24,7 +24,7 @@ import {
 } from '@ng-icons/lucide';
 
 import { UiTone } from '../ui';
-import { ActivityAction, AdminSettings, Permission, RoleAssignmentRules, UserStatus } from './models';
+import { ActivityAction, AdminSettings, Permission, ReasonAction, RoleAssignmentRules, UserStatus } from './models';
 
 // Labels in this file are translation keys
 
@@ -174,7 +174,17 @@ export const FIELD_LABELS: Record<string, string> = {
   passwordMinLength: 'Shortest password',
   passwordHistory: 'Recent passwords not allowed again',
   activityRetentionDays: 'Keep activity for',
+  reasonsRequired: 'Ask for a reason when',
   devices: 'Devices',
+};
+
+/** The changes the settings can require a reason for, as the settings page and the log name them */
+export const REASON_ACTIONS: Record<ReasonAction, string> = {
+  status: 'Suspending or reactivating someone',
+  delete: 'Deleting people',
+  removeRole: 'Taking a role away',
+  resetSignIn: 'Resetting someone\'s password or two-step sign-in',
+  endSessions: 'Signing someone out of their devices',
 };
 
 /** How a new role may be given: for good or for a time, with or without a reason */
@@ -194,6 +204,7 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   passwordHistory: 0,
   activityRetentionDays: 730,
   branchesEnabled: false,
+  reasonsRequired: ['status', 'delete'],
 };
 
 /** Choices on the settings page */

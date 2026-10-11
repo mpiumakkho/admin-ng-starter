@@ -109,6 +109,13 @@ form {
   gap: .5rem 1.25rem;
 }
 
+// One change a line: the labels are sentences
+.reason-checks {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
 .branches-switch {
   max-width: 28rem;
 }

@@ -103,9 +103,10 @@ export abstract class AdminApi {
   /** Adds several users at once, as from an import file: all of them, or none when one is refused */
   abstract createUsers(drafts: UserDraft[]): Promise<User[]>;
   abstract updateUser(id: string, changes: UserChanges): Promise<User>;
-  abstract setUserStatus(ids: string[], status: UserStatus): Promise<User[]>;
-  abstract deleteUsers(ids: string[]): Promise<void>;
-  abstract resetPassword(id: string): Promise<void>;
+  /* A reason, where these take one, goes to the activity log; the settings may require it (ReasonAction) */
+  abstract setUserStatus(ids: string[], status: UserStatus, reason?: string): Promise<User[]>;
+  abstract deleteUsers(ids: string[], reason?: string): Promise<void>;
+  abstract resetPassword(id: string, reason?: string): Promise<void>;
   /** Emails the invitation again to someone who has not accepted it yet */
   abstract resendInvite(id: string): Promise<void>;
 
@@ -115,7 +116,7 @@ export abstract class AdminApi {
   abstract assignRole(draft: RoleAssignmentDraft): Promise<User>;
   /** Moves an assignment's end (extend, shorten, renew) or changes its reason */
   abstract updateRoleAssignment(id: string, changes: RoleAssignmentChanges): Promise<User>;
-  abstract removeRoleAssignment(id: string): Promise<User>;
+  abstract removeRoleAssignment(id: string, reason?: string): Promise<User>;
   /** Gives several people a role, or takes one away from them: all or nothing; answers with the ones that changed */
   abstract assignRoles(userIds: string[], change: RoleAssignmentBatch): Promise<User[]>;
 
@@ -146,9 +147,9 @@ export abstract class AdminApi {
   /* Signed-in devices: your own, or, with users.edit, those of people you manage */
 
   abstract listSessions(userId: string): Promise<UserSession[]>;
-  abstract endSession(sessionId: string): Promise<void>;
+  abstract endSession(sessionId: string, reason?: string): Promise<void>;
   /** Signs someone out everywhere; for yourself, everywhere but this browser */
-  abstract endSessions(userId: string): Promise<void>;
+  abstract endSessions(userId: string, reason?: string): Promise<void>;
 
   /* Two-step sign-in with an authenticator app */
 
@@ -158,7 +159,7 @@ export abstract class AdminApi {
   /** Turns it off for yourself, with a current code */
   abstract disableTwoFactor(code: string): Promise<User>;
   /** Turns it off for someone who lost their phone; needs users.edit */
-  abstract resetTwoFactor(userId: string): Promise<User>;
+  abstract resetTwoFactor(userId: string, reason?: string): Promise<User>;
 
   /* Live updates */
 

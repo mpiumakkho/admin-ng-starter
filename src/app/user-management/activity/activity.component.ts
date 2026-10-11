@@ -284,20 +284,20 @@ export class ActivityComponent {
         { header: t.instant('Action') },
         // The same in every language, as the API and the CSV name it, for filtering a sheet
         { header: t.instant('Action code'), skip: ['copy', 'print'] },
-        { header: t.instant('Description') }, { header: t.instant('Details') },
+        { header: t.instant('Description') }, { header: t.instant('Details') }, { header: t.instant('Reason') },
         { header: t.instant('IP address') }, { header: t.instant('Browser') }, { header: t.instant('Operating system') },
         // For finding the one entry again; nobody reads it on paper
         { header: t.instant('Event reference'), skip: ['print'] },
       ],
       rows: rows.map(row => [
         new Date(row.entry.at), row.actorName, row.actor?.email ?? '', row.action, row.entry.action, this.format.sentence(row.entry), row.summary,
-        row.entry.ip, row.entry.browser, row.entry.os, row.entry.id,
+        row.entry.reason ?? '', row.entry.ip, row.entry.browser, row.entry.os, row.entry.id,
       ]),
       csv: [
-        ['Time', 'Done by', 'Email', 'Action', 'Description', 'Details', 'IP address', 'Browser', 'OS', 'Event ID'],
+        ['Time', 'Done by', 'Email', 'Action', 'Description', 'Details', 'Reason', 'IP address', 'Browser', 'OS', 'Event ID'],
         ...rows.map(row => [
           row.entry.at, row.actorName, row.actor?.email ?? '', row.entry.action, this.format.sentence(row.entry), row.summary,
-          row.entry.ip, row.entry.browser, row.entry.os, row.entry.id,
+          row.entry.reason ?? '', row.entry.ip, row.entry.browser, row.entry.os, row.entry.id,
         ]),
       ],
     };
@@ -330,6 +330,6 @@ function dayRange(fromDay: string, toDay: string): { from?: string; to?: string 
 
 /** Who, what, the details or the IP address, as the search box says; the query is already lower case */
 function matchesSearch(row: ActivityRow, query: string): boolean {
-  return [row.actorName, row.actor?.email ?? '', row.entry.targetLabel, row.action, row.summary, row.entry.ip]
+  return [row.actorName, row.actor?.email ?? '', row.entry.targetLabel, row.action, row.summary, row.entry.reason ?? '', row.entry.ip]
     .some(text => text.toLowerCase().includes(query));
 }
