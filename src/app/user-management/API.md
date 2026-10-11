@@ -80,11 +80,17 @@ People can see and end their own sessions and turn two-step sign-in on or off fo
 | `DELETE /sessions/:id` | `{ reason? }` for someone else's (see Reasons) | Nothing |
 | `POST /users/:id/sessions/end` | `{ reason? }` for someone else (see Reasons) | Nothing. Ends every session of the user; for yourself, all but the current one |
 | `POST /me/two-factor` | | `TwoFactorSetup`: a new base32 `secret` and its `otpauth://` `uri`, kept pending until confirmed |
-| `POST /me/two-factor/confirm` | `{ code }` | The `User` with `twoFactor: true`; `invalid_code` if the code does not match the pending secret |
+| `POST /me/two-factor/confirm` | `{ code }` | `TwoFactorConfirmation`: `{ user, recoveryCodes }`, the `User` with `twoFactor: true` and their first recovery codes; `invalid_code` if the code does not match the pending secret |
 | `POST /me/two-factor/disable` | `{ code }` | The `User` with `twoFactor: false`; `invalid_code` if the code is wrong |
 | `POST /users/:id/two-factor/reset` | `{ reason? }` (see Reasons) | The `User` with `twoFactor: false`. Needs `users.edit`; `self_change` for yourself |
+| `GET /me/recovery-codes` | | `{ remaining }`: how many of your recovery codes are left unused |
+| `POST /me/recovery-codes` | | `{ codes }`: ten new recovery codes, which replace the old ones; `invalid_request` while two-step sign-in is off |
 
 Codes are TOTP (RFC 6238): SHA-1, 30-second steps, 6 digits; accept one step either side for clock drift. `data/totp.ts` is a working reference. Log `auth.sessions_ended`, `auth.two_factor_on` and `auth.two_factor_off`.
+
+### Recovery codes
+
+As Google and GitHub give backup codes, turning two-step sign-in on gives ten recovery codes, for when the phone is lost. Each is ten lowercase letters and digits, without the ones easy to mix up (`0`, `1`, `i`, `l`, `o`), shown as two groups of five: `abcde-fghjk`. They are shown once, when made: the server keeps only a hash of each, as of a password. Wherever a code from the app is asked (`POST /auth/login`, `POST /me/reauthenticate`, `POST /me/two-factor/disable`), an unused recovery code works instead, once; ignore case, spaces and the dash. A wrong one is `invalid_code` and counts as a wrong code does. Turning two-step sign-in off, or an administrator resetting it, deletes them. Log `auth.recovery_code_used` (the person as both actor and target, with `recoveryCodesLeft` among the changes) and `auth.recovery_codes_created` when someone makes new ones.
 
 ### Roles that must use two-step sign-in
 
@@ -102,6 +108,7 @@ As GitHub's sudo mode and Microsoft Entra's reauthentication ask for the passwor
 | What a role allows | `PATCH /roles/:id` when `permissions` change, `DELETE /roles/:id` |
 | Deleting people | `POST /users/delete` |
 | Someone else's sign-in | `POST /users/:id/reset-password`, `POST /users/:id/two-factor/reset`, and `DELETE /sessions/:id` and `POST /users/:id/sessions/end`, each for someone else |
+| Your own recovery codes | `POST /me/recovery-codes` |
 | The settings | `PATCH /settings` |
 
 The list is fixed, so whoever changes the settings cannot take one of them off it; the settings decide only how long a confirmation lasts.
