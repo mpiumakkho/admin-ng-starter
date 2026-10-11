@@ -136,6 +136,10 @@ Some rules go beyond single permissions, so nobody can raise their own access or
 
 The changes that take or reset someone's access ask why, as Microsoft Entra asks for a justification: suspending or reactivating someone, deleting people, taking a role away, resetting someone's password or two-step sign-in, and signing someone out of their devices. Where the page already asks before such a change, the question takes a Reason field; the settings decide where it is required, and a change that asks nothing first asks only then. `ReasonPrompt` (`shared/reason-prompt.ts`) does this over `UiConfirmService.prompt`. The activity log keeps the reason as `Activity.reason`, shows it under the details and in the entry, searches and exports it; a profile's activity shows it too. A new role assignment's own reason is its entry's reason. [API.md](API.md#reasons) has the requests.
 
+### Confirming who you are
+
+As GitHub's sudo mode and Microsoft Entra's reauthentication do, the changes that could take the system over or shut people out ask for the password again when the person signed in, or last confirmed it, longer ago than the settings allow (10 minutes on a new installation): giving, changing or taking away roles (new users' roles too), changing what a role allows or deleting one, deleting people, resetting someone else's password or two-step sign-in, signing someone else out, and changing the settings. The server refuses such a change with `reauth_required`; `AdminStore` then waits while `<app-reauth-dialog />` asks for the password (and the code, with two-step sign-in on), and sends the same request again, so the page and what was typed stay as they were. Closing the dialog leaves the change unsent. `Session.reauthRequested`, `reauthenticate()` and `cancelReauth()` drive it. [API.md](API.md#confirming-who-you-are) has the list and the request.
+
 ## Settings
 
 The settings page (`settings.view` to open, `settings.manage` to change) decides:
@@ -148,7 +152,8 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 - the password rules: the shortest password and how many recent passwords may not be used again;
 - how long the activity log keeps each entry;
 - whether people belong to branches (see [Branches](#branches));
-- which changes must have a reason (see [Reasons](#reasons)); suspending or reactivating someone and deleting people on a new installation.
+- which changes must have a reason (see [Reasons](#reasons)); suspending or reactivating someone and deleting people on a new installation;
+- how long a sign-in or a confirmed password lasts for the risky changes (see [Confirming who you are](#confirming-who-you-are)), or never asking again.
 
 `AdminStore.settings` holds them for any page that needs them.
 
