@@ -77,12 +77,12 @@ People can see and end their own sessions and turn two-step sign-in on or off fo
 | Request | Body | Answer |
 | --- | --- | --- |
 | `GET /users/:id/sessions` | | `UserSession[]`, newest use first, the one making the request with `current: true` |
-| `DELETE /sessions/:id` | | Nothing |
-| `POST /users/:id/sessions/end` | | Nothing. Ends every session of the user; for yourself, all but the current one |
+| `DELETE /sessions/:id` | `{ reason? }` for someone else's (see Reasons) | Nothing |
+| `POST /users/:id/sessions/end` | `{ reason? }` for someone else (see Reasons) | Nothing. Ends every session of the user; for yourself, all but the current one |
 | `POST /me/two-factor` | | `TwoFactorSetup`: a new base32 `secret` and its `otpauth://` `uri`, kept pending until confirmed |
 | `POST /me/two-factor/confirm` | `{ code }` | The `User` with `twoFactor: true`; `invalid_code` if the code does not match the pending secret |
 | `POST /me/two-factor/disable` | `{ code }` | The `User` with `twoFactor: false`; `invalid_code` if the code is wrong |
-| `POST /users/:id/two-factor/reset` | | The `User` with `twoFactor: false`. Needs `users.edit`; `self_change` for yourself |
+| `POST /users/:id/two-factor/reset` | `{ reason? }` (see Reasons) | The `User` with `twoFactor: false`. Needs `users.edit`; `self_change` for yourself |
 
 Codes are TOTP (RFC 6238): SHA-1, 30-second steps, 6 digits; accept one step either side for clock drift. `data/totp.ts` is a working reference. Log `auth.sessions_ended`, `auth.two_factor_on` and `auth.two_factor_off`.
 
@@ -106,9 +106,9 @@ The server sends `data: changed` after each change and a `: ping` comment every 
 | `POST /users` | `UserDraft` | The new `User` | `users.create` |
 | `POST /users/import` | `{ users: UserDraft[] }` | The new `User`s. All or none: refuse the whole request when one is refused | `users.create` |
 | `PATCH /users/:id` | `UserChanges`: a `Partial<UserDraft>` without `roles` | The `User` | `users.edit`; without it, people may change their own `firstName`, `lastName`, `phone` and `avatar` |
-| `POST /users/status` | `{ ids, status }` | The `User`s that changed | `users.edit` |
-| `POST /users/delete` | `{ ids }` | Nothing | `users.delete` |
-| `POST /users/:id/reset-password` | | Nothing | `users.edit` |
+| `POST /users/status` | `{ ids, status, reason? }` | The `User`s that changed | `users.edit` |
+| `POST /users/delete` | `{ ids, reason? }` | Nothing | `users.delete` |
+| `POST /users/:id/reset-password` | `{ reason? }` | Nothing | `users.edit` |
 | `POST /users/:id/resend-invite` | | Nothing; `not_invited` unless the status is `invited` | `users.create` |
 
 `UserDraft.branchId` is the branch the person belongs to (see Branches), or `null` for none: an unknown branch is `not_found`, a closed one `branch_closed` (`409`) unless they already belong to it.
@@ -127,8 +127,8 @@ Someone's roles are the `RoleAssignment`s in `User.roles`, as in NIST RBAC: a pe
 | --- | --- | --- | --- |
 | `POST /role-assignments` | `RoleAssignmentDraft`: `{ userId, roleId, startsAt?, endsAt, reason? }` | The `User` | `users.edit` |
 | `PATCH /role-assignments/:id` | `{ endsAt?, reason? }` | The `User` | `users.edit` |
-| `DELETE /role-assignments/:id` | | The `User` | `users.edit` |
-| `POST /role-assignments/batch` | `{ userIds, add: RoleGrant }` or `{ userIds, removeRoleId }` | The `User`s that changed | `users.edit` |
+| `DELETE /role-assignments/:id` | `{ reason? }` | The `User` | `users.edit` |
+| `POST /role-assignments/batch` | `{ userIds, add: RoleGrant }` or `{ userIds, removeRoleId, reason? }` | The `User`s that changed | `users.edit` |
 
 - **Dates.** `startsAt` left out, or earlier than now, means now. `endsAt` must be later than both `startsAt` and now. Otherwise `invalid_request`.
 - **Each role's own rules** (`Role.assignment`). With `maxDays`, an assignment of that role must end, at most that many days after it starts: refuse a longer one, or one without an end, with `assignment_too_long` (`422`). When `PATCH` moves the end, count from the start or from now, whichever is later. With `reasonRequired`, a blank `reason` is `reason_required` (`422`). A reason is at most 500 characters.
@@ -137,7 +137,7 @@ Someone's roles are the `RoleAssignment`s in `User.roles`, as in NIST RBAC: a pe
 - **Expired ones stay** on the user, so they can be renewed, until they are older than the settings' `activityRetentionDays`. A removed one is gone at once; the activity log keeps what it was.
 - **Several people at once.** `add` gives the role to everyone in `userIds` who does not hold it now or later; `removeRoleId` takes away their current and scheduled assignments of that role. Send one of the two. All or none: refuse the whole request when one change is refused. Repeated ids count once, and people with nothing to change are left out of the answer and the log.
 
-Log each change with the person as the target: `role_assignment.added` (changes `roleId`, `startsAt`, `endsAt`, `reason`), `role_assignment.updated` (the fields that changed), `role_assignment.removed` (`roleId`) and, written by the server itself when an assignment ends, `role_assignment.expired` with `actorId: null`. Deleting a user removes their assignments without entries of their own.
+Log each change with the person as the target: `role_assignment.added` (changes `roleId`, `branchId`, `startsAt`, `endsAt`, with the grant's reason as the entry's `reason`), `role_assignment.updated` (the fields that changed, `reason` among them), `role_assignment.removed` (`roleId`, with the request's reason) and, written by the server itself when an assignment ends, `role_assignment.expired` with `actorId: null`. Deleting a user removes their assignments without entries of their own.
 
 ## Branches
 
@@ -165,13 +165,27 @@ Branches (sites, offices) are optional: the settings' `branchesEnabled` shows th
 
 **Built-in roles** (`system: true`) come from the server's code, as Microsoft Entra's and AWS's built-in roles do: their `name`, `description` and `permissions` are the same on every installation and come back after an upgrade, and the built-in Administrator role holds every permission, including ones added later. `PATCH` may change only their `tone` and `assignment`; anything else is `system_role`. To give a built-in role's people something different, copy it into a new role (the roles page has "Duplicate") and assign that instead.
 
+## Reasons
+
+As Microsoft Entra asks for a justification, the changes that take or reset someone's access carry a reason: `reason`, trimmed, at most 500 characters. The activity log keeps it as the entry's `Activity.reason`. The settings' `reasonsRequired` lists the ones that must have one; there a blank reason is `reason_required` (`422`). The others take a reason when one is given.
+
+| `reasonsRequired` | Requests | Entries |
+| --- | --- | --- |
+| `status` | `POST /users/status` | `user.suspended`, `user.activated` |
+| `delete` | `POST /users/delete` | `user.deleted` |
+| `removeRole` | `DELETE /role-assignments/:id`; `POST /role-assignments/batch` with `removeRoleId` | `role_assignment.removed` |
+| `resetSignIn` | `POST /users/:id/reset-password`; `POST /users/:id/two-factor/reset` | `user.password_reset`, `auth.two_factor_off` |
+| `endSessions` | `DELETE /sessions/:id`, `POST /users/:id/sessions/end`, for someone else | `auth.sessions_ended` |
+
+Nobody needs a reason for their own sessions or password. A new role assignment's `reason` (see Role assignments, where `Role.assignment.reasonRequired` decides) is the reason of its `role_assignment.added` entry.
+
 ## Activity
 
 | Request | Answer | Permission |
 | --- | --- | --- |
 | `GET /activity?from=&to=` | `Activity[]`, newest first, at most 10,000. `from` and `to` (both optional) keep the entries at or after `from` and before `to`. Each is an ISO 8601 instant with `Z` or an offset, such as `2026-10-01T00:00:00.000Z` or `2026-10-01T07:00:00+07:00`; a date alone or a time without an offset is `invalid_request` | `activity.view`; without it, an empty list |
 
-The server writes the log itself, one entry per change, with `actorId` from the session and `ip`, `browser` and `os` from the request. What the server does by itself, such as ending an assignment on time, has `actorId: null` and empty `ip`, `browser` and `os`. `changes` lists the fields that changed; see `Activity` in `data/models.ts` and how `data/local-admin-api.ts` fills it. Entries older than the settings' `activityRetentionDays` are deleted every night.
+The server writes the log itself, one entry per change, with `actorId` from the session and `ip`, `browser` and `os` from the request. What the server does by itself, such as ending an assignment on time, has `actorId: null` and empty `ip`, `browser` and `os`. `changes` lists the fields that changed and `reason` is the request's reason, if any (see Reasons); see `Activity` in `data/models.ts` and how `data/local-admin-api.ts` fills it. Entries older than the settings' `activityRetentionDays` are deleted every night.
 
 ## Settings
 
@@ -180,7 +194,7 @@ The server writes the log itself, one entry per change, with `actorId` from the 
 | `GET /settings` | | `AdminSettings` | Anyone signed in |
 | `PATCH /settings` | `Partial<AdminSettings>` | The `AdminSettings` | `settings.manage` |
 
-`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none. `branchesEnabled` (`false` on a new installation) turns branches on. Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the two lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
+`defaultRoleId` is the role a new user gets, for good, when `POST /users` or an imported row gives them none. `branchesEnabled` (`false` on a new installation) turns branches on. `reasonsRequired` (see Reasons; `["status", "delete"]` on a new installation) lists the changes that need a reason; an unknown item is `invalid_request`, and the list is stored without duplicates. Besides the default role, the allowed domains, the invitation expiry and the idle timeout, `AdminSettings` holds the account rules: `twoFactorRoleIds` (roles that must use two-step sign-in), `passwordMinLength` (8 to 64), `passwordHistory` (0 to 24) and `activityRetentionDays` (30 to 3650). Refuse a value outside its range with `invalid_request` and an unknown role id with `not_found`. Store `allowedDomains` lower-cased, without duplicates, and `twoFactorRoleIds` without duplicates; deleting a role takes it off that list. Log a `settings.updated` entry listing the fields that changed, the three lists as items added and removed. `sessionTimeoutMinutes` is enforced by the app; a server can also end idle sessions on its side.
 
 ## Rules the server must check
 
