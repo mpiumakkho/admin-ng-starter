@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page } from '@playwright/test';
 
-export type SampleRole = 'Administrator' | 'Manager' | 'Support' | 'Viewer';
+export type SampleRole = 'Administrator' | 'Manager' | 'Support' | 'Viewer' | 'Branch manager';
 
 /** Opens the app in English, with nothing saved from an earlier run, in the light theme unless asked otherwise */
 export async function start(page: Page, path = '/login', theme: 'light' | 'dark' = 'light') {
@@ -18,9 +18,9 @@ export async function start(page: Page, path = '/login', theme: 'light' | 'dark'
   await page.goto(path);
 }
 
-/** Signs in with the sample account for a role, from the buttons on the sign-in page */
+/** Signs in with the sample account for a role, from the buttons on the sign-in page; "Manager" is not "Branch manager" */
 export async function signInAs(page: Page, role: SampleRole) {
-  await page.locator('.demo-account', { hasText: role }).click();
+  await page.locator('.demo-account').getByText(role, { exact: true }).click();
   await expect(page).not.toHaveURL(/\/login/);
 }
 

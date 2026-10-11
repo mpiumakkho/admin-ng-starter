@@ -3,6 +3,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import { Session } from '../access/session';
+import { roleAssignmentState } from '../data/access-rules';
 import { AdminStore } from '../data/admin-store';
 import { User } from '../data/models';
 import { errorMessage } from '../shared/errors';
@@ -63,8 +64,12 @@ export class RemoveRoleDialog {
   protected readonly reason = new FormControl('', { nonNullable: true });
   protected readonly reasonRequired = computed(() => this.store.settings().reasonsRequired.includes('removeRole'));
   protected readonly maxReason = MAX_REASON;
-  protected readonly offered = computed(() => this.store.roles().filter(role =>
-    this.session.canAssign(role) && this.users().some(user => this.store.holdsOrWillHold(user, role.id))));
+  /** Roles someone selected holds now or later, in a scope where the signed-in user may take them away */
+  protected readonly offered = computed(() => {
+    const now = this.store.now();
+    return this.store.roles().filter(role => this.users().some(user => user.roles.some(item => item.roleId === role.id
+      && roleAssignmentState(item, now) !== 'expired' && this.session.canGive(role, item.branchId))));
+  });
 
   constructor() {
     effect(() => {

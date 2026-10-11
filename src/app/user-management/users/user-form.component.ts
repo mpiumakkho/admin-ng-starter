@@ -84,12 +84,18 @@ export class UserFormComponent implements OnInit {
     return id ? this.store.usersById().get(id) : undefined;
   });
   protected readonly isEdit = computed(() => !!this.id());
-  protected readonly canListUsers = computed(() => this.session.can('users.view'));
+  protected readonly canListUsers = computed(() => this.session.canSomewhere('users.view'));
   protected readonly notFound = computed(() => this.isEdit() && this.store.loaded() && !this.user());
   /** People cannot change their own role or status, so they cannot lock themselves out or promote themselves */
   protected readonly isSelf = computed(() => this.isEdit() && this.id() === this.session.userId());
   /** Without users.edit, people editing their own profile change only their name, phone and photo */
-  protected readonly profileOnly = computed(() => this.isSelf() && !this.session.can('users.edit'));
+  protected readonly profileOnly = computed(() => this.isSelf() && !this.session.allows('users.edit', this.user()?.branchId ?? null));
+  /** What adding or editing someone needs: through a branch, it reaches that branch's people only */
+  private readonly permission = computed(() => this.isEdit() ? 'users.edit' as const : 'users.create' as const);
+  /** "No branch" is for those who have the permission for the whole organization */
+  protected readonly noBranchAllowed = computed(() => this.session.allows(this.permission(), null));
+  /** With branches off, the field still shows for someone who adds people only through branches */
+  protected readonly showBranch = computed(() => this.store.branchesEnabled() || !this.noBranchAllowed());
 
   protected readonly form = this.fb.group({
     firstName: ['', [Validators.required, Validators.maxLength(50)]],
@@ -107,14 +113,17 @@ export class UserFormComponent implements OnInit {
   protected readonly grants = signal<RoleGrant[]>(this.defaultGrants());
   protected readonly grantedIds = computed(() => this.grants().map(grant => grant.roleId));
   protected readonly addingRole = signal(false);
-  /** Open branches to pick from, and the one someone already belongs to even when it has closed */
-  protected readonly branchChoices = computed(() =>
-    this.store.branches().filter(branch => branch.active || branch.id === this.user()?.branchId));
+  /**
+   * Open branches to pick from, and the one someone already belongs to even when it has closed; through a branch, the
+   * ones the signed-in user looks after
+   */
+  protected readonly branchChoices = computed(() => this.store.branches().filter(branch =>
+    (branch.active && this.session.allows(this.permission(), branch.id)) || branch.id === this.user()?.branchId));
 
   /** Someone else's roles, changed on their profile */
   protected readonly canChangeRoles = computed(() => {
     const user = this.user();
-    return !!user && !this.isSelf() && this.session.can('users.edit') && this.session.canManage(user);
+    return !!user && !this.isSelf() && this.session.canOn('users.edit', user);
   });
 
   protected readonly statusOptions = computed<UiOption<UserStatus>[]>(() => {
@@ -152,6 +161,10 @@ export class UserFormComponent implements OnInit {
         department: user.department, branchId: user.branchId ?? '', status: user.status, avatar: user.avatar,
       });
     }
+    if (!user && !this.noBranchAllowed()) {
+      // Through a branch, new people join one of the signed-in user's branches
+      this.form.controls.branchId.setValue(this.branchChoices()[0]?.id ?? '');
+    }
     if (this.isSelf()) {
       this.form.controls.status.disable();
     }
@@ -164,10 +177,12 @@ export class UserFormComponent implements OnInit {
 
   /**
    * The default role from the settings, for good, when the signed-in user may give it; otherwise the least powerful
-   * role they may give that has no rules of its own
+   * role they may give that has no rules of its own. Through a branch, none: the server gives the default role limited
+   * to the new user's branch.
    */
   private defaultGrants(): RoleGrant[] {
-    const assignable = this.store.roles().filter(role => this.session.canAssign(role) && role.assignment.maxDays === null && !role.assignment.reasonRequired);
+    const assignable = this.store.roles().filter(role => this.session.canGive(role, null, 'users.create')
+      && role.assignment.maxDays === null && !role.assignment.reasonRequired);
     const role = assignable.find(item => item.id === this.store.settings().defaultRoleId)
       ?? [...assignable].sort((a, b) => a.permissions.length - b.permissions.length)[0];
     return role ? [{ roleId: role.id, endsAt: null }] : [];

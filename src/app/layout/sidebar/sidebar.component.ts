@@ -84,7 +84,7 @@ export class SidebarComponent {
   }
 
   private allowed(permission: MenuItem['permission'], setting?: MenuLink['setting']) {
-    return (!permission || this.session.can(permission)) && (!setting || this.store.settings()[setting]);
+    return (!permission || this.session.canSomewhere(permission)) && (!setting || this.store.settings()[setting]);
   }
 
   /** Opens the group that holds this address, so the current page is in view */

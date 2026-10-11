@@ -539,8 +539,11 @@ describe('Session and permissions', () => {
       expect(session.can('users.edit', 'b-cnx')).toBe(true);
       expect(session.can('users.edit', 'b-hq')).toBe(false);
       expect(session.branchesWith('users.edit').sort()).toEqual(['b-cnx', 'b-hkt']);
-      // User management itself asks across the whole organization, so the server refuses
-      await expect(store.updateUser(userWithRole('viewer').id, { phone: '0800000000' })).rejects.toEqual(new AdminApiError('forbidden'));
+      // User management's own permissions reach the people of those branches only (API.md, "Branch administrators")
+      const viewers = store.users().filter(user => user.id !== someone.id && activeRoleIds(user).join() === 'viewer');
+      await store.updateUser(viewers.find(user => user.branchId === 'b-cnx')!.id, { phone: '0800000000' });
+      await expect(store.updateUser(viewers.find(user => user.branchId === 'b-hq')!.id, { phone: '0800000000' }))
+        .rejects.toEqual(new AdminApiError('forbidden'));
     });
 
     it('counts only roles for the whole organization toward keeping an administrator', async () => {
@@ -557,6 +560,46 @@ describe('Session and permissions', () => {
       const ownerRole = store.usersById().get(owner)!.roles.find(item => item.roleId === 'admin')!;
 
       await expect(store.removeRoleAssignment(ownerRole.id)).rejects.toEqual(new AdminApiError('last_administrator'));
+    });
+  });
+
+  describe('branch administrators', () => {
+    const manager = () => DEMO_ACCOUNTS.find(account => account.roleName === 'Branch manager')!.email;
+    /** Someone in Chiang Mai with Finance, which allows no more than the manager's Viewer; and someone at the head office */
+    const own = () => store.users().find(user => user.branchId === 'b-cnx' && activeRoleIds(user).join() === 'finance')!;
+    const elsewhere = () => store.users().find(user => user.branchId === 'b-hq' && user.status === 'active')!;
+
+    it('looks after the people of their branch, giving roles limited to it', async () => {
+      await session.signIn(manager(), 'any-password', false);
+      expect(session.can('users.edit')).toBe(false);
+      expect(session.canSomewhere('users.edit')).toBe(true);
+      expect(session.canSomewhere('settings.view')).toBe(false);
+      expect(session.canOn('users.edit', own())).toBe(true);
+      expect(session.canOn('users.edit', elsewhere())).toBe(false);
+      expect(session.canOn('users.delete', own())).toBe(false);
+      const finance = store.rolesById().get('finance');
+      expect(session.canGive(finance, 'b-cnx')).toBe(true);
+      expect(session.canGive(finance, null)).toBe(false);
+      expect(session.canGive(store.rolesById().get('admin'), 'b-cnx')).toBe(false);
+
+      await store.updateUser(own().id, { department: 'Sales' });
+      await expect(store.updateUser(elsewhere().id, { department: 'Sales' })).rejects.toEqual(new AdminApiError('forbidden'));
+      await expect(store.updateUser(own().id, { branchId: 'b-hq' })).rejects.toEqual(new AdminApiError('forbidden'));
+      await expect(store.deleteUsers([own().id], 'Left the company')).rejects.toEqual(new AdminApiError('forbidden'));
+      await expect(store.assignRole({ userId: own().id, roleId: 'finance', endsAt: null })).rejects.toEqual(new AdminApiError('forbidden'));
+      await store.assignRole({ userId: own().id, roleId: 'finance', branchId: 'b-cnx', endsAt: null });
+
+      const added = { ...draft('viewer'), roles: [], branchId: 'b-cnx' };
+      await expect(store.createUser({ ...added, branchId: 'b-hq' })).rejects.toEqual(new AdminApiError('forbidden'));
+      const created = await store.createUser(added);
+      expect(created.roles.map(item => [item.roleId, item.branchId])).toEqual([['viewer', 'b-cnx']]);
+    });
+
+    it('reads the activity about the people of their branch only', async () => {
+      await session.signIn(manager(), 'any-password', false);
+      const people = new Set(store.users().filter(user => user.branchId === 'b-cnx').map(user => user.id));
+      expect(store.activity().length).toBeGreaterThan(0);
+      expect(store.activity().every(entry => !!entry.targetId && people.has(entry.targetId))).toBe(true);
     });
   });
 

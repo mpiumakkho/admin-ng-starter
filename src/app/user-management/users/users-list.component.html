@@ -1,12 +1,12 @@
 <ui-page-header [title]="'Users' | translate" [subtitle]="'Everyone who can sign in to the admin.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
   <app-export-menu [source]="exportTable" />
-  @if (session.can('users.create')) {
+  @if (session.canSomewhere('users.create')) {
     <button uiButton variant="secondary" type="button" (click)="importing.set(true)"><ng-icon [svg]="icons.import" /> {{ 'Import' | translate }}</button>
     <a uiButton routerLink="/users/new"><ng-icon [svg]="icons.add" /> {{ 'Add user' | translate }}</a>
   }
 </ui-page-header>
 
-@if (session.can('users.create')) {
+@if (session.canSomewhere('users.create')) {
   <app-import-users-dialog [(open)]="importing" />
 }
 @if (canEdit()) {
@@ -107,7 +107,7 @@
                       <a uiMenuItem [icon]="icons.edit" [routerLink]="['/users', user.id, 'edit']">{{ 'Edit' | translate }}<span class="ui-sr-only"> {{ fullName(user) }}</span></a>
                     }
                     <!-- Status and password reset are for other people; your own password is in the account menu -->
-                    @if (canEdit() && manages(user) && !session.isSelf(user)) {
+                    @if (session.canOn('users.edit', user) && !session.isSelf(user)) {
                       @if (user.status === 'suspended') {
                         <button uiMenuItem [icon]="icons.activate" (triggered)="setStatusFor([user], 'active')">{{ 'Activate' | translate }}</button>
                       } @else {
@@ -115,7 +115,7 @@
                       }
                       <button uiMenuItem [icon]="icons.reset" (triggered)="resetPassword(user)">{{ 'Reset password' | translate }}</button>
                     }
-                    @if (canDelete() && manages(user) && !session.isSelf(user)) {
+                    @if (session.canOn('users.delete', user) && !session.isSelf(user)) {
                       <hr uiMenuDivider />
                       <button uiMenuItem tone="danger" [icon]="icons.remove" (triggered)="remove([user])">{{ 'Delete' | translate }}</button>
                     }
@@ -135,7 +135,7 @@
     <ui-empty-state [icon]="icons.empty" [title]="'No users found' | translate" [description]="(hasFilters() ? 'Try another search or clear the filters.' : 'Add the first user to get started.') | translate">
       @if (hasFilters()) {
         <button uiButton variant="secondary" type="button" (click)="clearFilters()">{{ 'Clear filters' | translate }}</button>
-      } @else if (session.can('users.create')) {
+      } @else if (session.canSomewhere('users.create')) {
         <a uiButton routerLink="/users/new">{{ 'Add user' | translate }}</a>
       }
     </ui-empty-state>

@@ -16,7 +16,7 @@
   </div>
   <div class="navbar-menu-wrapper">
     <!-- Search on the left, where it is found first. On phones the search button opens it over the bar. -->
-    @if (session.can('users.view')) {
+    @if (session.canSomewhere('users.view')) {
       <!-- People show as you type (an ARIA combobox): arrow keys pick one, Enter opens it, or the whole list when none is picked -->
       <form class="search-form" [class.search-open]="searchOpen()" role="search" (submit)="$event.preventDefault(); submitSearch()" (focusout)="searchFocusOut($event)">
         <ng-icon name="lucideSearch" class="search-icon" />
@@ -59,7 +59,7 @@
     }
 
     <ul class="navbar-actions">
-      @if (session.can('users.view')) {
+      @if (session.canSomewhere('users.view')) {
         <li class="search-button-item">
           <button type="button" class="icon-button" (click)="openSearch()" [attr.aria-label]="'Search users' | translate">
             <ng-icon name="lucideSearch" />
@@ -68,7 +68,7 @@
       }
 
       <!-- The dot means something was logged since the menu was last opened -->
-      @if (session.can('activity.view')) {
+      @if (session.canSomewhere('activity.view')) {
         <li>
           <button type="button" class="icon-button count-indicator" [uiMenuTrigger]="activityMenu" [uiMenuPosition]="menuPosition" (menuOpened)="markActivitySeen()" [attr.aria-label]="(hasNewActivity() ? 'Recent activity, new items' : 'Recent activity') | translate">
             <ng-icon name="lucideBell" />
@@ -143,7 +143,7 @@
               }
               <a uiMenuItem [icon]="icons.user" [routerLink]="['/users', me.id]">{{ 'My Profile' | translate }}</a>
               <a uiMenuItem [icon]="icons.security" [routerLink]="['/users', me.id]" [queryParams]="{ tab: 'security' }">{{ 'Security and devices' | translate }}</a>
-              @if (session.can('activity.view')) {
+              @if (session.canSomewhere('activity.view')) {
                 <a uiMenuItem [icon]="icons.activity" routerLink="/activity" [queryParams]="{ user: me.id }">{{ 'My activity' | translate }}</a>
               }
               <button uiMenuItemCheckbox [icon]="icons.accessible" [checked]="accessibleView.on()" (triggered)="accessibleView.toggle()">{{ 'Accessible view' | translate }}</button>

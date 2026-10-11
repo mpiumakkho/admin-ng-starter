@@ -45,7 +45,7 @@
               </td>
               <td class="hide-sm"><code class="branch-code">{{ row.branch.code }}</code></td>
               <td class="cell-number">
-                @if (row.people && session.can('users.view')) {
+                @if (row.people && session.canSomewhere('users.view')) {
                   <a class="count-link" routerLink="/users" [queryParams]="{ branch: row.branch.id }">{{ row.people }}<span class="ui-sr-only"> {{ 'people in' | translate }} {{ row.branch.name }}</span></a>
                 } @else {
                   {{ row.people }}

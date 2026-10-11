@@ -62,7 +62,8 @@ export class ImportUsersDialog {
       takenEmails: new Set(this.store.users().map(user => user.email.toLowerCase())),
       allowedDomains: settings.allowedDomains,
       defaultRoleId: settings.defaultRoleId,
-      canAssign: role => this.session.canAssign(role),
+      canAssign: (role, branchId) => this.session.canGive(role, branchId, 'users.create'),
+      canAdd: branchId => this.session.allows('users.create', branchId),
       status: this.status(),
       branches: settings.branchesEnabled ? this.store.branches() : undefined,
       conflicts: this.store.roleConflicts(),
@@ -91,9 +92,12 @@ export class ImportUsersDialog {
 
   /** A file with the columns and two sample rows, to fill in */
   protected downloadTemplate() {
-    const roles = this.store.roles().filter(role => this.session.canAssign(role));
+    // Through a branch, one of the signed-in user's, and the roles they may give there
+    const open = this.store.openBranches().filter(item => this.session.allows('users.create', item.id));
+    const scope = this.session.allows('users.create', null) ? null : open[0]?.id ?? null;
+    const roles = this.store.roles().filter(role => this.session.canGive(role, scope, 'users.create'));
     // With branches on, a Branch column too, by code
-    const branch = this.store.branchesEnabled() ? this.store.openBranches()[0]?.code ?? '' : null;
+    const branch = this.store.branchesEnabled() || scope ? open[0]?.code ?? '' : null;
     const withBranch = (row: string[]) => branch === null ? row : [...row.slice(0, 5), row[0] === 'First name' ? 'Branch' : branch, ...row.slice(5)];
     downloadText('users-template.csv', toCsv([
       withBranch([...IMPORT_COLUMNS]),

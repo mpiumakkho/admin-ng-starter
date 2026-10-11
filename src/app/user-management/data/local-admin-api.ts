@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 
 import {
-  activeRoleIds, administratorRemains, canManageRole, canManageUser, holdsAll, permissionsOf, roleAssignmentState, roleConflict,
-  SELF_EDITABLE_FIELDS,
+  activeRoleIds, administratorRemains, allows, branchesWith, canGiveRole, canManageRole, canManageUser, Grants, grantsOf, holdsAll,
+  permissionsOf, roleAssignmentState, roleConflict, SELF_EDITABLE_FIELDS,
 } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
 import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, REASON_ACTIONS, ROLE_TONES, STATUS_META } from './catalog';
@@ -171,8 +171,13 @@ export class LocalAdminApi extends AdminApi {
 
   async listUsers(): Promise<User[]> {
     const actor = this.actor();
-    // Without users.view people still see their own account
-    return this.respond(this.permissions(actor).has('users.view') ? this.data.users : [actor]);
+    const grants = this.grants(actor);
+    if (grants.organization.has('users.view')) {
+      return this.respond(this.data.users);
+    }
+    // Through branches, their people (API.md, "Branch administrators"); without it, people still see their own account
+    const branches = branchesWith(grants, 'users.view');
+    return this.respond(this.data.users.filter(user => user.id === actor.id || (!!user.branchId && branches.includes(user.branchId))));
   }
 
   async createUser(input: UserDraft): Promise<User> {
@@ -206,14 +211,19 @@ export class LocalAdminApi extends AdminApi {
 
   async updateUser(id: string, input: UserChanges): Promise<User> {
     const actor = this.actor();
-    const current = this.findManageable(actor, id);
+    const current = this.findManageable(actor, id, 'users.edit');
     const changes = userChanges(input);
-    // Without users.edit, people can still change their own name, phone and photo
-    if (!this.permissions(actor).has('users.edit')) {
+    const grants = this.grants(actor);
+    // Without users.edit over them, people can still change their own name, phone and photo
+    if (!allows(grants, 'users.edit', current.branchId ?? null)) {
       const changed = (Object.keys(changes) as (keyof UserChanges)[]).filter(field => changes[field] !== current[field]);
       if (id !== actor.id || changed.some(field => !(SELF_EDITABLE_FIELDS as readonly string[]).includes(field))) {
         throw new AdminApiError('forbidden');
       }
+    }
+    // Moved only where the actor has users.edit too: a branch administrator keeps people in their branches
+    if (changes.branchId !== undefined && changes.branchId !== (current.branchId ?? null) && !allows(grants, 'users.edit', changes.branchId)) {
+      throw new AdminApiError('forbidden');
     }
     if (changes.email !== undefined) {
       this.assertEmailFree(changes.email, id);
@@ -242,7 +252,7 @@ export class LocalAdminApi extends AdminApi {
     if (ids.includes(actor.id)) {
       throw new AdminApiError('self_change');
     }
-    ids.forEach(id => this.findManageable(actor, id));
+    ids.forEach(id => this.findManageable(actor, id, 'users.edit'));
     const why = this.requireReason('status', reason);
     this.commitUsers(this.data.users.map(user => ids.includes(user.id) ? { ...user, status } : user), false);
     const changed: User[] = [];
@@ -268,7 +278,7 @@ export class LocalAdminApi extends AdminApi {
     if (ids.includes(actor.id)) {
       throw new AdminApiError('self_change');
     }
-    const users = ids.map(id => this.findManageable(actor, id));
+    const users = ids.map(id => this.findManageable(actor, id, 'users.delete'));
     this.assertReauthenticated();
     const why = this.requireReason('delete', reason);
     this.commitUsers(this.data.users.filter(user => !ids.includes(user.id)), false);
@@ -285,7 +295,7 @@ export class LocalAdminApi extends AdminApi {
 
   async resetPassword(id: string, reason?: string): Promise<void> {
     const actor = this.actor('users.edit');
-    const user = this.findManageable(actor, id);
+    const user = this.findManageable(actor, id, 'users.edit');
     // Your own needs no reason, nor a recent sign-in
     if (id !== actor.id) {
       this.assertReauthenticated();
@@ -302,7 +312,7 @@ export class LocalAdminApi extends AdminApi {
 
   async resendInvite(id: string): Promise<void> {
     const actor = this.actor('users.create');
-    const user = this.findManageable(actor, id);
+    const user = this.findManageable(actor, id, 'users.create');
     if (user.status !== 'invited') {
       throw new AdminApiError('not_invited');
     }
@@ -317,7 +327,7 @@ export class LocalAdminApi extends AdminApi {
     const actor = this.actor('users.edit');
     const { userId, ...grant } = fields(input, ['userId', ...GRANT_FIELDS]);
     check(typeof userId === 'string');
-    const user = this.findManageable(actor, userId as string);
+    const user = this.findManageable(actor, userId as string, 'users.edit');
     if (user.id === actor.id) {
       throw new AdminApiError('self_change');
     }
@@ -335,7 +345,7 @@ export class LocalAdminApi extends AdminApi {
     check(changes.endsAt === undefined || changes.endsAt === null || isInstant(changes.endsAt));
     check(changes.reason === undefined || (typeof changes.reason === 'string' && changes.reason.length <= MAX_REASON_LENGTH));
     const { user, assignment: current } = this.findAssignment(actor, id);
-    const role = this.assertCanAssign(actor, current.roleId);
+    const role = this.assertChangeable(actor, current);
     this.assertReauthenticated();
     const now = Date.now();
     const assignment: RoleAssignment = {
@@ -371,7 +381,7 @@ export class LocalAdminApi extends AdminApi {
   async removeRoleAssignment(id: string, reason?: string): Promise<User> {
     const actor = this.actor('users.edit');
     const { user, assignment } = this.findAssignment(actor, id);
-    this.assertCanAssign(actor, assignment.roleId);
+    this.assertChangeable(actor, assignment);
     this.assertReauthenticated();
     const why = this.requireReason('removeRole', reason);
     const updated = { ...user, roles: user.roles.filter(item => item.id !== id) };
@@ -391,7 +401,7 @@ export class LocalAdminApi extends AdminApi {
     if (ids.includes(actor.id)) {
       throw new AdminApiError('self_change');
     }
-    const users = ids.map(id => this.findManageable(actor, id));
+    const users = ids.map(id => this.findManageable(actor, id, 'users.edit'));
     this.assertReauthenticated();
     const now = Date.now();
     const holds = (user: User, roleId: string, branchId?: string | null) => user.roles.some(item => item.roleId === roleId
@@ -412,7 +422,12 @@ export class LocalAdminApi extends AdminApi {
     } else {
       const roleId = change['removeRoleId'];
       check(typeof roleId === 'string');
-      this.assertCanAssign(actor, roleId as string);
+      if (!this.data.roles.some(role => role.id === roleId)) {
+        throw new AdminApiError('not_found');
+      }
+      // Each assignment taken away in its scope, all checked before any goes
+      users.forEach(user => user.roles.filter(item => item.roleId === roleId && roleAssignmentState(item, now) !== 'expired')
+        .forEach(item => this.assertChangeable(actor, item)));
       why = this.requireReason('removeRole', change['reason']);
       for (const user of users.filter(item => holds(item, roleId as string))) {
         const updated = { ...user, roles: user.roles.filter(item => item.roleId !== roleId || roleAssignmentState(item, now) === 'expired') };
@@ -675,14 +690,19 @@ export class LocalAdminApi extends AdminApi {
     const actor = this.actor();
     const { from, to } = range;
     check([from, to].every(value => value === undefined || isInstant(value)));
-    if (!this.permissions(actor).has('activity.view')) {
+    const grants = this.grants(actor);
+    // Through branches, only the entries about their people (API.md, "Branch administrators")
+    const branches = branchesWith(grants, 'activity.view');
+    const people = grants.organization.has('activity.view') ? null
+      : new Set(this.data.users.filter(user => !!user.branchId && branches.includes(user.branchId)).map(user => user.id));
+    if (people?.size === 0) {
       return this.respond([]);
     }
     const after = from ? new Date(from).getTime() : -Infinity;
     const before = to ? new Date(to).getTime() : Infinity;
     return this.respond(this.data.activity.filter(entry => {
       const at = new Date(entry.at).getTime();
-      return at >= after && at < before;
+      return at >= after && at < before && (!people || (!!entry.targetId && people.has(entry.targetId)));
     }));
   }
 
@@ -823,7 +843,7 @@ export class LocalAdminApi extends AdminApi {
     if (userId === actor.id) {
       throw new AdminApiError('self_change');
     }
-    this.findManageable(actor, userId);
+    this.findManageable(actor, userId, 'users.edit');
     this.assertReauthenticated();
     const why = this.requireReason('resetSignIn', reason);
     const user = this.setTwoFactor(userId, false);
@@ -851,13 +871,7 @@ export class LocalAdminApi extends AdminApi {
 
   /** Your own sessions and two-step sign-in, or, with users.edit, those of someone you manage */
   private assertCanSeeSecurity(actor: User, userId: string): User {
-    if (userId === actor.id) {
-      return actor;
-    }
-    if (!this.permissions(actor).has('users.edit')) {
-      throw new AdminApiError('forbidden');
-    }
-    return this.findManageable(actor, userId);
+    return userId === actor.id ? actor : this.findManageable(actor, userId, 'users.edit');
   }
 
   private setTwoFactor(userId: string, on: boolean): User {
@@ -870,19 +884,22 @@ export class LocalAdminApi extends AdminApi {
     return user;
   }
 
-  /** Checks a new user, their branch and roles included, without adding anything */
+  /** Checks a new user, their branch and roles included, without adding anything; through branches, in one of them */
   private assertCanCreate(actor: User, draft: UserDraft) {
+    if (!allows(this.grants(actor), 'users.create', draft.branchId ?? null)) {
+      throw new AdminApiError('forbidden');
+    }
     this.assertEmailFree(draft.email);
     this.assertEmailDomain(draft.email);
     this.assertOpenBranch(draft.branchId ?? null);
-    this.newRoles(actor, { id: '' }, draft.roles);
+    this.newRoles(actor, { id: '' }, draft.roles, draft.branchId ?? null);
   }
 
   private addUser(actor: User, draft: UserDraft): User {
     const now = new Date().toISOString();
     const id = `u-${crypto.randomUUID().slice(0, 8)}`;
     const { roles: grants, branchId = null, ...profile } = draft;
-    const user: User = { ...profile, id, branchId, roles: this.newRoles(actor, { id }, grants), createdAt: now, lastActiveAt: null };
+    const user: User = { ...profile, id, branchId, roles: this.newRoles(actor, { id }, grants, branchId), createdAt: now, lastActiveAt: null };
     this.data.users = [user, ...this.data.users];
     this.log(actor.id, draft.status === 'invited' ? 'user.invited' : 'user.created', fullName(user), user.id, [
       { field: 'department', to: user.department },
@@ -897,20 +914,27 @@ export class LocalAdminApi extends AdminApi {
     return user;
   }
 
-  /** A new user's first roles, each checked as POST /role-assignments checks it; none gives the default role for good */
-  private newRoles(actor: User, user: Pick<User, 'id'>, grants: RoleGrant[]): RoleAssignment[] {
-    const given = grants.length ? grants : [{ roleId: this.data.settings.defaultRoleId, endsAt: null }];
+  /**
+   * A new user's first roles, each checked as POST /role-assignments checks it, with users.create. None gives the default
+   * role for good: for the whole organization, or limited to their branch when the actor adds people only through branches.
+   */
+  private newRoles(actor: User, user: Pick<User, 'id'>, grants: RoleGrant[], branchId: string | null): RoleAssignment[] {
+    const scope = this.permissions(actor).has('users.create') ? null : branchId;
+    const given = grants.length ? grants : [{ roleId: this.data.settings.defaultRoleId, branchId: scope, endsAt: null }];
     return given.reduce<RoleAssignment[]>((roles, grant) =>
-      [...roles, this.newAssignment(actor, { id: user.id, roles }, grant)], []);
+      [...roles, this.newAssignment(actor, { id: user.id, roles }, grant, 'users.create')], []);
   }
 
   /**
-   * An assignment of a role to someone, checked the way API.md says: the actor may give the role, the dates make
-   * sense, the role's own rules hold, and it does not overlap one of the same role they already have.
+   * An assignment of a role to someone, checked the way API.md says: the actor may give the role in its scope, the dates
+   * make sense, the role's own rules hold, and it does not overlap one of the same role they already have.
    */
-  private newAssignment(actor: User, user: Pick<User, 'id' | 'roles'>, grant: RoleGrant): RoleAssignment {
-    const role = this.assertCanAssign(actor, grant.roleId);
+  private newAssignment(actor: User, user: Pick<User, 'id' | 'roles'>, grant: RoleGrant, permission: Permission = 'users.edit'): RoleAssignment {
     const branchId = grant.branchId ?? null;
+    if (!allows(this.grants(actor), permission, branchId)) {
+      throw new AdminApiError('forbidden');
+    }
+    const role = this.assertCanAssign(actor, grant.roleId, branchId);
     this.assertOpenBranch(branchId);
     const now = Date.now();
     const start = Math.max(grant.startsAt ? new Date(grant.startsAt).getTime() : now, now);
@@ -943,7 +967,7 @@ export class LocalAdminApi extends AdminApi {
     if (!user) {
       throw new AdminApiError('not_found');
     }
-    this.findManageable(actor, user.id);
+    this.findManageable(actor, user.id, 'users.edit');
     if (user.id === actor.id) {
       throw new AdminApiError('self_change');
     }
@@ -1097,7 +1121,8 @@ export class LocalAdminApi extends AdminApi {
     if (!setupAllowed && !user.twoFactor && this.requiresTwoFactor(user)) {
       throw new AdminApiError('two_factor_mandatory');
     }
-    if (permission && !this.permissions(user).has(permission)) {
+    // Somewhere: the methods narrow a permission a branch role gives to the people of that branch
+    if (permission && !this.permissions(user).has(permission) && !branchesWith(this.grants(user), permission).length) {
       throw new AdminApiError('forbidden');
     }
     return user;
@@ -1105,6 +1130,10 @@ export class LocalAdminApi extends AdminApi {
 
   private permissions(user: User): ReadonlySet<Permission> {
     return permissionsOf(user, this.data.roles);
+  }
+
+  private grants(user: User): Grants {
+    return grantsOf(user, this.data.roles);
   }
 
   private findUser(id: string): User {
@@ -1115,10 +1144,15 @@ export class LocalAdminApi extends AdminApi {
     return user;
   }
 
-  /** A user the actor may change: nobody can manage someone whose roles, now or scheduled, allow more than their own */
-  private findManageable(actor: User, id: string): User {
+  /**
+   * A user the actor may change with this permission: theirs for the whole organization, or, for one a role limited to a
+   * branch gives, in the person's branch; and nobody manages someone whose roles, now or scheduled, allow more than the
+   * actor has in each role's scope. Yourself is always found: the rules about yourself are the callers'.
+   */
+  private findManageable(actor: User, id: string, permission: Permission): User {
     const user = this.findUser(id);
-    if (user.id !== actor.id && !canManageUser(this.permissions(actor), user, this.data.roles)) {
+    const grants = this.grants(actor);
+    if (user.id !== actor.id && !(allows(grants, permission, user.branchId ?? null) && canManageUser(grants, user, this.data.roles))) {
       throw new AdminApiError('forbidden');
     }
     return user;
@@ -1145,16 +1179,24 @@ export class LocalAdminApi extends AdminApi {
     }
   }
 
-  /** A role the actor may give: it grants nothing they lack */
-  private assertCanAssign(actor: User, roleId: string): Role {
+  /** A role the actor may give in a scope (null: the whole organization): it grants nothing they lack there */
+  private assertCanAssign(actor: User, roleId: string, branchId: string | null): Role {
     const role = this.data.roles.find(item => item.id === roleId);
     if (!role) {
       throw new AdminApiError('not_found');
     }
-    if (!holdsAll(this.permissions(actor), role.permissions)) {
+    if (!canGiveRole(this.grants(actor), role, branchId)) {
       throw new AdminApiError('forbidden');
     }
     return role;
+  }
+
+  /** An assignment the actor may change or take away: users.edit and every permission of its role, in its scope */
+  private assertChangeable(actor: User, assignment: RoleAssignment): Role {
+    if (!allows(this.grants(actor), 'users.edit', assignment.branchId)) {
+      throw new AdminApiError('forbidden');
+    }
+    return this.assertCanAssign(actor, assignment.roleId, assignment.branchId);
   }
 
   private assertEmailDomain(email: string) {

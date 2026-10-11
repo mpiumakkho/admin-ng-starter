@@ -261,7 +261,7 @@ export class NavbarComponent {
   }
 
   protected focusSearchOnShortcut(event: KeyboardEvent) {
-    if (event.key.toLowerCase() === 'k' && (this.isMac ? event.metaKey : event.ctrlKey) && this.session.can('users.view')) {
+    if (event.key.toLowerCase() === 'k' && (this.isMac ? event.metaKey : event.ctrlKey) && this.session.canSomewhere('users.view')) {
       event.preventDefault();
       this.openSearch();
     }

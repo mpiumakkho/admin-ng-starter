@@ -1,5 +1,5 @@
 <ui-page-header [title]="'Overview' | translate" [subtitle]="'How your users and roles are doing.' | translate" [icon]="icons.page">
-  @if (session.can('users.create')) {
+  @if (session.canSomewhere('users.create')) {
     <a uiButton routerLink="/users/new"><ng-icon [svg]="icons.joined" /> {{ 'Add user' | translate }}</a>
   }
 </ui-page-header>
@@ -22,7 +22,7 @@
   </a>
 </div>
 
-<div class="overview-grid" [class.no-activity]="!session.can('activity.view')">
+<div class="overview-grid" [class.no-activity]="!session.canSomewhere('activity.view')">
   <ui-card class="span-8 chart-card" [title]="'New users' | translate" [description]="'People who joined each month' | translate">
     <ui-segmented uiCardActions size="sm" [options]="rangeOptions()" [(value)]="months" [ariaLabel]="'Time range' | translate" />
     <div class="chart-box">
@@ -62,7 +62,7 @@
   </ui-card>
 
   <!-- Without activity.view the log stays empty, so this card makes way for the next one -->
-  @if (session.can('activity.view')) {
+  @if (session.canSomewhere('activity.view')) {
     <ui-card class="span-7" [title]="'Recent activity' | translate" [description]="'Latest changes made by admins' | translate">
       <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/activity">{{ 'View all' | translate }}<span class="ui-sr-only"> {{ 'Activity log' | translate }}</span> <ng-icon [svg]="icons.arrow" /></a>
       @if (recentActivity().length) {
@@ -98,7 +98,7 @@
           @for (item of staleInvites().slice(0, 3); track item.user.id) {
             <li class="attention-person">
               <ui-person [name]="fullName(item.user)" [detail]="'invitedAgo' | translate: { time: (item.sentAt | timeAgo) }" [src]="item.user.avatar" />
-              @if (session.can('users.create') && session.canManage(item.user)) {
+              @if (session.canOn('users.create', item.user)) {
                 <button uiButton variant="secondary" size="sm" type="button" [loading]="resending() === item.user.id" (click)="resendInvite(item.user)">
                   {{ 'Send again' | translate }}
                 </button>
@@ -169,7 +169,7 @@
       </ul>
     } @else {
       <ui-empty-state compact [icon]="icons.joined" [title]="'No users yet' | translate" [description]="'Add the first user to get started.' | translate">
-        @if (session.can('users.create')) {
+        @if (session.canSomewhere('users.create')) {
           <a uiButton size="sm" routerLink="/users/new">{{ 'Add user' | translate }}</a>
         }
       </ui-empty-state>

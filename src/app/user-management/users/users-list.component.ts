@@ -127,22 +127,23 @@ export class UsersListComponent {
 
   /* What the signed-in user's role allows here */
 
-  protected readonly canEdit = computed(() => this.session.can('users.edit'));
+  /** For the whole organization, or through a branch for its people (API.md, "Branch administrators") */
+  protected readonly canEdit = computed(() => this.session.canSomewhere('users.edit'));
   protected readonly canDelete = computed(() => this.session.can('users.delete'));
   /** Rows have checkboxes only when there is something to do with a selection */
   protected readonly canSelect = computed(() => this.canEdit() || this.canDelete());
-
-  /** Whether the reader may change this person: nobody can change someone whose role allows more than their own */
-  protected manages(user: User) {
-    return this.session.canManage(user);
-  }
 
   /** Why a row cannot be ticked, as a tooltip; empty when it can */
   protected lockReason(user: User): string {
     if (this.session.isSelf(user)) {
       return 'You cannot change your own account from the list.';
     }
-    return this.manages(user) ? '' : 'Their role has permissions yours does not, so you cannot change them.';
+    if (this.session.canManage(user)) {
+      return '';
+    }
+    return this.session.allows('users.edit', user.branchId ?? null) || this.session.allows('users.delete', user.branchId ?? null)
+      ? 'Their role has permissions yours does not, so you cannot change them.'
+      : 'They are not in a branch you look after.';
   }
 
   /* Filters */

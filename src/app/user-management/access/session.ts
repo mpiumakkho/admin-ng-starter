@@ -2,7 +2,9 @@ import { computed, DOCUMENT, effect, inject, Injectable, InjectionToken, signal,
 import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 
-import { branchPermissionsOf, canManageUser, holdsAll, permissionsOf } from '../data/access-rules';
+import {
+  allows, branchesWith, branchPermissionsOf, canGiveRole, canManageUser, Grants, holdsAll, permissionsOf,
+} from '../data/access-rules';
 import { AdminApi } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
 import { Permission, Role, User } from '../data/models';
@@ -65,6 +67,8 @@ export class Session {
   readonly permissions = computed<ReadonlySet<Permission>>(() => permissionsOf(this.user(), this.store.roles(), this.store.now()));
   /** What roles limited to a branch allow there, by branch id, on top of permissions (Azure RBAC's scopes) */
   readonly branchPermissions = computed(() => branchPermissionsOf(this.user(), this.store.roles(), this.store.now()));
+  /** Both together, for the rules in access-rules.ts */
+  readonly grants = computed<Grants>(() => ({ organization: this.permissions(), branches: this.branchPermissions() }));
   /** The role requires two-step sign-in and it is off: only the setup page opens (API.md, "Roles that must use…") */
   readonly twoFactorSetupRequired = computed(() => this.signedIn() && this.store.twoFactorSetupRequired());
   /**
@@ -171,6 +175,32 @@ export class Session {
     return this.permissions().has(permission) || (!!branchId && !!this.branchPermissions().get(branchId)?.has(permission));
   }
 
+  /**
+   * Whether the signed-in user has a permission anywhere: across the whole organization, or, for the user-management
+   * permissions a role limited to a branch gives (BRANCH_SCOPED_PERMISSIONS), in some branch. Menus, guards and buttons
+   * for a whole page ask this; what to do with one person asks canOn().
+   */
+  canSomewhere(permission: Permission): boolean {
+    return this.can(permission) || branchesWith(this.grants(), permission).length > 0;
+  }
+
+  /**
+   * Whether the signed-in user may use a user-management permission over the people of a branch, or of none (null), or
+   * for an assignment in that scope (API.md, "Branch administrators")
+   */
+  allows(permission: Permission, branchId: string | null): boolean {
+    return allows(this.grants(), permission, branchId);
+  }
+
+  /**
+   * Whether the signed-in user may do this to a person: they have the permission over the person's branch, and every
+   * permission of each role the person holds now or later, in that role's scope (API.md, rules 1 and 3). The rules about
+   * yourself, such as not changing your own roles, are the caller's.
+   */
+  canOn(permission: Permission, user: Pick<User, 'roles' | 'branchId'>): boolean {
+    return this.allows(permission, user.branchId ?? null) && canManageUser(this.grants(), user, this.store.roles(), this.store.now());
+  }
+
   /** The branches where the signed-in user has a permission through a role limited to them; with it everywhere, all */
   branchesWith(permission: Permission): string[] {
     if (this.permissions().has(permission)) {
@@ -183,14 +213,23 @@ export class Session {
     return !!user && user.id === this.userId();
   }
 
-  /** Whether the signed-in user may give someone this role: it grants nothing they lack */
+  /** Whether the signed-in user may edit or copy this role: it grants nothing they lack for the whole organization */
   canAssign(role: Pick<Role, 'permissions'> | undefined): boolean {
     return !!role && holdsAll(this.permissions(), role.permissions);
   }
 
-  /** Whether the signed-in user may change this person: themselves, or someone whose roles, now or scheduled, they could give */
-  canManage(user: Pick<User, 'id' | 'roles'>): boolean {
-    return this.isSelf(user) || canManageUser(this.permissions(), user, this.store.roles(), this.store.now());
+  /**
+   * Whether the signed-in user may give this role, or change or take away an assignment of it, in a scope (null: the
+   * whole organization): the permission (users.edit, or users.create for a new user's roles) there, and every
+   * permission of the role there (API.md, rule 2)
+   */
+  canGive(role: Pick<Role, 'permissions'> | undefined, branchId: string | null, permission: Permission = 'users.edit'): boolean {
+    return !!role && this.allows(permission, branchId) && canGiveRole(this.grants(), role, branchId);
+  }
+
+  /** Whether the signed-in user may change this person in some way: themselves, or someone they may edit, invite or delete */
+  canManage(user: Pick<User, 'id' | 'roles' | 'branchId'>): boolean {
+    return this.isSelf(user) || (['users.edit', 'users.create', 'users.delete'] as const).some(permission => this.canOn(permission, user));
   }
 
   /** The first page the signed-in user can open: the overview, or their own profile when nothing else is allowed */
@@ -201,10 +240,10 @@ export class Session {
     if (this.twoFactorSetupRequired()) {
       return TWO_FACTOR_SETUP_PATH;
     }
-    if (this.can('users.view')) {
+    if (this.canSomewhere('users.view')) {
       return '/overview';
     }
-    if (this.can('activity.view')) {
+    if (this.canSomewhere('activity.view')) {
       return '/activity';
     }
     if (this.can('roles.view')) {
@@ -283,14 +322,14 @@ export class Session {
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await this.api.changePassword(currentPassword, newPassword);
     // The activity log gains an entry; the password has changed even if this refresh fails
-    if (this.can('activity.view')) {
+    if (this.canSomewhere('activity.view')) {
       this.api.listActivity().then(entries => this.store.activity.set(entries), () => undefined);
     }
   }
 
   /** Whether the signed-in user can edit this person's profile: their own name, phone and photo always */
-  canEditProfile(user: Pick<User, 'id' | 'roles'>): boolean {
-    return this.isSelf(user) || (this.can('users.edit') && this.canManage(user));
+  canEditProfile(user: Pick<User, 'id' | 'roles' | 'branchId'>): boolean {
+    return this.isSelf(user) || this.canOn('users.edit', user);
   }
 
   /**

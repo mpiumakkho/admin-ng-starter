@@ -32,7 +32,7 @@ export const signedOut: CanActivateFn = () => {
   return !session.signedIn() || !!router.currentNavigation()?.extras.state?.[SIGNING_OUT] || router.parseUrl(session.homeUrl());
 };
 
-/** Lets through people whose role has every permission listed */
+/** Lets through people who have every permission listed, somewhere (Session.canSomewhere) */
 export function requirePermission(...permissions: Permission[]): CanActivateFn {
   return (_route, state) => {
     const session = inject(Session);
@@ -42,11 +42,11 @@ export function requirePermission(...permissions: Permission[]): CanActivateFn {
     if (session.twoFactorSetupRequired()) {
       return toTwoFactorSetup();
     }
-    return permissions.every(permission => session.can(permission)) || noAccess(state);
+    return permissions.every(permission => session.canSomewhere(permission)) || noAccess(state);
   };
 }
 
-/** A user's profile: anyone can see their own; other people's need users.view */
+/** A user's profile: anyone can see their own; other people's need users.view, for the whole organization or a branch */
 export const canViewUser: CanActivateFn = (route, state) => {
   const session = inject(Session);
   if (!session.signedIn()) {
@@ -55,7 +55,7 @@ export const canViewUser: CanActivateFn = (route, state) => {
   if (session.twoFactorSetupRequired()) {
     return toTwoFactorSetup();
   }
-  return route.paramMap.get('id') === session.userId() || session.can('users.view') || noAccess(state);
+  return route.paramMap.get('id') === session.userId() || session.canSomewhere('users.view') || noAccess(state);
 };
 
 /**
@@ -72,7 +72,7 @@ export const canEditUser: CanActivateFn = (route: ActivatedRouteSnapshot, state)
   }
   const user = inject(AdminStore).usersById().get(route.paramMap.get('id') ?? '');
   // An unknown id is let through to editors: the form shows "user not found"
-  return (user ? session.canEditProfile(user) : session.can('users.edit')) || noAccess(state);
+  return (user ? session.canEditProfile(user) : session.canSomewhere('users.edit')) || noAccess(state);
 };
 
 function toSignIn(state: RouterStateSnapshot) {

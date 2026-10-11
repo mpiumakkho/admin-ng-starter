@@ -625,5 +625,7 @@
     "Ask for the password again after": "Ask for the password again after",
     "reauthHint":                   "Giving or taking away roles, changing what a role allows, deleting people, resetting someone's sign-in and changing these settings ask for the password once this long has passed since it was typed.",
     "Never ask again":              "Never",
-    "This change needs your password first. Try again and confirm it is you.": "This change needs your password first. Try again and confirm it is you."
+    "This change needs your password first. Try again and confirm it is you.": "This change needs your password first. Try again and confirm it is you.",
+    "You can add people to your branches only.": "You can add people to your branches only.",
+    "They are not in a branch you look after.": "They are not in a branch you look after."
 }

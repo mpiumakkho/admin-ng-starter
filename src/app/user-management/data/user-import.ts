@@ -35,8 +35,13 @@ export interface ImportContext {
   takenEmails: ReadonlySet<string>;
   allowedDomains: readonly string[];
   defaultRoleId: string;
-  /** Whether the person importing may give this role */
-  canAssign: (role: Role) => boolean;
+  /** Whether the person importing may give this role in a scope: a branch, or the whole organization (null) */
+  canAssign: (role: Role, branchId: string | null) => boolean;
+  /**
+   * Whether they may add someone to this branch, or to none (null); left out, anywhere. Someone who adds people only
+   * through branches (API.md, "Branch administrators") gives the roles limited to the new user's branch.
+   */
+  canAdd?: (branchId: string | null) => boolean;
   status: UserStatus;
   /** With branches on, the ones a Branch column can name, by code or name; without, the column is left alone */
   branches?: readonly Branch[];
@@ -96,10 +101,14 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
       problems.push('Unknown branch.');
     } else if (branch && !branch.active) {
       problems.push('This branch is closed. Pick an open one.');
+    } else if (context.canAdd && !context.canAdd(branch?.id ?? null)) {
+      problems.push('You can add people to your branches only.');
     }
+    // Through branches only, the roles are limited to the new user's branch
+    const scope = context.canAdd && !context.canAdd(null) ? branch?.id ?? null : null;
     if (roles.some(role => !role)) {
       problems.push('Unknown role.');
-    } else if (roles.some(role => !context.canAssign(role!))) {
+    } else if (roles.some(role => !context.canAssign(role!, scope))) {
       problems.push('Your role cannot give this role.');
     } else if (roles.some(role => role!.assignment.maxDays !== null || role!.assignment.reasonRequired)) {
       problems.push('This role needs an end date or a reason. Give it from the profile after the import.');
@@ -114,7 +123,7 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
       phone: value('phone'),
       department: department ?? '',
       branchId: branch?.id ?? null,
-      roles: [...new Set(roles.filter(role => !!role).map(role => role!.id))].map(roleId => ({ roleId, endsAt: null })),
+      roles: [...new Set(roles.filter(role => !!role).map(role => role!.id))].map(roleId => ({ roleId, ...(scope ? { branchId: scope } : {}), endsAt: null })),
       status: context.status,
       avatar: '',
     };

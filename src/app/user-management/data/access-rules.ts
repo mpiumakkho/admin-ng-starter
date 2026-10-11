@@ -6,13 +6,15 @@ import { Permission, Role, RoleAssignment, RoleConflict, User } from './models';
  * button never stops a request.
  *
  * - A person holds the roles of their assignments that count now (see roleAssignmentState), and has every
- *   permission of each of them, together. User management's own permissions come only from assignments for the whole
- *   organization; one limited to a branch grants its permissions in that branch (branchPermissionsOf).
+ *   permission of each of them, together. User management's own permissions come from assignments for the whole
+ *   organization, except the four of BRANCH_SCOPED_PERMISSIONS, which one limited to a branch grants over the people
+ *   of that branch (a branch administrator). Otherwise one limited to a branch grants its permissions in that branch
+ *   (branchPermissionsOf).
  * - A permission is needed for each kind of change (users.edit, roles.manage and so on).
  * - Nobody can give out more than they have: you can only give a role, or tick a permission on a role,
  *   when you hold every permission it grants yourself.
- * - So you can only manage people whose roles, now or scheduled, you could give; nobody below an administrator can
- *   take over an administrator's account.
+ * - So you can only manage people whose roles, now or scheduled, you could give, each in its scope (permissionsIn);
+ *   nobody below an administrator can take over an administrator's account.
  * - Nobody can suspend or delete themselves, change their own role assignments or change the permissions of a role
  *   they hold, so an administrator cannot lock everyone out by accident.
  * - Someone must always be able to run the system: an active user keeps a role with every permission, for good.
@@ -21,6 +23,19 @@ import { Permission, Role, RoleAssignment, RoleConflict, User } from './models';
 
 /** What people can change on their own account without users.edit */
 export const SELF_EDITABLE_FIELDS = ['firstName', 'lastName', 'phone', 'avatar'] as const;
+
+/**
+ * The user-management permissions a role limited to a branch grants over the people who belong to that branch, so a
+ * branch manager looks after their branch's staff (API.md, "Branch administrators"). The rest come only from roles for
+ * the whole organization.
+ */
+export const BRANCH_SCOPED_PERMISSIONS: readonly Permission[] = ['users.view', 'users.create', 'users.edit', 'activity.view'];
+
+/** Everything someone's roles allow: for the whole organization, and through roles limited to a branch, by branch id */
+export interface Grants {
+  organization: ReadonlySet<Permission>;
+  branches: ReadonlyMap<string, ReadonlySet<Permission>>;
+}
 
 export type RoleAssignmentState = 'scheduled' | 'active' | 'expired';
 
@@ -35,11 +50,6 @@ export function roleAssignmentState(assignment: Pick<RoleAssignment, 'startsAt' 
 /** The ids of the roles someone holds now */
 export function activeRoleIds(user: Pick<User, 'roles'> | null | undefined, now = Date.now()): string[] {
   return [...new Set((user?.roles ?? []).filter(item => roleAssignmentState(item, now) === 'active').map(item => item.roleId))];
-}
-
-/** The ids of the roles someone holds now or will hold: whoever manages them must be able to give all of these */
-export function heldRoleIds(user: Pick<User, 'roles'> | null | undefined, now = Date.now()): string[] {
-  return [...new Set((user?.roles ?? []).filter(item => roleAssignmentState(item, now) !== 'expired').map(item => item.roleId))];
 }
 
 /** Every permission of the roles someone holds now for the whole organization; nothing when they hold none */
@@ -64,6 +74,37 @@ export function branchPermissionsOf(user: Pick<User, 'roles'> | null | undefined
   return result;
 }
 
+/** What someone's roles allow, from permissionsOf and branchPermissionsOf */
+export function grantsOf(user: Pick<User, 'roles'> | null | undefined, roles: readonly Role[], now = Date.now()): Grants {
+  return { organization: permissionsOf(user, roles, now), branches: branchPermissionsOf(user, roles, now) };
+}
+
+/**
+ * What someone has in a scope: for the whole organization (null), their permissions there; in a branch, those together
+ * with what their roles limited to it allow. Giving a role, and managing someone who holds it, count in the role's scope.
+ */
+export function permissionsIn(grants: Grants, branchId: string | null): ReadonlySet<Permission> {
+  const limited = branchId === null ? undefined : grants.branches.get(branchId);
+  return limited?.size ? new Set([...grants.organization, ...limited]) : grants.organization;
+}
+
+/**
+ * Whether someone may use a user-management permission over a person of this branch, or of none (null), or for an
+ * assignment in that scope: for the whole organization, or, for one of BRANCH_SCOPED_PERMISSIONS, through a role
+ * limited to the branch
+ */
+export function allows(grants: Grants, permission: Permission, branchId: string | null): boolean {
+  return grants.organization.has(permission) || (branchId !== null && BRANCH_SCOPED_PERMISSIONS.includes(permission)
+    && !!grants.branches.get(branchId)?.has(permission));
+}
+
+/** The branches where someone has one of BRANCH_SCOPED_PERMISSIONS through a role limited to them */
+export function branchesWith(grants: Grants, permission: Permission): string[] {
+  return BRANCH_SCOPED_PERMISSIONS.includes(permission)
+    ? [...grants.branches].filter(([, granted]) => granted.has(permission)).map(([branchId]) => branchId)
+    : [];
+}
+
 /** Whether someone holding `held` may give out every permission in `permissions` */
 export function holdsAll(held: ReadonlySet<Permission>, permissions: readonly Permission[]): boolean {
   return permissions.every(permission => held.has(permission));
@@ -74,10 +115,19 @@ export function canManageRole(held: ReadonlySet<Permission>, role: Pick<Role, 'p
   return holdsAll(held, role?.permissions ?? []);
 }
 
-/** Whether someone holding `held` may manage a person (edit, suspend, delete, reset, invite again, change their roles) */
-export function canManageUser(held: ReadonlySet<Permission>, user: Pick<User, 'roles'>, roles: readonly Role[], now = Date.now()): boolean {
-  const ids = new Set(heldRoleIds(user, now));
-  return roles.filter(role => ids.has(role.id)).every(role => canManageRole(held, role));
+/**
+ * Whether someone may manage a person (edit, suspend, delete, reset, invite again, change their roles) as far as rule 3
+ * goes: they have every permission of each role the person holds now or later, in that role's scope
+ */
+export function canManageUser(grants: Grants, user: Pick<User, 'roles'>, roles: readonly Role[], now = Date.now()): boolean {
+  const byId = new Map(roles.map(role => [role.id, role]));
+  return user.roles.filter(item => roleAssignmentState(item, now) !== 'expired')
+    .every(item => canManageRole(permissionsIn(grants, item.branchId), byId.get(item.roleId)));
+}
+
+/** Whether someone may give a role in a scope (null: the whole organization) as far as rule 2 goes */
+export function canGiveRole(grants: Grants, role: Pick<Role, 'permissions'> | undefined, branchId: string | null): boolean {
+  return canManageRole(permissionsIn(grants, branchId), role);
 }
 
 /** A role that grants every permission there is, such as the built-in Administrator */

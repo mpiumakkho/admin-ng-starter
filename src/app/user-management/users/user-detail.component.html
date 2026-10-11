@@ -1,5 +1,5 @@
 @if (user(); as user) {
-  <ui-page-header [title]="name()" [subtitle]="'User profile' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="session.can('users.view') ? [{ label: 'Users' | translate, link: '/users' }] : []" />
+  <ui-page-header [title]="name()" [subtitle]="'User profile' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="session.canSomewhere('users.view') ? [{ label: 'Users' | translate, link: '/users' }] : []" />
 
   <ui-card class="profile">
     <div class="profile-row">

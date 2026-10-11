@@ -51,10 +51,12 @@
               }
             </select>
           </ui-form-field>
-          @if (store.branchesEnabled()) {
-            <ui-form-field [label]="'Branch' | translate" for="branchId" [optionalLabel]="'(optional)' | translate">
+          @if (showBranch()) {
+            <ui-form-field [label]="'Branch' | translate" for="branchId" [optionalLabel]="noBranchAllowed() ? ('(optional)' | translate) : ''" [required]="!noBranchAllowed()">
               <select uiInput id="branchId" formControlName="branchId">
-                <option value="">{{ 'No branch' | translate }}</option>
+                @if (noBranchAllowed()) {
+                  <option value="">{{ 'No branch' | translate }}</option>
+                }
                 @for (branch of branchChoices(); track branch.id) {
                   <option [value]="branch.id">{{ branch.active ? branch.name : ('closedBranch' | translate: { name: branch.name }) }}</option>
                 }

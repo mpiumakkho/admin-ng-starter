@@ -140,12 +140,14 @@ export class UserDetailComponent {
 
   /* What the signed-in user's role allows for this person */
 
-  /** Nobody can change someone whose role allows more than their own */
-  private readonly manages = computed(() => {
+  /**
+   * Nobody can change someone whose role allows more than their own; through a branch, only its people (API.md,
+   * "Branch administrators")
+   */
+  protected readonly canEdit = computed(() => {
     const user = this.user();
-    return !!user && this.session.canManage(user);
+    return !!user && this.session.canOn('users.edit', user);
   });
-  protected readonly canEdit = computed(() => this.manages() && this.session.can('users.edit'));
   /** Everyone can edit their own name, phone and photo */
   protected readonly canEditProfile = computed(() => {
     const user = this.user();
@@ -153,10 +155,13 @@ export class UserDetailComponent {
   });
   /** Nobody suspends or deletes themselves */
   protected readonly canSetStatus = computed(() => this.canEdit() && !this.isSelf());
-  protected readonly canDelete = computed(() => this.manages() && this.session.can('users.delete') && !this.isSelf());
+  protected readonly canDelete = computed(() => {
+    const user = this.user();
+    return !!user && !this.isSelf() && this.session.canOn('users.delete', user);
+  });
   /** The ⋯ menu: status, reset password and delete, none of which apply to yourself */
   protected readonly hasMenu = computed(() => !this.isSelf() && (this.canEdit() || this.canDelete()));
-  protected readonly canViewActivity = computed(() => this.session.can('activity.view'));
+  protected readonly canViewActivity = computed(() => this.session.canSomewhere('activity.view'));
   /** Devices and two-step sign-in: your own, or, with users.edit, those of people you manage */
   protected readonly canSeeSecurity = computed(() => this.isSelf() || this.canEdit());
   /** Their role must use two-step sign-in (settings), so they cannot turn it off themselves */
@@ -182,7 +187,7 @@ export class UserDetailComponent {
           assignment,
           state: roleAssignmentState(assignment, now),
           givenBy: giver ? fullName(giver) : '',
-          canChange: this.canChangeRoles() && this.session.canAssign(role),
+          canChange: this.canChangeRoles() && this.session.canGive(role, assignment.branchId),
         };
       })
       .sort((a, b) => order[a.state] - order[b.state] || b.assignment.startsAt.localeCompare(a.assignment.startsAt));

@@ -22,8 +22,9 @@ const DAY_MS = 24 * 60 * 60_000;
  * - With `draft`: for a user not saved yet; emits the grant instead of saving it.
  * - With `assignment`: moves its end (extend, shorten, renew one that has expired) or changes its reason.
  *
- * Only roles the signed-in user may give are offered, with each role's own rules (an end within so many days, a
- * reason); the server checks all of it again. Open it with [(open)].
+ * Only roles the signed-in user may give are offered, in the scopes where they may give them (API.md, "Branch
+ * administrators"), with each role's own rules (an end within so many days, a reason); the server checks all of it
+ * again. Open it with [(open)].
  */
 @Component({
   selector: 'app-role-assignment-dialog',
@@ -48,11 +49,13 @@ const DAY_MS = 24 * 60 * 60_000;
               }
             </select>
           </ui-form-field>
-          @if (store.branchesEnabled()) {
+          @if (store.branchesEnabled() || !organizationAllowed()) {
             <ui-form-field [label]="'Applies in' | translate" [for]="formId + '-scope'" [hint]="'A role for one branch allows what it allows there only.' | translate">
               <select uiInput [id]="formId + '-scope'" [formControl]="scope">
-                <option value="">{{ 'Whole organization' | translate }}</option>
-                @for (branch of store.openBranches(); track branch.id) {
+                @if (organizationAllowed()) {
+                  <option value="">{{ 'Whole organization' | translate }}</option>
+                }
+                @for (branch of branches(); track branch.id) {
                   <option [value]="branch.id">{{ branch.name }}</option>
                 }
               </select>
@@ -161,12 +164,19 @@ export class RoleAssignmentDialog {
   private readonly startValue = toSignal(this.startDate.valueChanges, { initialValue: '' });
   private readonly startModeValue = toSignal(this.startMode.valueChanges, { initialValue: 'now' as const });
 
-  /** Roles the signed-in user may give, other than ones the person holds now or later where it would apply */
+  /** Giving a new user their first roles needs users.create; anyone else's, users.edit */
+  private readonly permission = computed(() => this.draft() ? 'users.create' as const : 'users.edit' as const);
+  /** A role for the whole organization needs the permission for the whole organization */
+  protected readonly organizationAllowed = computed(() => this.session.allows(this.permission(), null));
+  /** The open branches where the signed-in user may give roles */
+  protected readonly branches = computed(() => this.store.openBranches().filter(branch => this.session.allows(this.permission(), branch.id)));
+
+  /** Roles the signed-in user may give in the scope picked, other than ones the person holds now or later there */
   protected readonly offered = computed(() => {
     const single = this.users().length === 1 ? this.users()[0] : null;
     const excluded = new Set(this.exclude());
     const branchId = this.scopeValue() || null;
-    return this.store.roles().filter(role => this.session.canAssign(role) && !excluded.has(role.id)
+    return this.store.roles().filter(role => this.session.canGive(role, branchId, this.permission()) && !excluded.has(role.id)
       && !(single && this.store.holdsOrWillHold(single, role.id, branchId)));
   });
   protected readonly rules = computed(() => {
@@ -251,7 +261,7 @@ export class RoleAssignmentDialog {
       untracked(() => {
         const current = this.assignment();
         this.problem.set('');
-        this.scope.setValue(current?.branchId ?? '');
+        this.scope.setValue(current?.branchId ?? (this.organizationAllowed() ? '' : this.branches()[0]?.id ?? ''));
         this.role.setValue(current?.roleId ?? this.offered()[0]?.id ?? '');
         this.startMode.setValue('now');
         this.startDate.setValue(this.today());

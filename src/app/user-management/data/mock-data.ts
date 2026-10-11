@@ -165,6 +165,12 @@ const BRANCHES: Omit<Branch, 'createdAt'>[] = [
 /** Where people work, by their place in the list: half at the head office, the rest in the two other open branches */
 const BRANCH_ROTA = ['b-hq', 'b-hq', 'b-cnx', 'b-hkt'];
 
+/** The last active Viewer in Chiang Mai with no other role, who also manages the branch; the first is the Viewer demo account */
+function branchManager(users: User[]): User | undefined {
+  return users.filter(user => user.status === 'active' && user.branchId === 'b-cnx' && user.roles.length === 1
+    && user.roles[0].roleId === 'viewer').at(-1);
+}
+
 /** The role someone was given first: the sample gives everyone one, for good, when they joined */
 function firstRole(user: User): string {
   return user.roles[0].roleId;
@@ -310,6 +316,8 @@ export function createMockData(now = Date.now()): AdminData {
     [activeWith('viewer')[3], 'security', null, -32, -2, 'Security review'],
     // Limited to one branch: leads the team in Chiang Mai only
     [activeWith('support')[3], 'team-lead', 'b-cnx', -20, null, 'Leads the Chiang Mai team'],
+    // A branch manager: looks after the people of Chiang Mai, and nobody else (API.md, "Branch administrators")
+    [branchManager(users), 'manager', 'b-cnx', -60, null, 'Runs the Chiang Mai branch'],
   ];
   const owner = users[0];
   const office = devices.get(owner.id)!.desktop;
@@ -395,8 +403,11 @@ export function createMockSessions(users: User[], now = Date.now()): UserSession
  */
 export const DEMO_ACCOUNTS: { email: string; roleId: string; roleName: string }[] = (() => {
   const { users } = createMockData(0);
-  return ROLES.flatMap(role => {
+  const accounts = ROLES.flatMap(role => {
     const user = users.find(item => item.status === 'active' && activeRoleIds(item, 0).join() === role.id);
     return user ? [{ email: user.email, roleId: role.id, roleName: role.name }] : [];
   });
+  // And the branch manager: Viewer for the whole organization, Manager in Chiang Mai only
+  const manager = users.find(user => user.roles.some(item => item.roleId === 'manager' && item.branchId !== null));
+  return manager ? [...accounts, { email: manager.email, roleId: 'manager', roleName: 'Branch manager' }] : accounts;
 })();
