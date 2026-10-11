@@ -22,13 +22,15 @@ export interface TokenAnswer {
   user: User;
 }
 
-const CODES: readonly AdminApiErrorCode[] = [
-  'email_taken', 'not_found', 'not_invited', 'role_in_use', 'system_role', 'invalid_credentials', 'account_suspended',
-  'invite_pending', 'unauthenticated', 'forbidden', 'self_change', 'email_domain', 'weak_password', 'default_role',
-  'invalid_request', 'two_factor_required', 'invalid_code', 'invalid_token', 'two_factor_mandatory', 'password_reused',
-  'too_many_requests', 'already_assigned', 'last_administrator', 'assignment_too_long', 'reason_required', 'code_taken',
-  'branch_in_use', 'branch_closed',
-];
+/** Every code a refusal can carry; a record, so that a code added to AdminApiErrorCode must be added here too */
+const CODES: Record<AdminApiErrorCode, true> = {
+  email_taken: true, not_found: true, not_invited: true, role_in_use: true, system_role: true,
+  invalid_credentials: true, account_suspended: true, invite_pending: true, unauthenticated: true, forbidden: true,
+  self_change: true, email_domain: true, weak_password: true, default_role: true, invalid_request: true,
+  two_factor_required: true, invalid_code: true, invalid_token: true, two_factor_mandatory: true, password_reused: true,
+  too_many_requests: true, already_assigned: true, last_administrator: true, assignment_too_long: true,
+  reason_required: true, code_taken: true, branch_in_use: true, branch_closed: true, role_conflict: true,
+};
 
 /** The /auth requests carry the refresh cookie, also to an API on another origin */
 const CREDENTIALS = { withCredentials: true };
@@ -417,7 +419,7 @@ export function toApiError(error: unknown): unknown {
     return error;
   }
   const code = (error.error as { code?: unknown } | null)?.code;
-  if (typeof code === 'string' && (CODES as readonly string[]).includes(code)) {
+  if (typeof code === 'string' && Object.hasOwn(CODES, code)) {
     return new AdminApiError(code as AdminApiErrorCode);
   }
   switch (error.status) {

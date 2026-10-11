@@ -57,6 +57,7 @@ export type AdminApiErrorCode =
   | 'branch_in_use'
   /** Nobody new joins a closed branch or gets a role there */
   | 'branch_closed'
+  /** A rule says nobody may hold this role with one the person holds at an overlapping time */
   | 'role_conflict';
 
 export class AdminApiError extends Error {

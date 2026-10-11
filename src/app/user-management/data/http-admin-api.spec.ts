@@ -303,6 +303,10 @@ describe('HttpAdminApi', () => {
       const call = api.createUser({} as never);
       (await sent('POST', '/users')).flush({ code: 'email_taken', message: 'Taken' }, { status: 409, statusText: 'Conflict' });
       await expect(call).rejects.toEqual(new AdminApiError('email_taken'));
+
+      const conflict = api.assignRole({ userId: 'u-1', roleId: 'finance', endsAt: null });
+      (await sent('POST', '/role-assignments')).flush({ code: 'role_conflict' }, { status: 409, statusText: 'Conflict' });
+      await expect(conflict).rejects.toEqual(new AdminApiError('role_conflict'));
     });
 
     it('refuses too many sign-in attempts with too_many_requests', async () => {
