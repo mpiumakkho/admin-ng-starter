@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 
 import { AdminStore } from '../data/admin-store';
-import { ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, REASON_ACTIONS, STATUS_META } from '../data/catalog';
+import { ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, REASON_ACTIONS, SIGN_IN_FAILURES, STATUS_META } from '../data/catalog';
 import { Activity, ActivityChange, fullName, ReasonAction, UserStatus } from '../data/models';
 import { idleTimeoutLabel, localDate, passwordHistoryLabel, reauthLabel, retentionLabel } from '../shared/formatting';
 
@@ -99,6 +99,10 @@ export class ActivityFormat {
         return passwordHistoryLabel(this.translate, Number(raw));
       case 'activityRetentionDays':
         return retentionLabel(this.translate, Number(raw));
+      case 'cause':
+        return SIGN_IN_FAILURES[raw] ? this.translate.instant(SIGN_IN_FAILURES[raw]) : raw;
+      case 'lockMinutes':
+        return this.translate.instant('minuteCount', { count: Number(raw) });
       case 'status':
         return this.translate.instant(STATUS_META[raw as UserStatus]?.label ?? raw);
       case 'department':

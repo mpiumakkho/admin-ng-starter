@@ -650,5 +650,16 @@
     "action.auth.recovery_code_used": "ใช้รหัสสำรอง",
     "activity.auth.recovery_code_used": "{{actor}} ใช้รหัสสำรอง",
     "action.auth.recovery_codes_created": "สร้างรหัสสำรองใหม่",
-    "activity.auth.recovery_codes_created": "{{actor}} สร้างรหัสสำรองชุดใหม่"
+    "activity.auth.recovery_codes_created": "{{actor}} สร้างรหัสสำรองชุดใหม่",
+    "action.auth.sign_in_failed":   "เข้าสู่ระบบไม่สำเร็จ",
+    "activity.auth.sign_in_failed": "การเข้าสู่ระบบเป็น {{target}} ไม่สำเร็จ",
+    "action.auth.account_locked":   "บัญชีถูกล็อก",
+    "activity.auth.account_locked": "บัญชีของ {{target}} ถูกล็อกเพราะใส่รหัสผิดหลายครั้ง",
+    "Why":                          "สาเหตุ",
+    "Locked for":                   "ล็อกนาน",
+    "Wrong password":               "รหัสผ่านผิด",
+    "Wrong code":                   "รหัสยืนยันผิด",
+    "Account locked":               "บัญชีถูกล็อก",
+    "Account suspended":            "บัญชีถูกระงับ",
+    "Invitation not accepted yet":  "ยังไม่ได้ตอบรับคำเชิญ"
 }

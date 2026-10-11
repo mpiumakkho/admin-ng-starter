@@ -71,14 +71,19 @@ export class LocalAdminApi extends AdminApi {
     const user = this.data.users.find(item => item.email.toLowerCase() === email.trim().toLowerCase());
     // The sample accepts any password of the right length, or the one the person set; a server checks the real one
     if (!user || !(await this.passwordMatches(user.id, password))) {
+      // Logged for someone who exists only; a server also counts towards a lockout, which the sample leaves out
+      if (user) {
+        this.logFailedSignIn(user, 'password');
+      }
       await this.respond(undefined);
       throw new AdminApiError('invalid_credentials');
     }
     if (user.status !== 'active') {
+      this.logFailedSignIn(user, user.status === 'suspended' ? 'suspended' : 'invited');
       await this.respond(undefined);
       throw new AdminApiError(user.status === 'suspended' ? 'account_suspended' : 'invite_pending');
     }
-    await this.checkCode(user, code);
+    await this.checkCode(user, code, true);
     const now = new Date().toISOString();
     const signedIn = { ...user, lastActiveAt: now };
     this.data.users = this.data.users.map(item => item.id === user.id ? signedIn : item);
@@ -117,10 +122,11 @@ export class LocalAdminApi extends AdminApi {
   async reauthenticate(password: string, code?: string): Promise<void> {
     const actor = this.actor();
     if (!(await this.passwordMatches(actor.id, String(password ?? '')))) {
+      this.logFailedSignIn(actor, 'password');
       await this.respond(undefined);
       throw new AdminApiError('invalid_credentials');
     }
-    await this.checkCode(actor, code);
+    await this.checkCode(actor, code, true);
     const session = this.currentSession()!.session;
     this.data.verifiedAt = { ...this.data.verifiedAt, [session.id]: new Date().toISOString() };
     return this.respond(undefined);
@@ -1086,16 +1092,27 @@ export class LocalAdminApi extends AdminApi {
   }
 
   /** The code from the authenticator app, with two-step sign-in on: two_factor_required without one, invalid_code when wrong */
-  private async checkCode(user: User, code: string | undefined) {
+  private async checkCode(user: User, code: string | undefined, logFailure = false) {
     const secret = user.twoFactor ? this.data.twoFactorSecrets?.[user.id] : undefined;
     if (secret && !code) {
       await this.respond(undefined);
       throw new AdminApiError('two_factor_required');
     }
     if (secret && !(await verifyTotp(secret, String(code))) && !(await this.useRecoveryCode(user, String(code)))) {
+      if (logFailure) {
+        this.logFailedSignIn(user, 'code');
+      }
       await this.respond(undefined);
       throw new AdminApiError('invalid_code');
     }
+  }
+
+  /**
+   * A refused sign-in, or password confirmation, of someone who exists (API.md, "Signing in"): password, code,
+   * suspended or invited. Written before respond() saves the data.
+   */
+  private logFailedSignIn(user: User, cause: string) {
+    this.log(user.id, 'auth.sign_in_failed', fullName(user), user.id, [{ field: 'cause', to: cause }]);
   }
 
   /** Ten new recovery codes such as "abcde-fghjk", which replace the old ones; only their hashes are kept */
@@ -1294,6 +1311,8 @@ export class LocalAdminApi extends AdminApi {
         const data = JSON.parse(saved) as AdminData;
         // Saved before settings, sessions or the newer settings existed
         data.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+        // Saved when 30 days were allowed: at least 90 now (API.md, "Settings")
+        data.settings.activityRetentionDays = Math.max(data.settings.activityRetentionDays, 90);
         data.sessions ??= createMockSessions(data.users);
         data.roleConflicts ??= SAMPLE_ROLE_CONFLICTS.filter(rule => rule.roleIds.every(roleId => data.roles.some(role => role.id === roleId)));
         // Activity older than the settings keep is gone, as the server deletes it every night
@@ -1455,7 +1474,7 @@ const SETTINGS_RANGES: Record<string, [min: number, max: number]> = {
   reauthMinutes: [0, 1440],
   passwordMinLength: [8, 64],
   passwordHistory: [0, 24],
-  activityRetentionDays: [30, 3650],
+  activityRetentionDays: [90, 3650],
 };
 
 function settingsChanges(input: unknown): Partial<AdminSettings> {

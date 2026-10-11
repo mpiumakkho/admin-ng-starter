@@ -54,6 +54,16 @@ describe('Session and permissions', () => {
       expect((await reloaded.getSession())?.email).toBe(email('manager'));
     });
 
+    it('logs a refused sign-in of someone who exists, with why, and nothing for an unknown email', async () => {
+      const suspended = anyone('suspended');
+      await expect(session.signIn(suspended.email, 'any-password', false)).rejects.toEqual(new AdminApiError('account_suspended'));
+      await expect(session.signIn('nobody@example.com', 'any-password', false)).rejects.toEqual(new AdminApiError('invalid_credentials'));
+      await signInAs('admin');
+      const failed = store.activity().filter(entry => entry.action === 'auth.sign_in_failed');
+      expect(failed).toHaveLength(1);
+      expect(failed[0]).toMatchObject({ actorId: suspended.id, targetId: suspended.id, changes: [{ field: 'cause', to: 'suspended' }] });
+    });
+
     it('refuses unknown people, short passwords, and accounts that are not active', async () => {
       await expect(session.signIn('nobody@example.com', 'any-password', false)).rejects.toEqual(new AdminApiError('invalid_credentials'));
       await expect(session.signIn(email('admin'), '123', false)).rejects.toEqual(new AdminApiError('invalid_credentials'));

@@ -650,5 +650,16 @@
     "action.auth.recovery_code_used": "Used a recovery code",
     "activity.auth.recovery_code_used": "{{actor}} used a recovery code",
     "action.auth.recovery_codes_created": "Made new recovery codes",
-    "activity.auth.recovery_codes_created": "{{actor}} made new recovery codes"
+    "activity.auth.recovery_codes_created": "{{actor}} made new recovery codes",
+    "action.auth.sign_in_failed":   "Sign-in failed",
+    "activity.auth.sign_in_failed": "A sign-in as {{target}} failed",
+    "action.auth.account_locked":   "Account locked",
+    "activity.auth.account_locked": "{{target}}'s account was locked after too many wrong attempts",
+    "Why":                          "Why",
+    "Locked for":                   "Locked for",
+    "Wrong password":               "Wrong password",
+    "Wrong code":                   "Wrong code",
+    "Account locked":               "Account locked",
+    "Account suspended":            "Account suspended",
+    "Invitation not accepted yet":  "Invitation not accepted yet"
 }

@@ -251,7 +251,9 @@ export type ActivityAction =
   | 'auth.two_factor_on'
   | 'auth.two_factor_off'
   | 'auth.recovery_code_used'
-  | 'auth.recovery_codes_created';
+  | 'auth.recovery_codes_created'
+  | 'auth.sign_in_failed'
+  | 'auth.account_locked';
 
 /** One field an action changed. Values are stored raw (a role id, a status) and formatted for display. */
 export interface ActivityChange {

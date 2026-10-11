@@ -6,6 +6,7 @@ import {
   lucideKeyRound,
   lucideKeySquare,
   lucideLifeBuoy,
+  lucideLock,
   lucideLogIn,
   lucideLogOut,
   lucideMail,
@@ -151,6 +152,12 @@ export const ACTIVITY_META: Record<ActivityAction, { icon: string; tone: UiTone;
   'branch.updated': { icon: lucideMapPinned, tone: 'info', label: 'action.branch.updated', message: 'activity.branch.updated', kind: 'branches' },
   'branch.deleted': { icon: lucideMapPinOff, tone: 'danger', label: 'action.branch.deleted', message: 'activity.branch.deleted', kind: 'branches' },
   'auth.sign_in': { icon: lucideLogIn, tone: 'neutral', label: 'action.auth.sign_in', message: 'activity.auth.sign_in', kind: 'sessions' },
+  'auth.sign_in_failed': {
+    icon: lucideShieldX, tone: 'danger', label: 'action.auth.sign_in_failed', message: 'activity.auth.sign_in_failed', kind: 'sessions',
+  },
+  'auth.account_locked': {
+    icon: lucideLock, tone: 'danger', label: 'action.auth.account_locked', message: 'activity.auth.account_locked', kind: 'sessions',
+  },
   'auth.sessions_ended': { icon: lucideLogOut, tone: 'warning', label: 'action.auth.sessions_ended', message: 'activity.auth.sessions_ended', kind: 'sessions' },
   'auth.two_factor_on': { icon: lucideShieldCheck, tone: 'success', label: 'action.auth.two_factor_on', message: 'activity.auth.two_factor_on', kind: 'sessions' },
   'auth.two_factor_off': { icon: lucideShieldOff, tone: 'warning', label: 'action.auth.two_factor_off', message: 'activity.auth.two_factor_off', kind: 'sessions' },
@@ -198,6 +205,8 @@ export const FIELD_LABELS: Record<string, string> = {
   reauthMinutes: 'Ask for the password again after',
   devices: 'Devices',
   recoveryCodesLeft: 'Recovery codes left',
+  cause: 'Why',
+  lockMinutes: 'Locked for',
 };
 
 /** The changes the settings can require a reason for, as the settings page and the log name them */
@@ -207,6 +216,15 @@ export const REASON_ACTIONS: Record<ReasonAction, string> = {
   removeRole: 'Taking a role away',
   resetSignIn: 'Resetting someone\'s password or two-step sign-in',
   endSessions: 'Signing someone out of their devices',
+};
+
+/** Why a sign-in was refused, as the activity log says it (auth.sign_in_failed) */
+export const SIGN_IN_FAILURES: Record<string, string> = {
+  password: 'Wrong password',
+  code: 'Wrong code',
+  locked: 'Account locked',
+  suspended: 'Account suspended',
+  invited: 'Invitation not accepted yet',
 };
 
 /** How a new role may be given: for good or for a time, with or without a reason */
@@ -236,7 +254,8 @@ export const SESSION_TIMEOUT_MINUTES = [0, 15, 30, 60, 240, 480];
 export const REAUTH_MINUTES = [0, 5, 10, 15, 30, 60];
 export const PASSWORD_MIN_LENGTHS = [8, 10, 12, 14, 16];
 export const PASSWORD_HISTORY = [0, 1, 3, 5, 10];
-export const ACTIVITY_RETENTION_DAYS = [30, 90, 180, 365, 730, 1825];
+/** At least 90 days, as Thailand's Computer-Related Crime Act has service providers keep traffic data */
+export const ACTIVITY_RETENTION_DAYS = [90, 180, 365, 730, 1825];
 
 /** Permission label by key, such as "users.view" → "View users" */
 export const PERMISSION_LABELS = new Map<string, string>(PERMISSION_GROUPS.flatMap(group => group.permissions.map(permission => [permission.key, permission.label] as const)));
