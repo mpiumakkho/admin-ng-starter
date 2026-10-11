@@ -92,5 +92,6 @@
     "With the sample data there is no mail server: the email is written to the browser console.": "With the sample data there is no mail server: the email is written to the browser console.",
     "Use another email":             "Use another email",
     "Send link":                     "Send link",
-    "searchShortcut":              "Keyboard shortcut: {{keys}}"
+    "searchShortcut":              "Keyboard shortcut: {{keys}}",
+    "Type one of the recovery codes you saved when you turned on two-step sign-in.": "Type one of the recovery codes you saved when you turned on two-step sign-in."
 }

@@ -53,6 +53,7 @@ test('a role that must use two-step sign-in: nothing else opens until it is on',
   const secret = (await dialog.locator('.secret code').textContent())!.replace(/\s/g, '');
   await dialog.locator('input[autocomplete=one-time-code]').fill(totp(secret));
   await dialog.getByRole('button', { name: 'Turn on' }).click();
+  await dialog.getByRole('button', { name: 'Done' }).click();
   await expect(page).not.toHaveURL(/setup-two-factor/);
   await expect(page.locator('#sidebar')).toBeVisible();
 

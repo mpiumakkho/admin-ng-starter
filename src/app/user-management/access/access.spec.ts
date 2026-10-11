@@ -284,6 +284,35 @@ describe('Session and permissions', () => {
       expect(session.user()?.twoFactor).toBe(false);
     });
 
+    it('gives ten recovery codes, each good once in place of a code from the app', async () => {
+      await signInAs('support');
+      const account = email('support');
+      const setup = await store.startTwoFactor();
+      const { recoveryCodes } = await store.confirmTwoFactor(await totp(setup.secret));
+      expect(recoveryCodes).toHaveLength(10);
+      expect(recoveryCodes.every(code => /^[a-z2-9]{5}-[a-z2-9]{5}$/.test(code))).toBe(true);
+      expect(await store.recoveryCodesLeft()).toBe(10);
+      await session.signOut();
+
+      // Case, spaces and the dash do not matter; each works once
+      await session.signIn(account, 'any-password', false, recoveryCodes[0].toUpperCase().replace('-', ' '));
+      await session.signOut();
+      await expect(session.signIn(account, 'any-password', false, recoveryCodes[0])).rejects.toEqual(new AdminApiError('invalid_code'));
+      await session.signIn(account, 'any-password', false, recoveryCodes[1]);
+      expect(await store.recoveryCodesLeft()).toBe(8);
+      expect(store.activity()[1]).toMatchObject({
+        action: 'auth.recovery_code_used', actorId: session.userId(), targetId: session.userId(), changes: [{ field: 'recoveryCodesLeft', to: '8' }],
+      });
+
+      // New ones replace them; turning it off, with one of them, deletes the rest
+      const fresh = await store.createRecoveryCodes();
+      expect(fresh.some(code => recoveryCodes.includes(code))).toBe(false);
+      await expect(store.disableTwoFactor(recoveryCodes[2])).rejects.toEqual(new AdminApiError('invalid_code'));
+      await store.disableTwoFactor(fresh[0]);
+      expect(session.user()?.twoFactor).toBe(false);
+      expect(await store.recoveryCodesLeft()).toBe(0);
+    });
+
     it('can be turned off for someone who lost their phone, by an administrator', async () => {
       await signInAs('support');
       const setup = await store.startTwoFactor();

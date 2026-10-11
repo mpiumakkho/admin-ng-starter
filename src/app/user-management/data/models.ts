@@ -204,6 +204,13 @@ export interface AdminSettings {
   reauthMinutes: number;
 }
 
+/** Two-step sign-in is on: the user, and their first recovery codes, shown this once */
+export interface TwoFactorConfirmation {
+  user: User;
+  /** Ten single-use codes such as "abcde-fghjk", for when the phone is lost */
+  recoveryCodes: string[];
+}
+
 /** What a new password must be, from the settings; readable before signing in, for the links in emails */
 export interface PasswordPolicy {
   minLength: number;
@@ -242,7 +249,9 @@ export type ActivityAction =
   | 'auth.sign_in'
   | 'auth.sessions_ended'
   | 'auth.two_factor_on'
-  | 'auth.two_factor_off';
+  | 'auth.two_factor_off'
+  | 'auth.recovery_code_used'
+  | 'auth.recovery_codes_created';
 
 /** One field an action changed. Values are stored raw (a role id, a status) and formatted for display. */
 export interface ActivityChange {

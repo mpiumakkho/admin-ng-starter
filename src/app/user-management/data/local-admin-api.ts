@@ -10,7 +10,7 @@ import { AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, EmailLin
 import {
   Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, fullName, PasswordPolicy,
   Permission, ReasonAction, Role, RoleAssignment, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleAssignmentRules,
-  RoleConflict, RoleConflictDraft, RoleDraft, RoleGrant, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  RoleConflict, RoleConflictDraft, RoleDraft, RoleGrant, TwoFactorConfirmation, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 import { createSecret, otpauthUri, verifyTotp } from './totp';
 import { uuidV7 } from './uuid';
@@ -33,6 +33,9 @@ const HISTORY_KEPT = 24;
 const DAY_MS = 24 * 60 * 60_000;
 /** The longest reason an assignment may give */
 const MAX_REASON_LENGTH = 500;
+/** Recovery codes: how many, and the letters and digits they are made of, without the ones easy to mix up */
+const RECOVERY_CODE_COUNT = 10;
+const RECOVERY_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 
 /** User fields the activity log tracks, in the order it lists them; also every field PATCH /users/:id may set */
 const USER_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'department', 'branchId', 'status', 'avatar'] as const;
@@ -807,7 +810,7 @@ export class LocalAdminApi extends AdminApi {
     return this.respond({ secret, uri: otpauthUri(secret, actor.email, ISSUER) });
   }
 
-  async confirmTwoFactor(code: string): Promise<User> {
+  async confirmTwoFactor(code: string): Promise<TwoFactorConfirmation> {
     const actor = this.actor(undefined, true);
     const secret = this.data.pendingTwoFactor?.[actor.id];
     if (!secret || !(await verifyTotp(secret, String(code ?? '')))) {
@@ -819,7 +822,8 @@ export class LocalAdminApi extends AdminApi {
     this.data.twoFactorSecrets = { ...this.data.twoFactorSecrets, [actor.id]: secret };
     const user = this.setTwoFactor(actor.id, true);
     this.log(actor.id, 'auth.two_factor_on', fullName(user), user.id);
-    return this.respond(user);
+    const recoveryCodes = await this.newRecoveryCodes(actor.id);
+    return this.respond({ user, recoveryCodes });
   }
 
   async disableTwoFactor(code: string): Promise<User> {
@@ -827,14 +831,25 @@ export class LocalAdminApi extends AdminApi {
     if (this.requiresTwoFactor(actor)) {
       throw new AdminApiError('two_factor_mandatory');
     }
-    const secret = this.data.twoFactorSecrets?.[actor.id];
-    if (!secret || !(await verifyTotp(secret, String(code ?? '')))) {
-      await this.respond(undefined);
-      throw new AdminApiError('invalid_code');
-    }
+    // A code from the app, or a recovery code
+    await this.checkCode(actor, String(code ?? '') || '-');
     const user = this.setTwoFactor(actor.id, false);
     this.log(actor.id, 'auth.two_factor_off', fullName(user), user.id);
     return this.respond(user);
+  }
+
+  async recoveryCodesLeft(): Promise<number> {
+    const actor = this.actor();
+    return this.respond((this.data.recoveryCodes?.[actor.id] ?? []).filter(item => !item.used).length);
+  }
+
+  async createRecoveryCodes(): Promise<string[]> {
+    const actor = this.actor();
+    check(!!actor.twoFactor);
+    this.assertReauthenticated();
+    const codes = await this.newRecoveryCodes(actor.id);
+    this.log(actor.id, 'auth.recovery_codes_created', fullName(actor), actor.id);
+    return this.respond(codes);
   }
 
   async resetTwoFactor(userId: string, reason?: string): Promise<User> {
@@ -878,6 +893,9 @@ export class LocalAdminApi extends AdminApi {
     if (!on) {
       const { [userId]: _, ...secrets } = this.data.twoFactorSecrets ?? {};
       this.data.twoFactorSecrets = secrets;
+      // The recovery codes go with it
+      const { [userId]: __, ...codes } = this.data.recoveryCodes ?? {};
+      this.data.recoveryCodes = codes;
     }
     const user = { ...this.findUser(userId), twoFactor: on };
     this.data.users = this.data.users.map(item => item.id === userId ? user : item);
@@ -1074,10 +1092,39 @@ export class LocalAdminApi extends AdminApi {
       await this.respond(undefined);
       throw new AdminApiError('two_factor_required');
     }
-    if (secret && !(await verifyTotp(secret, String(code)))) {
+    if (secret && !(await verifyTotp(secret, String(code))) && !(await this.useRecoveryCode(user, String(code)))) {
       await this.respond(undefined);
       throw new AdminApiError('invalid_code');
     }
+  }
+
+  /** Ten new recovery codes such as "abcde-fghjk", which replace the old ones; only their hashes are kept */
+  private async newRecoveryCodes(userId: string): Promise<string[]> {
+    const codes = Array.from({ length: RECOVERY_CODE_COUNT }, () => {
+      const letters = Array.from(crypto.getRandomValues(new Uint32Array(10)), value => RECOVERY_ALPHABET[value % RECOVERY_ALPHABET.length]).join('');
+      return `${letters.slice(0, 5)}-${letters.slice(5)}`;
+    });
+    const hashes = await Promise.all(codes.map(code => sha256(recoveryCodeValue(code))));
+    this.data.recoveryCodes = { ...this.data.recoveryCodes, [userId]: hashes.map(hash => ({ hash, used: false })) };
+    return codes;
+  }
+
+  /** Whether this is one of their unused recovery codes, ignoring case, spaces and the dash; it is then used up and logged */
+  private async useRecoveryCode(user: User, code: string): Promise<boolean> {
+    const value = recoveryCodeValue(code);
+    if (!/^[a-z0-9]{10}$/.test(value)) {
+      return false;
+    }
+    const hash = await sha256(value);
+    const codes = this.data.recoveryCodes?.[user.id] ?? [];
+    const found = codes.find(item => !item.used && item.hash === hash);
+    if (!found) {
+      return false;
+    }
+    found.used = true;
+    const left = codes.filter(item => !item.used).length;
+    this.log(user.id, 'auth.recovery_code_used', fullName(user), user.id, [{ field: 'recoveryCodesLeft', to: String(left) }]);
+    return true;
   }
 
   /**
@@ -1269,6 +1316,11 @@ export class LocalAdminApi extends AdminApi {
   private write() {
     writeStore(localStorage, STORAGE_KEY, JSON.stringify(this.data));
   }
+}
+
+/** A recovery code as it is compared: lower case, without spaces or the dash */
+function recoveryCodeValue(code: string): string {
+  return code.toLowerCase().replace(/[\s-]/g, '');
 }
 
 /** An ISO 8601 instant with Z or an offset, as API.md asks of GET /activity's from and to */

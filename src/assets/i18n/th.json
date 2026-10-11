@@ -92,5 +92,6 @@
     "With the sample data there is no mail server: the email is written to the browser console.": "ข้อมูลตัวอย่างไม่มีเซิร์ฟเวอร์อีเมล อีเมลจึงถูกเขียนไว้ใน console ของเบราว์เซอร์แทน",
     "Use another email":             "ใช้อีเมลอื่น",
     "Send link":                     "ส่งลิงก์",
-    "searchShortcut":              "แป้นลัด: {{keys}}"
+    "searchShortcut":              "แป้นลัด: {{keys}}",
+    "Type one of the recovery codes you saved when you turned on two-step sign-in.": "พิมพ์รหัสสำรองที่เก็บไว้ตอนเปิดการยืนยันตัวตน 2 ขั้นตอน หนึ่งรหัส"
 }

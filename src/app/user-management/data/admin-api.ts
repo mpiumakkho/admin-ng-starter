@@ -1,6 +1,6 @@
 import {
   Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
-  RoleAssignmentChanges, RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft,
+  RoleAssignmentChanges, RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorConfirmation, TwoFactorSetup, User, UserChanges, UserDraft,
   UserSession, UserStatus,
 } from './models';
 
@@ -172,9 +172,14 @@ export abstract class AdminApi {
 
   /** A new secret for the signed-in user; it takes effect once confirmed with a code */
   abstract startTwoFactor(): Promise<TwoFactorSetup>;
-  abstract confirmTwoFactor(code: string): Promise<User>;
-  /** Turns it off for yourself, with a current code */
+  /** Turns it on, answering the first recovery codes, shown this once */
+  abstract confirmTwoFactor(code: string): Promise<TwoFactorConfirmation>;
+  /** Turns it off for yourself, with a current code or a recovery code; the recovery codes go with it */
   abstract disableTwoFactor(code: string): Promise<User>;
+  /** How many of your recovery codes are left unused */
+  abstract recoveryCodesLeft(): Promise<number>;
+  /** Ten new recovery codes for yourself, which replace the old ones; a risky change (reauth_required) */
+  abstract createRecoveryCodes(): Promise<string[]>;
   /** Turns it off for someone who lost their phone; needs users.edit */
   abstract resetTwoFactor(userId: string, reason?: string): Promise<User>;
 

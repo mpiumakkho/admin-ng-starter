@@ -303,6 +303,13 @@ describe('HttpAdminApi', () => {
       const off = api.disableTwoFactor('123456');
       (await sent('POST', '/me/two-factor/disable')).flush(user);
       await off;
+
+      const left = api.recoveryCodesLeft();
+      (await sent('GET', '/me/recovery-codes')).flush({ remaining: 7 });
+      await expect(left).resolves.toBe(7);
+      const fresh = api.createRecoveryCodes();
+      (await sent('POST', '/me/recovery-codes')).flush({ codes: ['abcde-fghjk'] });
+      await expect(fresh).resolves.toEqual(['abcde-fghjk']);
     });
 
     it('turns the code in a refusal into an AdminApiError', async () => {

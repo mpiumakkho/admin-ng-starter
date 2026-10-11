@@ -213,6 +213,15 @@
               <button uiButton variant="danger-soft" size="sm" type="button" (click)="resetTwoFactor()">{{ 'Turn off' | translate }}</button>
             }
           </div>
+          <!-- Your recovery codes, for when you lose your phone -->
+          @if (isSelf() && user.twoFactor && recoveryCodesLeft() !== null) {
+            <div class="security-row recovery-row">
+              <span class="security-text" [class.security-warning]="!recoveryCodesLeft()">
+                {{ (recoveryCodesLeft() ? 'recoveryCodesLeft' : 'No recovery codes left. Make new ones in case you lose your phone.') | translate: { count: recoveryCodesLeft() } }}
+              </span>
+              <button uiButton variant="secondary" size="sm" type="button" (click)="makingCodes.set(true)">{{ 'New recovery codes' | translate }}</button>
+            </div>
+          }
         </ui-card>
 
         @if (isSelf()) {
@@ -264,7 +273,8 @@
       </div>
 
       @if (isSelf()) {
-        <app-two-factor-dialog [mode]="twoFactorMode()" [(open)]="twoFactorOpen" />
+        <app-two-factor-dialog [mode]="twoFactorMode()" [(open)]="twoFactorOpen" (openChange)="!$event && loadRecoveryCodesLeft()" />
+        <app-recovery-codes-dialog [(open)]="makingCodes" (made)="loadRecoveryCodesLeft()" />
         <app-change-password-dialog [(open)]="changingPassword" />
       }
     }

@@ -21,10 +21,10 @@
           <ui-alert tone="warning">{{ 'Your session has ended. Sign in again to continue.' | translate }}</ui-alert>
         }
         @if (codeStep()) {
-          <ui-alert tone="info" [title]="'Two-step sign-in' | translate">{{ 'Type the 6-digit code from the authenticator app on your phone.' | translate }}</ui-alert>
-          <ui-form-field [label]="'Code' | translate" for="loginCode" [errors]="errors()">
-            <input #codeInput uiInput id="loginCode" class="code-input" [formControl]="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
-          </ui-form-field>
+          <ui-alert tone="info" [title]="'Two-step sign-in' | translate">
+            {{ (recovery() ? 'Type one of the recovery codes you saved when you turned on two-step sign-in.' : 'Type the 6-digit code from the authenticator app on your phone.') | translate }}
+          </ui-alert>
+          <app-two-factor-code-field [control]="code" inputId="loginCode" [(recovery)]="recovery" [hinted]="false" />
           <button uiButton size="lg" block type="submit" [loading]="signingIn()">{{ 'Verify' | translate }}</button>
           <button type="button" class="auth-link start-over" (click)="startOver()">{{ 'Use another account' | translate }}</button>
         } @else {

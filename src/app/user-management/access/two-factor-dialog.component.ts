@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, model, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgIcon } from '@ng-icons/core';
@@ -11,19 +11,25 @@ import { TwoFactorSetup } from '../data/models';
 import { errorMessage } from '../shared/errors';
 import { translationsChanged } from '../shared/i18n';
 import { UiAlert, UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput, UiToastService } from '../ui';
+import { RecoveryCodes } from './recovery-codes.component';
+import { TwoFactorCodeField, twoFactorCodeControl } from './two-factor-code-field.component';
 
 /**
- * Turns two-step sign-in on (scan a QR code with an authenticator app, then type a code to prove it works)
- * or off (type a current code). For the signed-in user only.
+ * Turns two-step sign-in on (scan a QR code with an authenticator app, type a code to prove it works, then save the
+ * recovery codes) or off (type a current code, or a recovery code). For the signed-in user only.
  */
 @Component({
   selector: 'app-two-factor-dialog',
-  imports: [ReactiveFormsModule, NgIcon, TranslatePipe, UiAlert, UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput],
+  imports: [
+    ReactiveFormsModule, NgIcon, TranslatePipe, UiAlert, UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput, RecoveryCodes,
+    TwoFactorCodeField,
+  ],
   template: `
-    <ui-dialog [(open)]="open" (openChange)="!$event && reset()"
-      [title]="(mode() === 'enable' ? 'Turn on two-step sign-in' : 'Turn off two-step sign-in') | translate"
-      [description]="(mode() === 'enable' ? 'Signing in will need a code from your phone as well as your password.' : 'Signing in will need only your password again.') | translate"
+    <ui-dialog [(open)]="open" (openChange)="!$event && reset()" [title]="title() | translate" [description]="description() | translate"
       [closeLabel]="'Close' | translate">
+      @if (recoveryCodes(); as codes) {
+        <app-recovery-codes [codes]="codes" />
+      } @else {
       <!-- No form group here, so the submit event is handled directly rather than through ngSubmit -->
       <form class="two-factor" [id]="formId" (submit)="$event.preventDefault(); submit()" novalidate>
         @if (mode() === 'enable') {
@@ -54,15 +60,25 @@ import { UiAlert, UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput, UiTo
             </li>
           </ol>
         }
-        <ui-form-field [label]="'Code' | translate" [for]="formId + '-code'" [errors]="errors()">
-          <input uiInput class="code-input" [id]="formId + '-code'" [formControl]="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" />
-        </ui-form-field>
+        @if (mode() === 'enable') {
+          <ui-form-field [label]="'Code' | translate" [for]="formId + '-code'" [errors]="errors()">
+            <input uiInput class="code-input" [id]="formId + '-code'" [formControl]="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" />
+          </ui-form-field>
+        } @else {
+          <!-- Turning it off works with a recovery code too, for someone who lost their phone -->
+          <app-two-factor-code-field [control]="anyCode" [inputId]="formId + '-code'" />
+        }
       </form>
+      }
       <div uiDialogFooter>
-        <button uiButton variant="secondary" type="button" (click)="open.set(false); reset()">{{ 'Cancel' | translate }}</button>
-        <button uiButton type="submit" [attr.form]="formId" [variant]="mode() === 'enable' ? 'primary' : 'danger'" [loading]="saving()" [disabled]="mode() === 'enable' && !setup()">
-          {{ (mode() === 'enable' ? 'Turn on' : 'Turn off') | translate }}
-        </button>
+        @if (recoveryCodes()) {
+          <button uiButton type="button" (click)="open.set(false); reset()">{{ 'Done' | translate }}</button>
+        } @else {
+          <button uiButton variant="secondary" type="button" (click)="open.set(false); reset()">{{ 'Cancel' | translate }}</button>
+          <button uiButton type="submit" [attr.form]="formId" [variant]="mode() === 'enable' ? 'primary' : 'danger'" [loading]="saving()" [disabled]="mode() === 'enable' && !setup()">
+            {{ (mode() === 'enable' ? 'Turn on' : 'Turn off') | translate }}
+          </button>
+        }
       </div>
     </ui-dialog>
   `,
@@ -98,6 +114,16 @@ export class TwoFactorDialog {
   protected readonly saving = signal(false);
   protected readonly copied = signal(false);
   protected readonly code = new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^\d{6}$/)] });
+  /** Turning it off: a code from the app, or a recovery code */
+  protected readonly anyCode = twoFactorCodeControl();
+  private readonly codeField = viewChild(TwoFactorCodeField);
+  /** Turned on: the recovery codes to save, shown this once */
+  protected readonly recoveryCodes = signal<string[] | null>(null);
+
+  protected readonly title = computed(() => this.recoveryCodes() ? 'Save your recovery codes'
+    : this.mode() === 'enable' ? 'Turn on two-step sign-in' : 'Turn off two-step sign-in');
+  protected readonly description = computed(() => this.recoveryCodes() ? 'Two-step sign-in is on.'
+    : this.mode() === 'enable' ? 'Signing in will need a code from your phone as well as your password.' : 'Signing in will need only your password again.');
 
   protected readonly errors = computed<Record<string, string>>(() => {
     this.i18n();
@@ -128,25 +154,29 @@ export class TwoFactorDialog {
   }
 
   protected async submit() {
-    if (this.code.invalid) {
-      this.code.markAsTouched();
+    const control = this.mode() === 'enable' ? this.code : this.anyCode;
+    if (control.invalid) {
+      control.markAsTouched();
       return;
     }
     this.saving.set(true);
     try {
       if (this.mode() === 'enable') {
-        await this.store.confirmTwoFactor(this.code.value);
+        // On: the recovery codes show before the dialog closes
+        const { recoveryCodes } = await this.store.confirmTwoFactor(this.code.value);
+        this.recoveryCodes.set(recoveryCodes);
         this.toast.show(this.translate.instant('Two-step sign-in is on.'));
       } else {
-        await this.store.disableTwoFactor(this.code.value);
+        await this.store.disableTwoFactor(this.anyCode.value);
         this.toast.show(this.translate.instant('Two-step sign-in is off.'));
+        this.open.set(false);
+        this.reset();
       }
-      this.open.set(false);
-      this.reset();
     } catch (error) {
       if (error instanceof AdminApiError && error.code === 'invalid_code') {
-        this.code.setErrors({ wrong: true });
-        this.code.markAsTouched();
+        control.setErrors({ wrong: true });
+        control.markAsTouched();
+        this.codeField()?.focus();
       } else {
         this.toast.show(this.translate.instant(errorMessage(error)), 'error');
       }
@@ -160,6 +190,8 @@ export class TwoFactorDialog {
     this.qr.set(null);
     this.failed.set(false);
     this.code.reset();
+    this.anyCode.reset();
+    this.recoveryCodes.set(null);
   }
 
   private async start() {

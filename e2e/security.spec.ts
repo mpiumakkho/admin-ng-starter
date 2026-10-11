@@ -29,6 +29,9 @@ test('two-step sign-in: turn it on with a code, then sign in with one', async ({
   await dialog.locator('input[autocomplete=one-time-code]').fill(totp(secret));
   await dialog.getByRole('button', { name: 'Turn on' }).click();
   await expect(page.locator('ui-toaster')).toContainText('Two-step sign-in is on.');
+  // The recovery codes, shown this once
+  await expect(dialog.locator('.recovery-codes code')).toHaveCount(10);
+  await dialog.getByRole('button', { name: 'Done' }).click();
 
   await signOut(page);
   await page.locator('.demo-account', { hasText: 'Support' }).click();

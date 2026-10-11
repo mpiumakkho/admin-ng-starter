@@ -5,7 +5,7 @@ import { firstValueFrom, Observable, Subscription } from 'rxjs';
 import { AdminApi, AdminApiError, AdminApiErrorCode } from './admin-api';
 import {
   Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
-  RoleAssignmentChanges, RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft,
+  RoleAssignmentChanges, RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorConfirmation, TwoFactorSetup, User, UserChanges, UserDraft,
   UserSession, UserStatus,
 } from './models';
 
@@ -254,12 +254,20 @@ export class HttpAdminApi extends AdminApi {
     return this.send<TwoFactorSetup>('POST', '/me/two-factor');
   }
 
-  confirmTwoFactor(code: string): Promise<User> {
-    return this.send<User>('POST', '/me/two-factor/confirm', { code });
+  confirmTwoFactor(code: string): Promise<TwoFactorConfirmation> {
+    return this.send<TwoFactorConfirmation>('POST', '/me/two-factor/confirm', { code });
   }
 
   disableTwoFactor(code: string): Promise<User> {
     return this.send<User>('POST', '/me/two-factor/disable', { code });
+  }
+
+  async recoveryCodesLeft(): Promise<number> {
+    return (await this.send<{ remaining: number }>('GET', '/me/recovery-codes')).remaining;
+  }
+
+  async createRecoveryCodes(): Promise<string[]> {
+    return (await this.send<{ codes: string[] }>('POST', '/me/recovery-codes')).codes;
   }
 
   resetTwoFactor(userId: string, reason?: string): Promise<User> {

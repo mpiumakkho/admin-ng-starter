@@ -1,4 +1,4 @@
-import { afterNextRender, Component, computed, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, computed, inject, Injector, signal, viewChild } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
@@ -9,6 +9,7 @@ import { reauthLabel } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import { UiAlert, UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput } from '../ui';
 import { Session } from './session';
+import { TwoFactorCodeField, twoFactorCodeControl } from './two-factor-code-field.component';
 
 /** What to tell someone whose password was refused; the email is theirs already, so only the password can be wrong */
 const SIGN_IN_ERRORS: Partial<Record<string, string>> = {
@@ -29,7 +30,7 @@ const SIGN_IN_ERRORS: Partial<Record<string, string>> = {
  */
 @Component({
   selector: 'app-reauth-dialog',
-  imports: [ReactiveFormsModule, TranslatePipe, UiAlert, UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput],
+  imports: [ReactiveFormsModule, TranslatePipe, UiAlert, UiButton, UiDialog, UiDialogFooter, UiFormField, UiInput, TwoFactorCodeField],
   template: `
     <ui-dialog size="sm" [open]="!!purpose()" (openChange)="$event || cancel()" [dismissible]="purpose() === 'confirm'"
       [title]="(purpose() === 'confirm' ? 'Confirm it is you' : 'Sign in again to carry on') | translate"
@@ -46,9 +47,7 @@ const SIGN_IN_ERRORS: Partial<Record<string, string>> = {
           <input uiInput id="reauth-password" type="password" autocomplete="current-password" autofocus [formControl]="password" />
         </ui-form-field>
         @if (codeStep()) {
-          <ui-form-field [label]="'Code' | translate" for="reauth-code" [hint]="'Type the 6-digit code the app shows.' | translate" [errors]="errors()">
-            <input #codeInput uiInput id="reauth-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" [formControl]="code" />
-          </ui-form-field>
+          <app-two-factor-code-field [control]="code" inputId="reauth-code" [(recovery)]="recovery" />
         }
       </form>
       <div uiDialogFooter>
@@ -70,14 +69,16 @@ export class ReauthDialog {
   private readonly translate = inject(TranslateService);
   private readonly i18n = translationsChanged();
   private readonly injector = inject(Injector);
-  private readonly codeInput = viewChild<ElementRef<HTMLInputElement>>('codeInput');
+  private readonly codeField = viewChild(TwoFactorCodeField);
 
   /** Signing in again after the session ended comes first: a change waiting for the password cannot go without it */
   protected readonly purpose = computed<'signIn' | 'confirm' | null>(() =>
     this.session.paused() ? 'signIn' : this.session.reauthRequested() ? 'confirm' : null);
   protected readonly email = computed(() => this.session.user()?.email ?? '');
   protected readonly password = new FormControl('', { nonNullable: true, validators: [Validators.required] });
-  protected readonly code = new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^\d{6}$/)] });
+  /** A code from the app, or a recovery code (recovery) */
+  protected readonly code = twoFactorCodeControl();
+  protected readonly recovery = signal(false);
   /** The password was right and the account uses two-step sign-in: now the code from the app */
   protected readonly codeStep = signal(false);
   protected readonly busy = signal(false);
@@ -100,7 +101,6 @@ export class ReauthDialog {
     this.i18n();
     return {
       required: this.translate.instant('This field is required.'),
-      pattern: this.translate.instant('Type the 6-digit code.'),
     };
   });
 
@@ -124,7 +124,9 @@ export class ReauthDialog {
       const code = error instanceof AdminApiError ? error.code : '';
       if (code === 'two_factor_required') {
         this.codeStep.set(true);
-        afterNextRender(() => this.codeInput()?.nativeElement.focus(), { injector: this.injector });
+        afterNextRender(() => this.codeField()?.focus(), { injector: this.injector });
+      } else if (code === 'invalid_code' && this.recovery()) {
+        this.error.set('That recovery code is not right, or it was used already.');
       } else {
         this.error.set(SIGN_IN_ERRORS[code] ?? errorMessage(error));
       }
@@ -150,6 +152,7 @@ export class ReauthDialog {
     this.password.reset();
     this.code.reset();
     this.codeStep.set(false);
+    this.recovery.set(false);
     this.error.set('');
   }
 }

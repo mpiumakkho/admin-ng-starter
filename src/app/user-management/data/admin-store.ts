@@ -5,7 +5,7 @@ import { AdminApi, AdminApiError } from './admin-api';
 import { DEFAULT_SETTINGS } from './catalog';
 import {
   Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, Role, RoleAssignmentBatch, RoleAssignmentChanges,
-  RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
+  RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorConfirmation, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
 /** How long to wait for more changes before loading again, as one action can change several things */
@@ -449,8 +449,22 @@ export class AdminStore {
     return this.call(() => this.api.startTwoFactor());
   }
 
-  async confirmTwoFactor(code: string): Promise<User> {
-    return this.afterUserChange(await this.call(() => this.api.confirmTwoFactor(code)));
+  /** On, with the first recovery codes, shown this once */
+  async confirmTwoFactor(code: string): Promise<TwoFactorConfirmation> {
+    const confirmed = await this.call(() => this.api.confirmTwoFactor(code));
+    await this.afterUserChange(confirmed.user);
+    return confirmed;
+  }
+
+  recoveryCodesLeft(): Promise<number> {
+    return this.call(() => this.api.recoveryCodesLeft());
+  }
+
+  /** Ten new recovery codes, which replace the old ones */
+  async createRecoveryCodes(): Promise<string[]> {
+    const codes = await this.call(() => this.api.createRecoveryCodes());
+    await this.refreshActivity().catch(() => undefined);
+    return codes;
   }
 
   async disableTwoFactor(code: string): Promise<User> {

@@ -313,6 +313,16 @@ ui-page-header {
   font-size: .8125rem;
 }
 
+.recovery-row {
+  margin-top: .75rem;
+  padding-top: .75rem;
+  border-top: 1px solid var(--ui-border);
+}
+
+.security-warning {
+  color: var(--ui-warning-text);
+}
+
 .device-list {
   margin: 0;
   padding: 0;

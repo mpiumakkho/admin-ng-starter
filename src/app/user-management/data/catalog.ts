@@ -4,6 +4,8 @@ import {
   lucideBan,
   lucideCalendarClock,
   lucideKeyRound,
+  lucideKeySquare,
+  lucideLifeBuoy,
   lucideLogIn,
   lucideLogOut,
   lucideMail,
@@ -152,6 +154,12 @@ export const ACTIVITY_META: Record<ActivityAction, { icon: string; tone: UiTone;
   'auth.sessions_ended': { icon: lucideLogOut, tone: 'warning', label: 'action.auth.sessions_ended', message: 'activity.auth.sessions_ended', kind: 'sessions' },
   'auth.two_factor_on': { icon: lucideShieldCheck, tone: 'success', label: 'action.auth.two_factor_on', message: 'activity.auth.two_factor_on', kind: 'sessions' },
   'auth.two_factor_off': { icon: lucideShieldOff, tone: 'warning', label: 'action.auth.two_factor_off', message: 'activity.auth.two_factor_off', kind: 'sessions' },
+  'auth.recovery_code_used': {
+    icon: lucideLifeBuoy, tone: 'warning', label: 'action.auth.recovery_code_used', message: 'activity.auth.recovery_code_used', kind: 'sessions',
+  },
+  'auth.recovery_codes_created': {
+    icon: lucideKeySquare, tone: 'info', label: 'action.auth.recovery_codes_created', message: 'activity.auth.recovery_codes_created', kind: 'sessions',
+  },
 };
 
 /** Names of the user and role fields an activity can change */
@@ -189,6 +197,7 @@ export const FIELD_LABELS: Record<string, string> = {
   reasonsRequired: 'Ask for a reason when',
   reauthMinutes: 'Ask for the password again after',
   devices: 'Devices',
+  recoveryCodesLeft: 'Recovery codes left',
 };
 
 /** The changes the settings can require a reason for, as the settings page and the log name them */

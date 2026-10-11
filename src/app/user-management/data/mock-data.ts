@@ -24,6 +24,8 @@ export interface AdminData {
   /** Authenticator secrets by user id, and the ones waiting to be confirmed */
   twoFactorSecrets?: Record<string, string>;
   pendingTwoFactor?: Record<string, string>;
+  /** SHA-256 of each recovery code by user id, the used ones marked; they go when two-step sign-in is turned off */
+  recoveryCodes?: Record<string, { hash: string; used: boolean }[]>;
   /**
    * SHA-256 of the passwords people set themselves, by user id. Without one, the sample accepts any password
    * of 6 or more characters.

@@ -48,6 +48,7 @@ import {
   UiTone,
 } from '../ui';
 import { ChangePasswordDialog } from '../access/change-password-dialog.component';
+import { RecoveryCodesDialog } from '../access/recovery-codes-dialog.component';
 import { Session } from '../access/session';
 import { TwoFactorDialog } from '../access/two-factor-dialog.component';
 import { activeRoleIds, permissionsOf, roleAssignmentState, RoleAssignmentState } from '../data/access-rules';
@@ -70,6 +71,7 @@ const TAB_ALIASES: Record<string, Tab> = { permissions: 'roles' };
 @Component({
   selector: 'app-user-detail',
   imports: [
+    RecoveryCodesDialog,
     RouterLink,
     NgIcon,
     TranslatePipe,
@@ -221,6 +223,9 @@ export class UserDetailComponent {
   protected readonly twoFactorMode = signal<'enable' | 'disable'>('enable');
   protected readonly twoFactorOpen = signal(false);
   protected readonly changingPassword = signal(false);
+  /** How many of your own recovery codes are left, with two-step sign-in on; null until loaded */
+  protected readonly recoveryCodesLeft = signal<number | null>(null);
+  protected readonly makingCodes = signal(false);
 
   constructor() {
     effect(() => {
@@ -235,6 +240,9 @@ export class UserDetailComponent {
       this.store.revision();
       if (this.tab() === 'security' && this.canSeeSecurity()) {
         untracked(() => this.loadSessions(id));
+      }
+      if (this.tab() === 'security' && this.isSelf() && this.user()?.twoFactor) {
+        untracked(() => this.loadRecoveryCodesLeft());
       }
     });
   }
@@ -316,6 +324,10 @@ export class UserDetailComponent {
     } finally {
       this.ending.set(null);
     }
+  }
+
+  protected async loadRecoveryCodesLeft() {
+    this.recoveryCodesLeft.set(await this.store.recoveryCodesLeft().catch(() => null));
   }
 
   private async loadSessions(id: string) {
