@@ -202,6 +202,8 @@ export interface AdminSettings {
    * people, the settings…) before the password is asked again; 0 never asks
    */
   reauthMinutes: number;
+  /** Every night, accounts nobody used for this many days are suspended; 0 leaves them */
+  suspendInactiveDays: number;
 }
 
 /** Two-step sign-in is on: the user, and their first recovery codes, shown this once */

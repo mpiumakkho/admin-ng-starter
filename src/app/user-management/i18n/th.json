@@ -661,5 +661,9 @@
     "Wrong code":                   "รหัสยืนยันผิด",
     "Account locked":               "บัญชีถูกล็อก",
     "Account suspended":            "บัญชีถูกระงับ",
-    "Invitation not accepted yet":  "ยังไม่ได้ตอบรับคำเชิญ"
+    "Invitation not accepted yet":  "ยังไม่ได้ตอบรับคำเชิญ",
+    "Suspend accounts not used for": "ระงับบัญชีที่ไม่ได้ใช้นาน",
+    "inactiveHint":                 "ทุกคืน บัญชีที่ไม่มีใครเข้าใช้นานเท่านี้จะถูกระงับและได้รับอีเมลแจ้ง ยกเว้นผู้ดูแลสูงสุดคนสุดท้าย",
+    "Never suspend":                "ไม่ระงับ",
+    "Not used for":                 "ไม่ได้ใช้นาน"
 }

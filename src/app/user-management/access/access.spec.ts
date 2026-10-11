@@ -1,11 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, convertToParamMap, provideRouter, RedirectCommand, RouterStateSnapshot, UrlTree } from '@angular/router';
 
-import { activeRoleIds } from '../data/access-rules';
+import { activeRoleIds, administratorRemains } from '../data/access-rules';
+import { ALL_PERMISSIONS } from '../data/catalog';
 import { AdminApi, AdminApiError } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
 import { LocalAdminApi } from '../data/local-admin-api';
-import { createMockData, DEMO_ACCOUNTS } from '../data/mock-data';
+import { AdminData, createMockData, DEMO_ACCOUNTS } from '../data/mock-data';
 import { totp } from '../data/totp';
 import { UserDraft } from '../data/models';
 import { canEditUser, canViewUser, requirePermission, signedIn, signedOut } from './guards';
@@ -761,6 +762,57 @@ describe('Session and permissions', () => {
 
         vi.advanceTimersByTime(60_000);
         await vi.waitFor(() => expect(session.signedIn()).toBe(false), { timeout: 2000 });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('accounts nobody uses, and idle sessions', () => {
+    const STORAGE = 'admin-data-v7';
+    const longAgo = new Date(Date.now() - 100 * 24 * 60 * 60_000).toISOString();
+    /** Changes the saved sample data, as time passing would */
+    const change = (edit: (data: { users: { id: string; lastActiveAt: string | null; createdAt: string }[] }) => void) => {
+      const data = JSON.parse(localStorage.getItem(STORAGE)!);
+      edit(data);
+      localStorage.setItem(STORAGE, JSON.stringify(data));
+    };
+
+    it('suspends accounts nobody used for the settings days, with no actor', async () => {
+      await signInAs('admin');
+      await store.updateSettings({ suspendInactiveDays: 30 });
+      const idle = store.users().find(user => user.status === 'active' && activeRoleIds(user).join() === 'viewer' && user.id !== session.userId())!;
+      change(data => data.users.filter(user => user.id === idle.id).forEach(user => user.lastActiveAt = longAgo));
+
+      await store.refresh();
+      expect(store.usersById().get(idle.id)?.status).toBe('suspended');
+      expect(store.activity().find(entry => entry.action === 'user.suspended' && entry.targetId === idle.id)).toMatchObject({
+        actorId: null, changes: [{ field: 'status', from: 'active', to: 'suspended' }, { field: 'inactiveDays', to: '30' }],
+      });
+    });
+
+    it('never suspends the last one who can run the system', async () => {
+      await signInAs('admin');
+      await store.updateSettings({ suspendInactiveDays: 30 });
+      change(data => data.users.forEach(user => {
+        user.lastActiveAt = longAgo;
+        user.createdAt = longAgo;
+      }));
+
+      // Any request reads the data, as the nightly job runs
+      await new LocalAdminApi().getSession();
+      const saved = JSON.parse(localStorage.getItem(STORAGE)!) as AdminData;
+      expect(saved.users.filter(user => user.status === 'active')).toHaveLength(1);
+      expect(administratorRemains(saved.users, saved.roles, ALL_PERMISSIONS)).toBe(true);
+    });
+
+    it('ends a session the server side too, after the idle timeout without a request', async () => {
+      await signInAs('admin');
+      await store.updateSettings({ sessionTimeoutMinutes: 15 });
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        vi.setSystemTime(Date.now() + 20 * 60_000);
+        await expect(new LocalAdminApi().listUsers()).rejects.toEqual(new AdminApiError('unauthenticated'));
       } finally {
         vi.useRealTimers();
       }

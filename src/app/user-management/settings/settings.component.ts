@@ -9,11 +9,11 @@ import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
 import {
   ACTIVITY_RETENTION_DAYS, INVITE_EXPIRY_DAYS, PASSWORD_HISTORY, PASSWORD_MIN_LENGTHS, REASON_ACTIONS, REAUTH_MINUTES,
-  SESSION_TIMEOUT_MINUTES,
+  SESSION_TIMEOUT_MINUTES, SUSPEND_INACTIVE_DAYS,
 } from '../data/catalog';
 import { AdminSettings, ReasonAction } from '../data/models';
 import { errorMessage } from '../shared/errors';
-import { idleTimeoutLabel, passwordHistoryLabel, reauthLabel, retentionLabel } from '../shared/formatting';
+import { idleTimeoutLabel, inactiveLabel, passwordHistoryLabel, reauthLabel, retentionLabel } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import {
   UiAlert,
@@ -79,6 +79,7 @@ export class SettingsComponent implements OnInit {
     branchesEnabled: [false],
     reasonsRequired: [[] as ReasonAction[]],
     reauthMinutes: [10],
+    suspendInactiveDays: [0],
   });
 
   /** The changes that can require a reason, in the order of REASON_ACTIONS */
@@ -97,6 +98,11 @@ export class SettingsComponent implements OnInit {
   protected readonly reauthOptions = computed(() => {
     this.i18n();
     return REAUTH_MINUTES.map(minutes => ({ value: minutes, label: reauthLabel(this.translate, minutes) }));
+  });
+
+  protected readonly inactiveOptions = computed(() => {
+    this.i18n();
+    return SUSPEND_INACTIVE_DAYS.map(days => ({ value: days, label: inactiveLabel(this.translate, days) }));
   });
 
   protected readonly passwordLengthOptions = computed(() => {

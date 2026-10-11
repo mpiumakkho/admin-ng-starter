@@ -87,6 +87,11 @@ export class LocalAdminApi extends AdminApi {
     const now = new Date().toISOString();
     const signedIn = { ...user, lastActiveAt: now };
     this.data.users = this.data.users.map(item => item.id === user.id ? signedIn : item);
+    // A browser and system never used before, other than for the first sign-in, is worth an email
+    const before = this.data.sessions.filter(item => item.userId === user.id);
+    if (before.length && !before.some(item => item.browser === this.client.browser && item.os === this.client.os)) {
+      notify(user, 'New sign-in', `from ${this.client.browser} on ${this.client.os}, ${this.client.ip}`);
+    }
     const session: UserSession = { id: `s-${crypto.randomUUID().slice(0, 12)}`, userId: user.id, createdAt: now, lastSeenAt: now, ...this.client };
     this.data.sessions = [...this.data.sessions, session];
     this.data.verifiedAt = { ...this.data.verifiedAt, [session.id]: now };
@@ -116,6 +121,7 @@ export class LocalAdminApi extends AdminApi {
     const here = this.currentSession()?.session.id;
     this.data.sessions = this.data.sessions.filter(session => session.userId !== actor.id || session.id === here);
     this.log(actor.id, 'user.password_changed', fullName(actor), actor.id);
+    notify(actor, 'Your password was changed');
     return this.respond(undefined);
   }
 
@@ -167,6 +173,9 @@ export class LocalAdminApi extends AdminApi {
     // Whoever knew the old password is signed out everywhere
     this.data.sessions = this.data.sessions.filter(session => session.userId !== user.id);
     this.log(user.id, 'user.password_changed', fullName(user), user.id);
+    if (user.lastActiveAt) {
+      notify(user, 'Your password was changed');
+    }
     return this.respond(undefined);
   }
 
@@ -248,6 +257,9 @@ export class LocalAdminApi extends AdminApi {
       this.assertOpenBranch(changes.branchId);
     }
     const user = { ...current, ...changes };
+    if (user.email !== current.email) {
+      notify(current, 'Your email was changed', `to ${user.email}`);
+    }
     this.commitUsers(this.data.users.map(item => item.id === id ? user : item));
     const diff = USER_FIELDS.filter(field => current[field] !== user[field]).map<ActivityChange>(field =>
       // Photos are data URLs: too big to keep, so the log only notes that it changed
@@ -741,7 +753,7 @@ export class LocalAdminApi extends AdminApi {
     this.data.settings = settings;
     const diff: ActivityChange[] = ([
       'defaultRoleId', 'inviteExpiryDays', 'sessionTimeoutMinutes', 'passwordMinLength', 'passwordHistory', 'activityRetentionDays',
-      'branchesEnabled', 'reauthMinutes',
+      'branchesEnabled', 'reauthMinutes', 'suspendInactiveDays',
     ] as const)
       .filter(field => current[field] !== settings[field])
       .map(field => ({ field, from: String(current[field]), to: String(settings[field]) }));
@@ -999,6 +1011,10 @@ export class LocalAdminApi extends AdminApi {
   }
 
   private logAssignment(actorId: string | null, action: ActivityAction, user: User, assignment: RoleAssignment) {
+    // Someone active hears about a role given; a new user, from the invitation
+    if (action === 'role_assignment.added' && user.status === 'active') {
+      notify(user, 'You have a new role', this.data.roles.find(role => role.id === assignment.roleId)?.name ?? assignment.roleId);
+    }
     this.log(actorId, action, fullName(user), user.id, [
       { field: 'roleId', to: assignment.roleId },
       ...(assignment.branchId ? [{ field: 'branchId', to: assignment.branchId }] : []),
@@ -1163,6 +1179,12 @@ export class LocalAdminApi extends AdminApi {
     const id = readStore(sessionStorage, SESSION_KEY) ?? readStore(localStorage, SESSION_KEY);
     const session = this.data.sessions.find(item => item.id === id);
     const user = session && this.data.users.find(item => item.id === session.userId);
+    // No request for longer than the settings' idle timeout, give or take the minute lastSeenAt is kept to: it ended
+    const timeout = this.data.settings.sessionTimeoutMinutes * 60_000;
+    if (session && timeout && Date.now() - new Date(session.lastSeenAt).getTime() > timeout + SEEN_EVERY_MS) {
+      this.data.sessions = this.data.sessions.filter(item => item.id !== session.id);
+      return undefined;
+    }
     return session && user?.status === 'active' ? { session, user } : undefined;
   }
 
@@ -1181,6 +1203,8 @@ export class LocalAdminApi extends AdminApi {
     const now = new Date();
     if (now.getTime() - new Date(session.lastSeenAt).getTime() > SEEN_EVERY_MS) {
       this.data.sessions = this.data.sessions.map(item => item.id === session.id ? { ...item, lastSeenAt: now.toISOString() } : item);
+      // As a server's token refresh does
+      this.data.users = this.data.users.map(item => item.id === user.id ? { ...item, lastActiveAt: now.toISOString() } : item);
     }
     if (!setupAllowed && !user.twoFactor && this.requiresTwoFactor(user)) {
       throw new AdminApiError('two_factor_mandatory');
@@ -1324,6 +1348,7 @@ export class LocalAdminApi extends AdminApi {
           return builtIn ? { ...role, name: builtIn.name, description: builtIn.description, permissions: [...builtIn.permissions] } : role;
         });
         settleAssignments(data, kept);
+        settleInactive(data);
         return data;
       }
     } catch {
@@ -1467,11 +1492,41 @@ function settleAssignments(data: AdminData, kept: string) {
   }
 }
 
+/**
+ * What the server's nightly job does with the settings' suspendInactiveDays: suspends the active accounts nobody used
+ * for that long, logs it with no actor and emails them; never the last one who can run the system.
+ */
+function settleInactive(data: AdminData) {
+  const days = data.settings.suspendInactiveDays;
+  if (!days) {
+    return;
+  }
+  const before = new Date(Date.now() - days * DAY_MS).toISOString();
+  for (const user of data.users.filter(item => item.status === 'active' && (item.lastActiveAt ?? item.createdAt) < before)) {
+    const suspended = data.users.map(item => item.id === user.id ? { ...item, status: 'suspended' as const } : item);
+    if (!administratorRemains(suspended, data.roles, ALL_PERMISSIONS)) {
+      continue;
+    }
+    data.users = suspended;
+    data.sessions = data.sessions.filter(session => session.userId !== user.id);
+    data.activity = [logEntry(null, 'user.suspended', fullName(user), user.id, [
+      { field: 'status', from: 'active', to: 'suspended' }, { field: 'inactiveDays', to: String(days) },
+    ]), ...data.activity];
+    notify(user, 'Your account was suspended', `not used for ${days} days`);
+  }
+}
+
+/** An email about someone's account; there is no mail server here, so it goes to the browser console */
+function notify(user: Pick<User, 'email'>, subject: string, detail = '') {
+  console.info(`[sample email] To ${user.email}: ${subject}${detail ? `, ${detail}` : ''}.`);
+}
+
 /** The whole numbers each settings field accepts */
 const SETTINGS_RANGES: Record<string, [min: number, max: number]> = {
   inviteExpiryDays: [0, 365],
   sessionTimeoutMinutes: [0, 10080],
   reauthMinutes: [0, 1440],
+  suspendInactiveDays: [0, 3650],
   passwordMinLength: [8, 64],
   passwordHistory: [0, 24],
   activityRetentionDays: [90, 3650],

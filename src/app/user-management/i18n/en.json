@@ -661,5 +661,9 @@
     "Wrong code":                   "Wrong code",
     "Account locked":               "Account locked",
     "Account suspended":            "Account suspended",
-    "Invitation not accepted yet":  "Invitation not accepted yet"
+    "Invitation not accepted yet":  "Invitation not accepted yet",
+    "Suspend accounts not used for": "Suspend accounts not used for",
+    "inactiveHint":                 "Every night, accounts nobody signed in to for this long are suspended and told by email. The last administrator never is.",
+    "Never suspend":                "Never",
+    "Not used for":                 "Not used for"
 }

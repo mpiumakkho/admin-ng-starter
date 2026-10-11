@@ -206,6 +206,8 @@ export const FIELD_LABELS: Record<string, string> = {
   devices: 'Devices',
   recoveryCodesLeft: 'Recovery codes left',
   cause: 'Why',
+  suspendInactiveDays: 'Suspend accounts not used for',
+  inactiveDays: 'Not used for',
   lockMinutes: 'Locked for',
 };
 
@@ -246,12 +248,15 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   branchesEnabled: false,
   reasonsRequired: ['status', 'delete'],
   reauthMinutes: 10,
+  suspendInactiveDays: 0,
 };
 
 /** Choices on the settings page */
 export const INVITE_EXPIRY_DAYS = [3, 7, 14, 30];
 export const SESSION_TIMEOUT_MINUTES = [0, 15, 30, 60, 240, 480];
 export const REAUTH_MINUTES = [0, 5, 10, 15, 30, 60];
+/** 90 days is what banks in Thailand often use */
+export const SUSPEND_INACTIVE_DAYS = [0, 30, 60, 90, 180, 365];
 export const PASSWORD_MIN_LENGTHS = [8, 10, 12, 14, 16];
 export const PASSWORD_HISTORY = [0, 1, 3, 5, 10];
 /** At least 90 days, as Thailand's Computer-Related Crime Act has service providers keep traffic data */

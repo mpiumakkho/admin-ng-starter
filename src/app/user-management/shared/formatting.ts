@@ -20,6 +20,11 @@ export function reauthLabel(translate: TranslateService, minutes: number): strin
   return minutes ? minutesLabel(translate, minutes) : translate.instant('Never ask again');
 }
 
+/** How long an account may go unused before it is suspended: "90 days", or never */
+export function inactiveLabel(translate: TranslateService, days: number): string {
+  return days ? translate.instant('dayCount', { count: days }) : translate.instant('Never suspend');
+}
+
 /** "15 minutes", "1 hour", "8 hours" */
 function minutesLabel(translate: TranslateService, minutes: number): string {
   if (minutes % 60) {

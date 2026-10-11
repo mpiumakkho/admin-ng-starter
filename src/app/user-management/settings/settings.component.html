@@ -52,6 +52,13 @@
             }
           </select>
         </ui-form-field>
+        <ui-form-field [label]="'Suspend accounts not used for' | translate" for="suspendInactiveDays" [hint]="'inactiveHint' | translate">
+          <select uiInput id="suspendInactiveDays" formControlName="suspendInactiveDays" class="select-input">
+            @for (option of inactiveOptions(); track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </ui-form-field>
         <ui-form-field [label]="'Two-step sign-in required for' | translate" [hint]="'People with these roles must turn on two-step sign-in before they can do anything else.' | translate">
           <div class="role-checks" role="group" [attr.aria-label]="'Two-step sign-in required for' | translate">
             @for (role of store.roles(); track role.id) {
