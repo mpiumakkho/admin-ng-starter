@@ -13,4 +13,6 @@ export interface UiOption<T = string> {
   ariaLabel?: string;
   /** Language of the label, such as "th", so screen readers pronounce it right */
   lang?: string;
+  /** Shown but cannot be picked, where the component supports it (ui-segmented) */
+  disabled?: boolean;
 }

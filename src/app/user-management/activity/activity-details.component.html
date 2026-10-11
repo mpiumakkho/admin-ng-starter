@@ -27,10 +27,12 @@
     <ui-badge [tone]="meta().tone">{{ action() }}</ui-badge>
   </ui-detail-item>
   <ui-detail-item [label]="'Type' | translate">{{ kind() | translate }}</ui-detail-item>
-  <ui-detail-item [label]="'IP address' | translate" [labelTitle]="'abbr.ip' | translate"><code class="mono">{{ entry().ip }}</code></ui-detail-item>
-  <ui-detail-item [label]="'Device' | translate">
-    <span class="device"><ng-icon [svg]="deviceIcon()" /> {{ entry().browser }} · {{ entry().os }}</span>
-  </ui-detail-item>
+  @if (entry().ip) {
+    <ui-detail-item [label]="'IP address' | translate" [labelTitle]="'abbr.ip' | translate"><code class="mono">{{ entry().ip }}</code></ui-detail-item>
+    <ui-detail-item [label]="'Device' | translate">
+      <span class="device"><ng-icon [svg]="deviceIcon()" /> {{ entry().browser }} · {{ entry().os }}</span>
+    </ui-detail-item>
+  }
   <ui-detail-item [label]="'Event reference' | translate">
     <span class="event-id">
       <code class="mono">{{ entry().id }}</code>

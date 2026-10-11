@@ -26,7 +26,7 @@ import { UiOption } from '../core/types';
         [attr.aria-label]="option.ariaLabel || null"
         [attr.title]="option.ariaLabel || null"
         [attr.lang]="option.lang || null"
-        [disabled]="disabled()"
+        [disabled]="disabled() || !!option.disabled"
         (click)="select(option.value)">
         @if (option.icon) {
           <ng-icon [svg]="option.icon" />

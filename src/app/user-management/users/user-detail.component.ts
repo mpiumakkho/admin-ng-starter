@@ -14,6 +14,7 @@ import {
   lucidePencil,
   lucidePhone,
   lucideShieldCheck,
+  lucideShieldPlus,
   lucideSmartphone,
   lucideTrash2,
   lucideUserCheck,
@@ -43,21 +44,26 @@ import {
   UiTimeline,
   UiTimelineItem,
   UiToastService,
+  UiTone,
 } from '../ui';
 import { ChangePasswordDialog } from '../access/change-password-dialog.component';
 import { Session } from '../access/session';
 import { TwoFactorDialog } from '../access/two-factor-dialog.component';
+import { activeRoleIds, permissionsOf, roleAssignmentState, RoleAssignmentState } from '../data/access-rules';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_META, PERMISSION_GROUPS } from '../data/catalog';
-import { fullName, Permission, UserSession, UserStatus } from '../data/models';
+import { fullName, Permission, RoleAssignment, UserSession, UserStatus } from '../data/models';
 import { ActivityText } from '../shared/activity-text';
-import { RoleBadge, StatusBadge } from '../shared/badges';
+import { RoleBadge, RoleBadges, StatusBadge } from '../shared/badges';
 import { errorMessage } from '../shared/errors';
 import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
+import { RoleAssignmentDialog } from './role-assignment-dialog.component';
 
-type Tab = 'details' | 'permissions' | 'activity' | 'security';
-const TABS: Tab[] = ['details', 'permissions', 'activity', 'security'];
+type Tab = 'details' | 'roles' | 'activity' | 'security';
+const TABS: Tab[] = ['details', 'roles', 'activity', 'security'];
+/** Older links name the roles tab by its earlier name */
+const TAB_ALIASES: Record<string, Tab> = { permissions: 'roles' };
 
 @Component({
   selector: 'app-user-detail',
@@ -81,8 +87,10 @@ const TABS: Tab[] = ['details', 'permissions', 'activity', 'security'];
     UiMenuTrigger,
     UiMenuDivider,
     RoleBadge,
+    RoleBadges,
     StatusBadge,
     ActivityText,
+    RoleAssignmentDialog,
     TimeAgoPipe,
     LocalDatePipe,
     UiBadge,
@@ -109,16 +117,16 @@ export class UserDetailComponent {
     page: lucideUserRound, edit: lucidePencil, more: lucideEllipsis, suspend: lucideBan, activate: lucideUserCheck,
     reset: lucideKeyRound, remove: lucideTrash2, missing: lucideUserX, mail: lucideMail, phone: lucidePhone,
     granted: lucideCheck, denied: lucideX, role: lucideShieldCheck, history: lucideHistory, arrow: lucideArrowRight,
-    desktop: lucideMonitor, mobile: lucideSmartphone, signOut: lucideLogOut,
+    desktop: lucideMonitor, mobile: lucideSmartphone, signOut: lucideLogOut, giveRole: lucideShieldPlus,
   };
+  protected readonly stateLabels: Record<RoleAssignmentState, string> = { active: 'Active', scheduled: 'Scheduled', expired: 'Ended' };
+  protected readonly stateTones: Record<RoleAssignmentState, UiTone> = { active: 'success', scheduled: 'info', expired: 'neutral' };
   protected readonly activityMeta = ACTIVITY_META;
   protected readonly permissionGroups = PERMISSION_GROUPS;
 
   protected readonly user = computed(() => this.store.usersById().get(this.id()));
-  protected readonly role = computed(() => {
-    const user = this.user();
-    return user ? this.store.rolesById().get(user.roleId) : undefined;
-  });
+  /** Every permission of the roles they hold now */
+  private readonly permissions = computed(() => permissionsOf(this.user(), this.store.roles(), this.store.now()));
   protected readonly name = computed(() => {
     const user = this.user();
     return user ? fullName(user) : '';
@@ -149,8 +157,34 @@ export class UserDetailComponent {
   /** Their role must use two-step sign-in (settings), so they cannot turn it off themselves */
   protected readonly twoFactorRequired = computed(() => {
     const user = this.user();
-    return !!user && this.store.settings().twoFactorRoleIds.includes(user.roleId);
+    return !!user && activeRoleIds(user, this.store.now()).some(roleId => this.store.settings().twoFactorRoleIds.includes(roleId));
   });
+
+  /* Roles tab */
+
+  /** Someone else's roles, when the signed-in user may manage them */
+  protected readonly canChangeRoles = computed(() => this.canEdit() && !this.isSelf());
+  /** Their assignments: the ones that count now, then scheduled, then ended, each newest first */
+  protected readonly assignments = computed(() => {
+    const user = this.user();
+    const now = this.store.now();
+    const order: Record<RoleAssignmentState, number> = { active: 0, scheduled: 1, expired: 2 };
+    return (user?.roles ?? [])
+      .map(assignment => {
+        const giver = assignment.assignedById ? this.store.usersById().get(assignment.assignedById) : undefined;
+        const role = this.store.rolesById().get(assignment.roleId);
+        return {
+          assignment,
+          state: roleAssignmentState(assignment, now),
+          givenBy: giver ? fullName(giver) : '',
+          canChange: this.canChangeRoles() && this.session.canAssign(role),
+        };
+      })
+      .sort((a, b) => order[a.state] - order[b.state] || b.assignment.startsAt.localeCompare(a.assignment.startsAt));
+  });
+  protected readonly assigning = signal(false);
+  /** The assignment being changed, or null to give a new role */
+  protected readonly editing = signal<RoleAssignment | null>(null);
 
   /** Everything done by or to this person; the tab counts it all */
   protected readonly activity = computed(() =>
@@ -163,7 +197,7 @@ export class UserDetailComponent {
     this.i18n();
     return [
       { value: 'details', label: this.translate.instant('Details') },
-      { value: 'permissions', label: this.translate.instant('Permissions'), count: this.role()?.permissions.length ?? 0 },
+      { value: 'roles', label: this.translate.instant('Roles & permissions'), count: this.store.activeRoles(this.user()).length },
       ...this.canViewActivity() ? [{ value: 'activity' as const, label: this.translate.instant('Activity'), count: this.activity().length }] : [],
       ...this.canSeeSecurity() ? [{ value: 'security' as const, label: this.translate.instant('Security') }] : [],
     ];
@@ -180,7 +214,8 @@ export class UserDetailComponent {
 
   constructor() {
     effect(() => {
-      const wanted = this.tabParam() as Tab | undefined;
+      const param = this.tabParam() ?? '';
+      const wanted = (TAB_ALIASES[param] ?? param) as Tab;
       if (wanted && TABS.includes(wanted)) {
         untracked(() => this.tab.set(wanted));
       }
@@ -275,7 +310,51 @@ export class UserDetailComponent {
   }
 
   protected granted(permission: Permission) {
-    return this.role()?.permissions.includes(permission) ?? false;
+    return this.permissions().has(permission);
+  }
+
+  /** Which of their roles grant a permission, when they hold more than one */
+  protected sources(permission: Permission): string {
+    const roles = this.store.activeRoles(this.user());
+    return roles.length > 1 ? roles.filter(role => role.permissions.includes(permission)).map(role => role.name).join(', ') : '';
+  }
+
+  protected roleName(roleId: string): string {
+    return this.store.rolesById().get(roleId)?.name ?? '';
+  }
+
+  protected giveRole() {
+    this.editing.set(null);
+    this.assigning.set(true);
+  }
+
+  protected changeAssignment(assignment: RoleAssignment) {
+    this.editing.set(assignment);
+    this.assigning.set(true);
+  }
+
+  protected async removeAssignment(assignment: RoleAssignment) {
+    const user = this.user();
+    if (!user) {
+      return;
+    }
+    const role = this.roleName(assignment.roleId);
+    const ok = await this.confirm.ask({
+      title: this.translate.instant('removeRoleTitle', { role, name: fullName(user) }),
+      message: this.translate.instant('It ends now. The activity log keeps a record of it.'),
+      confirmLabel: this.translate.instant('Take away'),
+      cancelLabel: this.translate.instant('Cancel'),
+      tone: 'danger',
+    });
+    if (!ok) {
+      return;
+    }
+    try {
+      await this.store.removeRoleAssignment(assignment.id);
+      this.toast.show(this.translate.instant('Role taken away.'));
+    } catch (error) {
+      this.showError(error);
+    }
   }
 
   protected async setStatus(status: UserStatus) {

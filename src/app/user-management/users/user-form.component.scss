@@ -46,35 +46,53 @@ form {
   gap: 1rem;
 }
 
-// Two roles per row in the role column of a laptop screen; narrower cards squeeze the title and count
-.role-choices {
-  --ui-choice-min: 220px;
-}
-
-.role-select {
-  max-width: 20rem;
-}
-
-// What the role picked in the dropdown allows, as its card would say
-.role-summary {
+// Roles: a new user's list of roles, or the roles someone holds, with a link to change them on the profile
+.roles-field {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: .25rem 1rem;
-  max-width: 32rem;
-  margin-top: .5rem;
-  padding: .625rem .875rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .5rem;
+}
+
+.roles-label {
+  color: var(--ui-text);
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
+.roles-link {
+  color: var(--ui-primary-text);
+  font-size: .8125rem;
+}
+
+.grant-list {
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grant {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  padding: .375rem .375rem .375rem .75rem;
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius);
-  background: var(--ui-surface-muted);
-  color: var(--ui-muted);
-  font-size: .8125rem;
-  line-height: 1.45;
 }
 
-.role-summary-meta {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.grant-when {
+  flex: 1;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+.grant-none {
+  color: var(--ui-muted);
+  font-size: .8125rem;
 }
 
 .form-section-intro {

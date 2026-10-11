@@ -46,14 +46,21 @@
   <!-- Editor -->
   @if (selected(); as current) {
     <ui-card class="editor" fill [title]="(roleEditable() ? 'Edit role' : 'Role') | translate" [description]="'userCount' | translate: { count: userCount() }">
-      @if (current.system) {
-        <ui-badge uiCardActions tone="neutral"><ng-icon [svg]="icons.locked" /> {{ 'Built-in role' | translate }}</ui-badge>
-      }
+      <div uiCardActions class="editor-actions">
+        @if (current.system) {
+          <ui-badge tone="neutral"><ng-icon [svg]="icons.locked" /> {{ 'Built-in role' | translate }}</ui-badge>
+        }
+        @if (canManage() && session.canAssign(current)) {
+          <button uiButton variant="ghost" size="sm" type="button" (click)="duplicate(current)"><ng-icon [svg]="icons.copy" /> {{ 'Duplicate' | translate }}</button>
+        }
+      </div>
 
       @if (!canManage()) {
         <ui-alert class="editor-note" tone="info">{{ 'Your role can view roles but not change them.' | translate }}</ui-alert>
       } @else if (!roleEditable()) {
         <ui-alert class="editor-note" tone="info">{{ 'This role has permissions you do not have, so you cannot change it.' | translate }}</ui-alert>
+      } @else if (current.system) {
+        <ui-alert class="editor-note" tone="info">{{ 'Built-in roles keep the name and permissions the system gives them. Duplicate it to make a role of your own.' | translate }}</ui-alert>
       } @else if (isOwnRole()) {
         <ui-alert class="editor-note" tone="info">{{ 'This is your own role, so you cannot change its permissions. Another administrator can.' | translate }}</ui-alert>
       } @else if (someLocked()) {
@@ -62,10 +69,10 @@
 
       <div class="editor-fields">
         <ui-form-field [label]="'Name' | translate" for="roleName" required>
-          <input uiInput id="roleName" [ngModel]="name()" (ngModelChange)="name.set($event)" maxlength="40" [readonly]="!roleEditable()" />
+          <input uiInput id="roleName" [ngModel]="name()" (ngModelChange)="name.set($event)" maxlength="40" [readonly]="!roleEditable() || current.system" />
         </ui-form-field>
         <ui-form-field [label]="'Description' | translate" for="roleDescription">
-          <input uiInput id="roleDescription" [ngModel]="description()" (ngModelChange)="description.set($event)" maxlength="120" [readonly]="!roleEditable()" />
+          <input uiInput id="roleDescription" [ngModel]="description()" (ngModelChange)="description.set($event)" maxlength="120" [readonly]="!roleEditable() || current.system" />
         </ui-form-field>
         <div class="tone-field">
           <span class="field-title">{{ 'Color' | translate }}</span>
@@ -74,6 +81,17 @@
               <button type="button" role="radio" class="swatch" [class]="'swatch tone-' + option" [class.selected]="tone() === option" [attr.aria-checked]="tone() === option" [attr.aria-label]="toneNames[option] | translate" [disabled]="!roleEditable()" (click)="tone.set(option)"></button>
             }
           </div>
+        </div>
+        <!-- How the role may be given, as Microsoft Entra PIM's role settings -->
+        <ui-form-field [label]="'Longest assignment' | translate" for="roleMaxDays" [hint]="'With a limit, each time it is given it must end within that long.' | translate">
+          <select uiInput id="roleMaxDays" [ngModel]="maxDays()" (ngModelChange)="maxDays.set($event)" [disabled]="!roleEditable()">
+            @for (option of maxDayOptions(); track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </ui-form-field>
+        <div class="reason-field">
+          <ui-checkbox [checked]="reasonRequired()" [disabled]="!roleEditable()" (changed)="reasonRequired.set($event)">{{ 'Ask for a reason each time it is given' | translate }}</ui-checkbox>
         </div>
       </div>
 
@@ -99,8 +117,8 @@
 
       @if (roleEditable()) {
         <div uiCardFooter class="editor-footer">
-          <button uiButton variant="danger-soft" type="button" class="delete" [disabled]="current.system || userCount() > 0 || isDefaultRole()"
-            [title]="(current.system ? 'Built-in roles cannot be deleted.' : userCount() > 0 ? 'This role still has users. Move them to another role first.' : isDefaultRole() ? 'New users get this role by default. Pick another default in the settings first.' : '') | translate" (click)="remove()">
+          <button uiButton variant="danger-soft" type="button" class="delete" [disabled]="current.system || inUse() || isDefaultRole()"
+            [title]="(current.system ? 'Built-in roles cannot be deleted.' : inUse() ? 'This role still has users. Move them to another role first.' : isDefaultRole() ? 'New users get this role by default. Pick another default in the settings first.' : '') | translate" (click)="remove()">
             <ng-icon [svg]="icons.remove" /> {{ 'Delete role' | translate }}
           </button>
           <button uiButton variant="secondary" type="button" [disabled]="!dirty()" (click)="discard()">{{ 'Discard' | translate }}</button>

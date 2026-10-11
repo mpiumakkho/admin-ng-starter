@@ -1,13 +1,17 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
 
+import { activeRoleIds, roleAssignmentState } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
 import { DEFAULT_SETTINGS } from './catalog';
 import {
-  Activity, ActivityRange, AdminSettings, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
+  Activity, ActivityRange, AdminSettings, Role, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleDraft, TwoFactorSetup,
+  User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
 /** How long to wait for more changes before loading again, as one action can change several things */
 const REFRESH_DELAY_MS = 300;
+/** The clock moves on at least this often, and at each moment an assignment starts or ends */
+const CLOCK_MS = 60 * 60_000;
 
 /**
  * The data the screens share, as signals, kept in step with the server through AdminApi.
@@ -46,14 +50,61 @@ export class AdminStore {
   readonly usersById = computed(() => new Map(this.users().map(user => [user.id, user])));
   readonly rolesById = computed(() => new Map(this.roles().map(role => [role.id, role])));
 
-  /** How many people hold each role */
+  /**
+   * Now, as far as role assignments go: it moves on when one starts or ends, so whatever depends on who holds which
+   * role (permissions, badges, counts) follows without a reload. Read it instead of Date.now() in a computed.
+   */
+  readonly now = signal(Date.now());
+
+  /** How many people hold each role now */
   readonly roleCounts = computed(() => {
+    const now = this.now();
     const counts = new Map<string, number>();
     for (const user of this.users()) {
-      counts.set(user.roleId, (counts.get(user.roleId) ?? 0) + 1);
+      for (const roleId of activeRoleIds(user, now)) {
+        counts.set(roleId, (counts.get(roleId) ?? 0) + 1);
+      }
     }
     return counts;
   });
+
+  /**
+   * How many people each role is the main role of: the one with most permissions they hold now. Everyone counts once,
+   * for a chart of the whole; roleCounts counts everyone who holds each role.
+   */
+  readonly mainRoleCounts = computed(() => {
+    const counts = new Map<string, number>();
+    for (const user of this.users()) {
+      const main = this.activeRoles(user)[0];
+      if (main) {
+        counts.set(main.id, (counts.get(main.id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  });
+
+  /** The roles someone holds now, the ones with most permissions first */
+  activeRoles(user: Pick<User, 'roles'> | null | undefined): Role[] {
+    const roles = this.rolesById();
+    return activeRoleIds(user, this.now())
+      .map(id => roles.get(id))
+      .filter((role): role is Role => !!role)
+      .sort((a, b) => b.permissions.length - a.permissions.length);
+  }
+
+  constructor() {
+    // Moves the clock on at the next start or end of an assignment, or within the hour
+    effect(onCleanup => {
+      const now = this.now();
+      const next = this.users()
+        .flatMap(user => user.roles.flatMap(item => [item.startsAt, item.endsAt]))
+        .map(at => at ? new Date(at).getTime() : Infinity)
+        .filter(at => at > now)
+        .reduce((soonest, at) => Math.min(soonest, at), now + CLOCK_MS);
+      const timer = setTimeout(() => this.now.set(Date.now()), Math.max(next - now, 1000));
+      onCleanup(() => clearTimeout(timer));
+    });
+  }
 
   async load(): Promise<void> {
     let loaded: [User[], Role[], Activity[], AdminSettings];
@@ -183,7 +234,7 @@ export class AdminStore {
     return created;
   }
 
-  async updateUser(id: string, changes: Partial<UserDraft>): Promise<User> {
+  async updateUser(id: string, changes: UserChanges): Promise<User> {
     const user = await this.call(() => this.api.updateUser(id, changes));
     this.users.update(users => users.map(item => item.id === id ? user : item));
     await this.refreshActivity();
@@ -197,12 +248,33 @@ export class AdminStore {
     await this.refreshActivity();
   }
 
-  async setUsersRole(ids: string[], roleId: string): Promise<User[]> {
-    const changed = await this.call(() => this.api.setUsersRole(ids, roleId));
+  /* Role assignments */
+
+  async assignRole(draft: RoleAssignmentDraft): Promise<User> {
+    return this.afterUserChange(await this.call(() => this.api.assignRole(draft)));
+  }
+
+  async updateRoleAssignment(id: string, changes: RoleAssignmentChanges): Promise<User> {
+    return this.afterUserChange(await this.call(() => this.api.updateRoleAssignment(id, changes)));
+  }
+
+  async removeRoleAssignment(id: string): Promise<User> {
+    return this.afterUserChange(await this.call(() => this.api.removeRoleAssignment(id)));
+  }
+
+  /** Gives several people a role, or takes one away; answers with the people that changed */
+  async assignRoles(userIds: string[], change: RoleAssignmentBatch): Promise<User[]> {
+    const changed = await this.call(() => this.api.assignRoles(userIds, change));
     const byId = new Map(changed.map(user => [user.id, user]));
     this.users.update(users => users.map(user => byId.get(user.id) ?? user));
     await this.refreshActivity();
     return changed;
+  }
+
+  /** Whether someone holds a role now or will hold it, for offering to give or take it */
+  holdsOrWillHold(user: Pick<User, 'roles'>, roleId: string): boolean {
+    const now = this.now();
+    return user.roles.some(item => item.roleId === roleId && roleAssignmentState(item, now) !== 'expired');
   }
 
   async deleteUsers(ids: string[]): Promise<void> {

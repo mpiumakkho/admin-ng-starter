@@ -1,5 +1,6 @@
 import {
-  Activity, ActivityRange, AdminSettings, PasswordPolicy, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
+  Activity, ActivityRange, AdminSettings, PasswordPolicy, Role, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft,
+  RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
 /** Why the server turned a request down; the UI turns each code into a message */
@@ -19,7 +20,7 @@ export type AdminApiErrorCode =
   | 'unauthenticated'
   /** Signed in, but the role does not allow it */
   | 'forbidden'
-  /** Suspending or deleting yourself, or changing your own role or its permissions */
+  /** Suspending or deleting yourself, or changing your own role assignments or the permissions of a role you hold */
   | 'self_change'
   /** The email is not on one of the allowed domains in the settings */
   | 'email_domain'
@@ -40,7 +41,15 @@ export type AdminApiErrorCode =
   /** A new password that is one of the person's most recent ones */
   | 'password_reused'
   /** Too many sign-in, refresh or reset attempts from one address; try again later */
-  | 'too_many_requests';
+  | 'too_many_requests'
+  /** The person already holds that role, now or later, at the same time */
+  | 'already_assigned'
+  /** Nobody active would keep a role with every permission for good */
+  | 'last_administrator'
+  /** The role must end within its maxDays, or this end is too far */
+  | 'assignment_too_long'
+  /** The role asks for a reason, and none was given */
+  | 'reason_required';
 
 export class AdminApiError extends Error {
   constructor(readonly code: AdminApiErrorCode) {
@@ -87,14 +96,22 @@ export abstract class AdminApi {
   abstract createUser(draft: UserDraft): Promise<User>;
   /** Adds several users at once, as from an import file: all of them, or none when one is refused */
   abstract createUsers(drafts: UserDraft[]): Promise<User[]>;
-  abstract updateUser(id: string, changes: Partial<UserDraft>): Promise<User>;
+  abstract updateUser(id: string, changes: UserChanges): Promise<User>;
   abstract setUserStatus(ids: string[], status: UserStatus): Promise<User[]>;
-  /** Gives several people the same role; answers with the ones whose role changed */
-  abstract setUsersRole(ids: string[], roleId: string): Promise<User[]>;
   abstract deleteUsers(ids: string[]): Promise<void>;
   abstract resetPassword(id: string): Promise<void>;
   /** Emails the invitation again to someone who has not accepted it yet */
   abstract resendInvite(id: string): Promise<void>;
+
+  /* Role assignments: each answers with the people it changed */
+
+  /** Gives someone a role, from now or a later date, until a date or for good */
+  abstract assignRole(draft: RoleAssignmentDraft): Promise<User>;
+  /** Moves an assignment's end (extend, shorten, renew) or changes its reason */
+  abstract updateRoleAssignment(id: string, changes: RoleAssignmentChanges): Promise<User>;
+  abstract removeRoleAssignment(id: string): Promise<User>;
+  /** Gives several people a role, or takes one away from them: all or nothing; answers with the ones that changed */
+  abstract assignRoles(userIds: string[], change: RoleAssignmentBatch): Promise<User[]>;
 
   /* Roles: everyone signed in can read them, to show role names */
 

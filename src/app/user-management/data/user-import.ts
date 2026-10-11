@@ -10,8 +10,12 @@ const KEYS: Record<string, keyof Omit<UserDraft, 'status' | 'avatar'>> = {
   email: 'email',
   phone: 'phone',
   department: 'department',
-  role: 'roleId',
+  role: 'roles',
+  roles: 'roles',
 };
+
+/** Several roles in one cell, such as "Support; Auditor" */
+const ROLE_SEPARATOR = /[;|]/;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^[0-9+\-\s]{9,15}$/;
@@ -37,7 +41,9 @@ export interface ImportContext {
 
 /**
  * Reads parsed CSV rows (header first) into user drafts, and says what is wrong with each, the way the server
- * would refuse it. A missing role takes the default role from the settings.
+ * would refuse it. The role cell may name several roles, separated by semicolons, each given for good; an empty one
+ * gives the default role from the settings. A role with rules for giving it (an end date or a reason) is given from
+ * the person's profile instead.
  */
 export function checkImportRows(rows: string[][], context: ImportContext): { rows: ImportRow[]; missingColumns: string[] } {
   const [header = [], ...data] = rows;
@@ -49,10 +55,10 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
 
   const checked = data.map((cells, index) => {
     const value = (key: string) => (cells[columns.indexOf(key as never)] ?? '').trim();
-    const roleText = value('roleId').toLowerCase();
-    const role = roleText
-      ? context.roles.find(item => item.id.toLowerCase() === roleText || item.name.toLowerCase() === roleText)
-      : context.roles.find(item => item.id === context.defaultRoleId);
+    const roleTexts = value('roles').toLowerCase().split(ROLE_SEPARATOR).map(text => text.trim()).filter(Boolean);
+    const roles = roleTexts.length
+      ? roleTexts.map(text => context.roles.find(item => item.id.toLowerCase() === text || item.name.toLowerCase() === text))
+      : [context.roles.find(item => item.id === context.defaultRoleId)];
     const departmentText = value('department').toLowerCase();
     const department = departmentText ? DEPARTMENTS.find(item => item.toLowerCase() === departmentText) : DEPARTMENTS[0];
     const email = value('email').toLowerCase();
@@ -77,10 +83,12 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
     if (!department) {
       problems.push('Unknown department.');
     }
-    if (!role) {
+    if (roles.some(role => !role)) {
       problems.push('Unknown role.');
-    } else if (!context.canAssign(role)) {
+    } else if (roles.some(role => !context.canAssign(role!))) {
       problems.push('Your role cannot give this role.');
+    } else if (roles.some(role => role!.assignment.maxDays !== null || role!.assignment.reasonRequired)) {
+      problems.push('This role needs an end date or a reason. Give it from the profile after the import.');
     }
 
     const draft: UserDraft = {
@@ -89,7 +97,7 @@ export function checkImportRows(rows: string[][], context: ImportContext): { row
       email,
       phone: value('phone'),
       department: department ?? '',
-      roleId: role?.id ?? '',
+      roles: [...new Set(roles.filter(role => !!role).map(role => role!.id))].map(roleId => ({ roleId, endsAt: null })),
       status: context.status,
       avatar: '',
     };

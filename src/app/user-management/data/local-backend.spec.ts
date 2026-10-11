@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpEventType, HttpInterceptorFn, provid
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, tap } from 'rxjs';
 
+import { activeRoleIds } from './access-rules';
 import { AdminApiError } from './admin-api';
 import { HttpAdminApi } from './http-admin-api';
 import { localBackend } from './local-backend';
@@ -40,7 +41,7 @@ describe('HttpAdminApi against localBackend', () => {
 
     const taken = (await api.listUsers())[1].email;
     await expect(api.createUser({
-      firstName: 'A', lastName: 'B', email: taken, phone: '', department: 'Design', roleId: 'viewer', status: 'invited', avatar: '',
+      firstName: 'A', lastName: 'B', email: taken, phone: '', department: 'Design', roles: [], status: 'invited', avatar: '',
     })).rejects.toEqual(new AdminApiError('email_taken'));
     await expect(api.deleteUsers([admin.id])).rejects.toEqual(new AdminApiError('self_change'));
     await expect(api.updateSettings({ inviteExpiryDays: 14 })).resolves.toMatchObject({ inviteExpiryDays: 14 });
@@ -112,7 +113,7 @@ describe('HttpAdminApi against localBackend', () => {
       await api.signIn(DEMO_ACCOUNTS[0].email, 'any-password', false);
       await api.createUser({
         firstName: 'New', lastName: 'Person', email: 'new.person@example.com', phone: '', department: 'Design',
-        roleId: 'viewer', status: 'invited', avatar: '',
+        roles: [], status: 'invited', avatar: '',
       });
       await api.signOut();
       await expect(api.signIn('new.person@example.com', 'any-password', false)).rejects.toEqual(new AdminApiError('invite_pending'));
@@ -141,12 +142,14 @@ describe('HttpAdminApi against localBackend', () => {
     await expect(api.changePassword('second-password-2', 'first-password-1')).rejects.toEqual(new AdminApiError('password_reused'));
     await expect(api.updateSettings({ passwordMinLength: 4 })).rejects.toEqual(new AdminApiError('invalid_request'));
 
-    // Several people's role at once, never your own
+    // A role for several people at once, never for yourself
     const users = await api.listUsers();
-    const others = users.filter(user => user.roleId === 'support').slice(0, 2).map(user => user.id);
-    expect((await api.setUsersRole(others, 'viewer')).map(user => user.roleId)).toEqual(['viewer', 'viewer']);
+    const others = users.filter(user => activeRoleIds(user).join() === 'support').slice(0, 2).map(user => user.id);
+    expect((await api.assignRoles(others, { add: { roleId: 'viewer', endsAt: null } })).map(user => activeRoleIds(user))).toEqual([
+      ['support', 'viewer'], ['support', 'viewer'],
+    ]);
     const self = users.find(user => user.email === admin)!.id;
-    await expect(api.setUsersRole([self], 'viewer')).rejects.toEqual(new AdminApiError('self_change'));
+    await expect(api.assignRoles([self], { add: { roleId: 'viewer', endsAt: null } })).rejects.toEqual(new AdminApiError('self_change'));
 
     // A part of the activity log
     expect(await api.listActivity({ from: new Date(Date.now() + 60_000).toISOString() })).toEqual([]);

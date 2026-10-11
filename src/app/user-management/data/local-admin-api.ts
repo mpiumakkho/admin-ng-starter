@@ -1,17 +1,20 @@
 import { Injectable } from '@angular/core';
 
-import { canManageRole, holdsAll, permissionsOf, SELF_EDITABLE_FIELDS } from './access-rules';
-import { AdminApi, AdminApiError } from './admin-api';
-import { ALL_PERMISSIONS, DEFAULT_SETTINGS, ROLE_TONES, STATUS_META } from './catalog';
-import { AdminData, createMockData, createMockSessions, EmailLink } from './mock-data';
 import {
-  Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, fullName, PasswordPolicy, Permission, Role, RoleDraft,
-  TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
+  activeRoleIds, administratorRemains, canManageRole, canManageUser, holdsAll, permissionsOf, roleAssignmentState, SELF_EDITABLE_FIELDS,
+} from './access-rules';
+import { AdminApi, AdminApiError } from './admin-api';
+import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, ROLE_TONES, STATUS_META } from './catalog';
+import { AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, EmailLink } from './mock-data';
+import {
+  Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, fullName, PasswordPolicy, Permission, Role, RoleAssignment,
+  RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleAssignmentRules, RoleDraft, RoleGrant, TwoFactorSetup, User,
+  UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 import { createSecret, otpauthUri, verifyTotp } from './totp';
 import { uuidV7 } from './uuid';
 
-const STORAGE_KEY = 'admin-data-v5';
+const STORAGE_KEY = 'admin-data-v6';
 /** This browser's session id: kept in sessionStorage, or in localStorage with "Keep me signed in" */
 const SESSION_KEY = 'admin-session';
 /** The name authenticator apps show next to the codes */
@@ -27,15 +30,17 @@ const RESET_LINK_MS = 60 * 60_000;
 /** How many earlier passwords are kept per user, for the settings' passwordHistory */
 const HISTORY_KEPT = 24;
 const DAY_MS = 24 * 60 * 60_000;
+/** The longest reason an assignment may give */
+const MAX_REASON_LENGTH = 500;
 
-/** User fields the activity log tracks, in the order it lists them; also every field a request may set */
-const USER_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'department', 'roleId', 'status', 'avatar'] as const;
+/** User fields the activity log tracks, in the order it lists them; also every field PATCH /users/:id may set */
+const USER_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'department', 'status', 'avatar'] as const;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * AdminApi backed by localStorage, seeded with sample data on first use. It plays the server's part: it knows
  * who is signed in, checks their permissions (see access-rules.ts) and writes the activity log.
- * Clear the "admin-data-v5" key in the browser to start over.
+ * Clear the "admin-data-v6" key in the browser to start over.
  */
 @Injectable()
 export class LocalAdminApi extends AdminApi {
@@ -188,13 +193,13 @@ export class LocalAdminApi extends AdminApi {
     return this.respond(drafts.map(draft => this.addUser(actor, draft)));
   }
 
-  async updateUser(id: string, input: Partial<UserDraft>): Promise<User> {
+  async updateUser(id: string, input: UserChanges): Promise<User> {
     const actor = this.actor();
     const current = this.findManageable(actor, id);
     const changes = userChanges(input);
     // Without users.edit, people can still change their own name, phone and photo
     if (!this.permissions(actor).has('users.edit')) {
-      const changed = (Object.keys(changes) as (keyof UserDraft)[]).filter(field => changes[field] !== current[field]);
+      const changed = (Object.keys(changes) as (keyof UserChanges)[]).filter(field => changes[field] !== current[field]);
       if (id !== actor.id || changed.some(field => !(SELF_EDITABLE_FIELDS as readonly string[]).includes(field))) {
         throw new AdminApiError('forbidden');
       }
@@ -205,16 +210,12 @@ export class LocalAdminApi extends AdminApi {
         this.assertEmailDomain(changes.email);
       }
     }
-    const roleChanged = changes.roleId !== undefined && changes.roleId !== current.roleId;
     const statusChanged = changes.status !== undefined && changes.status !== current.status;
-    if (id === actor.id && (roleChanged || statusChanged)) {
+    if (id === actor.id && statusChanged) {
       throw new AdminApiError('self_change');
     }
-    if (roleChanged) {
-      this.assertCanAssign(actor, changes.roleId!);
-    }
     const user = { ...current, ...changes };
-    this.data.users = this.data.users.map(item => item.id === id ? user : item);
+    this.commitUsers(this.data.users.map(item => item.id === id ? user : item));
     const diff = USER_FIELDS.filter(field => current[field] !== user[field]).map<ActivityChange>(field =>
       // Photos are data URLs: too big to keep, so the log only notes that it changed
       field === 'avatar' ? { field } : { field, from: current[field], to: user[field] });
@@ -228,6 +229,7 @@ export class LocalAdminApi extends AdminApi {
       throw new AdminApiError('self_change');
     }
     ids.forEach(id => this.findManageable(actor, id));
+    this.commitUsers(this.data.users.map(user => ids.includes(user.id) ? { ...user, status } : user), false);
     const changed: User[] = [];
     this.data.users = this.data.users.map(user => {
       if (!ids.includes(user.id) || user.status === status) {
@@ -246,36 +248,17 @@ export class LocalAdminApi extends AdminApi {
     return this.respond(changed);
   }
 
-  async setUsersRole(ids: string[], roleId: string): Promise<User[]> {
-    const actor = this.actor('users.edit');
-    check(Array.isArray(ids) && ids.every(id => typeof id === 'string') && typeof roleId === 'string');
-    if (ids.includes(actor.id)) {
-      throw new AdminApiError('self_change');
-    }
-    this.assertCanAssign(actor, roleId);
-    ids.forEach(id => this.findManageable(actor, id));
-    const changed: User[] = [];
-    this.data.users = this.data.users.map(user => {
-      if (!ids.includes(user.id) || user.roleId === roleId) {
-        return user;
-      }
-      const updated = { ...user, roleId };
-      changed.push(updated);
-      this.log(actor.id, 'user.updated', fullName(user), user.id, [{ field: 'roleId', from: user.roleId, to: roleId }]);
-      return updated;
-    });
-    return this.respond(changed);
-  }
-
   async deleteUsers(ids: string[]): Promise<void> {
     const actor = this.actor('users.delete');
     if (ids.includes(actor.id)) {
       throw new AdminApiError('self_change');
     }
-    for (const user of ids.map(id => this.findManageable(actor, id))) {
+    const users = ids.map(id => this.findManageable(actor, id));
+    this.commitUsers(this.data.users.filter(user => !ids.includes(user.id)), false);
+    for (const user of users) {
       this.log(actor.id, 'user.deleted', fullName(user), undefined, [
         { field: 'email', from: user.email },
-        { field: 'roleId', from: user.roleId },
+        { field: 'roles', added: [], removed: activeRoleIds(user) },
       ]);
     }
     this.data.users = this.data.users.filter(user => !ids.includes(user.id));
@@ -306,6 +289,116 @@ export class LocalAdminApi extends AdminApi {
     return this.respond(undefined);
   }
 
+  /* Role assignments */
+
+  async assignRole(input: RoleAssignmentDraft): Promise<User> {
+    const actor = this.actor('users.edit');
+    const { userId, ...grant } = fields(input, ['userId', ...GRANT_FIELDS]);
+    check(typeof userId === 'string');
+    const user = this.findManageable(actor, userId as string);
+    if (user.id === actor.id) {
+      throw new AdminApiError('self_change');
+    }
+    const assignment = this.newAssignment(actor, user, grantInput(grant));
+    const updated = { ...user, roles: [...user.roles, assignment] };
+    this.commitUsers(this.data.users.map(item => item.id === user.id ? updated : item));
+    this.logAssignment(actor.id, 'role_assignment.added', updated, assignment);
+    return this.respond(updated);
+  }
+
+  async updateRoleAssignment(id: string, input: RoleAssignmentChanges): Promise<User> {
+    const actor = this.actor('users.edit');
+    const changes = fields(input, ['endsAt', 'reason']) as RoleAssignmentChanges;
+    check(changes.endsAt === undefined || changes.endsAt === null || isInstant(changes.endsAt));
+    check(changes.reason === undefined || (typeof changes.reason === 'string' && changes.reason.length <= MAX_REASON_LENGTH));
+    const { user, assignment: current } = this.findAssignment(actor, id);
+    const role = this.assertCanAssign(actor, current.roleId);
+    const now = Date.now();
+    const assignment: RoleAssignment = {
+      ...current,
+      ...(changes.endsAt !== undefined ? { endsAt: changes.endsAt } : {}),
+      ...(changes.reason !== undefined ? { reason: changes.reason.trim() } : {}),
+    };
+    if (assignment.endsAt !== current.endsAt) {
+      // Moving the end: still after the start, and in the future; to end it now, remove it
+      const end = assignment.endsAt === null ? Infinity : new Date(assignment.endsAt).getTime();
+      check(end > now && end > new Date(assignment.startsAt).getTime());
+      assertWithinRules(role.assignment, Math.max(new Date(assignment.startsAt).getTime(), now), assignment.endsAt);
+      // Renewed after it expired: it is logged again when it ends
+      this.data.expiryLogged = (this.data.expiryLogged ?? []).filter(item => item !== id);
+    }
+    if (role.assignment.reasonRequired && !assignment.reason) {
+      throw new AdminApiError('reason_required');
+    }
+    const updated = { ...user, roles: user.roles.map(item => item.id === id ? assignment : item) };
+    this.commitUsers(this.data.users.map(item => item.id === user.id ? updated : item));
+    const diff = (['endsAt', 'reason'] as const)
+      .filter(field => current[field] !== assignment[field])
+      .map<ActivityChange>(field => ({ field, from: current[field], to: assignment[field] }));
+    if (diff.length) {
+      this.log(actor.id, 'role_assignment.updated', fullName(user), user.id, [{ field: 'roleId', to: assignment.roleId }, ...diff]);
+    }
+    return this.respond(updated);
+  }
+
+  async removeRoleAssignment(id: string): Promise<User> {
+    const actor = this.actor('users.edit');
+    const { user, assignment } = this.findAssignment(actor, id);
+    this.assertCanAssign(actor, assignment.roleId);
+    const updated = { ...user, roles: user.roles.filter(item => item.id !== id) };
+    this.commitUsers(this.data.users.map(item => item.id === user.id ? updated : item));
+    this.data.expiryLogged = (this.data.expiryLogged ?? []).filter(item => item !== id);
+    this.log(actor.id, 'role_assignment.removed', fullName(user), user.id, [{ field: 'roleId', from: assignment.roleId }]);
+    return this.respond(updated);
+  }
+
+  async assignRoles(userIds: string[], input: RoleAssignmentBatch): Promise<User[]> {
+    const actor = this.actor('users.edit');
+    check(Array.isArray(userIds) && userIds.every(id => typeof id === 'string'));
+    const change = fields(input, ['add', 'removeRoleId']);
+    check(('add' in change) !== ('removeRoleId' in change));
+    const ids = [...new Set(userIds)];
+    if (ids.includes(actor.id)) {
+      throw new AdminApiError('self_change');
+    }
+    const users = ids.map(id => this.findManageable(actor, id));
+    const now = Date.now();
+    const holds = (user: User, roleId: string) =>
+      user.roles.some(item => item.roleId === roleId && roleAssignmentState(item, now) !== 'expired');
+    const added: [User, RoleAssignment][] = [];
+    const changed: User[] = [];
+    let next = this.data.users;
+    if ('add' in change) {
+      const grant = grantInput(fields(change['add'], GRANT_FIELDS));
+      for (const user of users.filter(item => !holds(item, grant.roleId))) {
+        const assignment = this.newAssignment(actor, user, grant);
+        const updated = { ...user, roles: [...user.roles, assignment] };
+        added.push([updated, assignment]);
+        changed.push(updated);
+        next = next.map(item => item.id === user.id ? updated : item);
+      }
+    } else {
+      const roleId = change['removeRoleId'];
+      check(typeof roleId === 'string');
+      this.assertCanAssign(actor, roleId as string);
+      for (const user of users.filter(item => holds(item, roleId as string))) {
+        const updated = { ...user, roles: user.roles.filter(item => item.roleId !== roleId || roleAssignmentState(item, now) === 'expired') };
+        changed.push(updated);
+        next = next.map(item => item.id === user.id ? updated : item);
+      }
+    }
+    this.commitUsers(next);
+    for (const [user, assignment] of added) {
+      this.logAssignment(actor.id, 'role_assignment.added', user, assignment);
+    }
+    if ('removeRoleId' in change) {
+      for (const user of changed) {
+        this.log(actor.id, 'role_assignment.removed', fullName(user), user.id, [{ field: 'roleId', from: change['removeRoleId'] as string }]);
+      }
+    }
+    return this.respond(changed);
+  }
+
   /* Roles */
 
   async listRoles(): Promise<Role[]> {
@@ -315,7 +408,10 @@ export class LocalAdminApi extends AdminApi {
 
   async createRole(input: RoleDraft): Promise<Role> {
     const actor = this.actor('roles.manage');
-    const draft: RoleDraft = { name: '', description: '', tone: 'neutral', permissions: [], ...roleChanges(input) };
+    const changes = roleChanges(input);
+    const draft: Required<RoleDraft> = {
+      name: '', description: '', tone: 'neutral', permissions: [], ...changes, assignment: changes.assignment ?? { ...DEFAULT_ASSIGNMENT_RULES },
+    };
     if (!draft.name.trim()) {
       throw new AdminApiError('invalid_request');
     }
@@ -339,11 +435,16 @@ export class LocalAdminApi extends AdminApi {
       throw new AdminApiError('forbidden');
     }
     const changes = roleChanges(input);
+    // A built-in role's name, description and permissions come from the code: only its color and rules change
+    if (current.system && (['name', 'description', 'permissions'] as const).some(field =>
+      changes[field] !== undefined && JSON.stringify(changes[field]) !== JSON.stringify(current[field]))) {
+      throw new AdminApiError('system_role');
+    }
     const role = { ...current, ...changes };
     const added = role.permissions.filter(key => !current.permissions.includes(key));
     const removed = current.permissions.filter(key => !role.permissions.includes(key));
     if (added.length || removed.length) {
-      if (id === actor.roleId) {
+      if (activeRoleIds(actor).includes(id)) {
         throw new AdminApiError('self_change');
       }
       if (!holdsAll(this.permissions(actor), [...added, ...removed])) {
@@ -354,6 +455,11 @@ export class LocalAdminApi extends AdminApi {
     const diff: ActivityChange[] = (['name', 'description', 'tone'] as const)
       .filter(field => current[field] !== role[field])
       .map(field => ({ field, from: current[field], to: role[field] }));
+    for (const field of ['maxDays', 'reasonRequired'] as const) {
+      if (current.assignment[field] !== role.assignment[field]) {
+        diff.push({ field, from: String(current.assignment[field]), to: String(role.assignment[field]) });
+      }
+    }
     if (added.length || removed.length) {
       diff.push({ field: 'permissions', added, removed });
     }
@@ -373,13 +479,17 @@ export class LocalAdminApi extends AdminApi {
     if (role.system) {
       throw new AdminApiError('system_role');
     }
-    if (this.data.users.some(user => user.roleId === id)) {
+    const now = Date.now();
+    if (this.data.users.some(user => user.roles.some(item => item.roleId === id && roleAssignmentState(item, now) !== 'expired'))) {
       throw new AdminApiError('role_in_use');
     }
     if (this.data.settings.defaultRoleId === id) {
       throw new AdminApiError('default_role');
     }
     this.data.roles = this.data.roles.filter(item => item.id !== id);
+    // Its expired assignments go with it
+    this.data.users = this.data.users.map(user => user.roles.some(item => item.roleId === id)
+      ? { ...user, roles: user.roles.filter(item => item.roleId !== id) } : user);
     const settings = this.data.settings;
     this.data.settings = { ...settings, twoFactorRoleIds: settings.twoFactorRoleIds.filter(roleId => roleId !== id) };
     this.log(actor.id, 'role.deleted', role.name, undefined, [{ field: 'permissions', added: [], removed: role.permissions }]);
@@ -507,7 +617,7 @@ export class LocalAdminApi extends AdminApi {
 
   async disableTwoFactor(code: string): Promise<User> {
     const actor = this.actor();
-    if (this.data.settings.twoFactorRoleIds.includes(actor.roleId)) {
+    if (this.requiresTwoFactor(actor)) {
       throw new AdminApiError('two_factor_mandatory');
     }
     const secret = this.data.twoFactorSecrets?.[actor.id];
@@ -571,26 +681,102 @@ export class LocalAdminApi extends AdminApi {
     return user;
   }
 
+  /** Checks a new user, their roles included, without adding anything */
   private assertCanCreate(actor: User, draft: UserDraft) {
-    this.assertCanAssign(actor, draft.roleId);
     this.assertEmailFree(draft.email);
     this.assertEmailDomain(draft.email);
+    this.newRoles(actor, { id: '' }, draft.roles);
   }
 
   private addUser(actor: User, draft: UserDraft): User {
     const now = new Date().toISOString();
-    const user: User = { ...draft, id: `u-${crypto.randomUUID().slice(0, 8)}`, createdAt: now, lastActiveAt: null };
+    const id = `u-${crypto.randomUUID().slice(0, 8)}`;
+    const { roles: grants, ...profile } = draft;
+    const user: User = { ...profile, id, roles: this.newRoles(actor, { id }, grants), createdAt: now, lastActiveAt: null };
     this.data.users = [user, ...this.data.users];
     this.log(actor.id, draft.status === 'invited' ? 'user.invited' : 'user.created', fullName(user), user.id, [
-      { field: 'roleId', to: user.roleId },
       { field: 'department', to: user.department },
       { field: 'email', to: user.email },
       { field: 'status', to: user.status },
     ]);
+    user.roles.forEach(assignment => this.logAssignment(actor.id, 'role_assignment.added', user, assignment));
     if (user.status === 'invited') {
       this.sendLink(user, 'invite');
     }
     return user;
+  }
+
+  /** A new user's first roles, each checked as POST /role-assignments checks it; none gives the default role for good */
+  private newRoles(actor: User, user: Pick<User, 'id'>, grants: RoleGrant[]): RoleAssignment[] {
+    const given = grants.length ? grants : [{ roleId: this.data.settings.defaultRoleId, endsAt: null }];
+    return given.reduce<RoleAssignment[]>((roles, grant) =>
+      [...roles, this.newAssignment(actor, { id: user.id, roles }, grant)], []);
+  }
+
+  /**
+   * An assignment of a role to someone, checked the way API.md says: the actor may give the role, the dates make
+   * sense, the role's own rules hold, and it does not overlap one of the same role they already have.
+   */
+  private newAssignment(actor: User, user: Pick<User, 'id' | 'roles'>, grant: RoleGrant): RoleAssignment {
+    const role = this.assertCanAssign(actor, grant.roleId);
+    const now = Date.now();
+    const start = Math.max(grant.startsAt ? new Date(grant.startsAt).getTime() : now, now);
+    const end = grant.endsAt === null ? Infinity : new Date(grant.endsAt).getTime();
+    check(end > start);
+    assertWithinRules(role.assignment, start, grant.endsAt);
+    const reason = grant.reason?.trim() ?? '';
+    if (role.assignment.reasonRequired && !reason) {
+      throw new AdminApiError('reason_required');
+    }
+    const overlaps = user.roles.some(item => item.roleId === grant.roleId
+      && new Date(item.startsAt).getTime() < end && start < (item.endsAt ? new Date(item.endsAt).getTime() : Infinity));
+    if (overlaps) {
+      throw new AdminApiError('already_assigned');
+    }
+    const at = new Date(now).toISOString();
+    return {
+      id: uuidV7(), userId: user.id, roleId: grant.roleId, startsAt: new Date(start).toISOString(), endsAt: grant.endsAt, reason,
+      assignedById: actor.id, assignedAt: at,
+    };
+  }
+
+  /** The person an assignment belongs to, someone the actor may change and who is not the actor */
+  private findAssignment(actor: User, id: string): { user: User; assignment: RoleAssignment } {
+    const user = this.data.users.find(item => item.roles.some(assignment => assignment.id === id));
+    if (!user) {
+      throw new AdminApiError('not_found');
+    }
+    this.findManageable(actor, user.id);
+    if (user.id === actor.id) {
+      throw new AdminApiError('self_change');
+    }
+    return { user, assignment: user.roles.find(assignment => assignment.id === id)! };
+  }
+
+  private logAssignment(actorId: string | null, action: ActivityAction, user: User, assignment: RoleAssignment) {
+    this.log(actorId, action, fullName(user), user.id, [
+      { field: 'roleId', to: assignment.roleId },
+      ...(assignment.startsAt > assignment.assignedAt ? [{ field: 'startsAt', to: assignment.startsAt }] : []),
+      ...(assignment.endsAt ? [{ field: 'endsAt', to: assignment.endsAt }] : []),
+      ...(assignment.reason ? [{ field: 'reason', to: assignment.reason }] : []),
+    ]);
+  }
+
+  /**
+   * Saves the users after a change, unless nobody active would keep a role with every permission for good
+   * (last_administrator). With save false it only checks.
+   */
+  private commitUsers(users: User[], save = true) {
+    if (!administratorRemains(users, this.data.roles, ALL_PERMISSIONS) && administratorRemains(this.data.users, this.data.roles, ALL_PERMISSIONS)) {
+      throw new AdminApiError('last_administrator');
+    }
+    if (save) {
+      this.data.users = users;
+    }
+  }
+
+  private requiresTwoFactor(user: User): boolean {
+    return activeRoleIds(user).some(roleId => this.data.settings.twoFactorRoleIds.includes(roleId));
   }
 
   /**
@@ -684,7 +870,7 @@ export class LocalAdminApi extends AdminApi {
     if (now.getTime() - new Date(session.lastSeenAt).getTime() > SEEN_EVERY_MS) {
       this.data.sessions = this.data.sessions.map(item => item.id === session.id ? { ...item, lastSeenAt: now.toISOString() } : item);
     }
-    if (!setupAllowed && !user.twoFactor && this.data.settings.twoFactorRoleIds.includes(user.roleId)) {
+    if (!setupAllowed && !user.twoFactor && this.requiresTwoFactor(user)) {
       throw new AdminApiError('two_factor_mandatory');
     }
     if (permission && !this.permissions(user).has(permission)) {
@@ -705,16 +891,17 @@ export class LocalAdminApi extends AdminApi {
     return user;
   }
 
-  /** A user the actor may change: nobody can manage someone whose role allows more than their own */
+  /** A user the actor may change: nobody can manage someone whose roles, now or scheduled, allow more than their own */
   private findManageable(actor: User, id: string): User {
     const user = this.findUser(id);
-    if (user.id !== actor.id && !canManageRole(this.permissions(actor), this.data.roles.find(role => role.id === user.roleId))) {
+    if (user.id !== actor.id && !canManageUser(this.permissions(actor), user, this.data.roles)) {
       throw new AdminApiError('forbidden');
     }
     return user;
   }
 
-  private assertCanAssign(actor: User, roleId: string) {
+  /** A role the actor may give: it grants nothing they lack */
+  private assertCanAssign(actor: User, roleId: string): Role {
     const role = this.data.roles.find(item => item.id === roleId);
     if (!role) {
       throw new AdminApiError('not_found');
@@ -722,6 +909,7 @@ export class LocalAdminApi extends AdminApi {
     if (!holdsAll(this.permissions(actor), role.permissions)) {
       throw new AdminApiError('forbidden');
     }
+    return role;
   }
 
   private assertEmailDomain(email: string) {
@@ -740,18 +928,9 @@ export class LocalAdminApi extends AdminApi {
     }
   }
 
-  private log(actorId: string, action: ActivityAction, targetLabel: string, targetId?: string, changes?: ActivityChange[]) {
-    const entry: Activity = {
-      id: uuidV7(),
-      at: new Date().toISOString(),
-      actorId,
-      action,
-      targetLabel,
-      targetId,
-      ...this.client,
-      changes: changes?.length ? changes : undefined,
-    };
-    this.data.activity = [entry, ...this.data.activity];
+  /** Writes an entry; with no actor, the server did it by itself, from no browser */
+  private log(actorId: string | null, action: ActivityAction, targetLabel: string, targetId?: string, changes?: ActivityChange[]) {
+    this.data.activity = [logEntry(actorId, action, targetLabel, targetId, changes, actorId ? this.client : undefined), ...this.data.activity];
   }
 
   /** Saves the data and answers after a short delay, with a copy so callers cannot change the store */
@@ -772,6 +951,12 @@ export class LocalAdminApi extends AdminApi {
         // Activity older than the settings keep is gone, as the server deletes it every night
         const kept = new Date(Date.now() - data.settings.activityRetentionDays * DAY_MS).toISOString();
         data.activity = data.activity.filter(entry => entry.at >= kept);
+        // Built-in roles come from the code, as the server syncs them on every start
+        data.roles = data.roles.map(role => {
+          const builtIn = BUILT_IN_ROLES.find(item => item.id === role.id);
+          return builtIn ? { ...role, name: builtIn.name, description: builtIn.description, permissions: [...builtIn.permissions] } : role;
+        });
+        settleAssignments(data, kept);
         return data;
       }
     } catch {
@@ -813,27 +998,83 @@ function check(ok: boolean) {
   }
 }
 
-function userChanges(input: unknown): Partial<UserDraft> {
+function userChanges(input: unknown): UserChanges {
   const changes = fields(input, USER_FIELDS);
   check(Object.values(changes).every(value => typeof value === 'string'));
   check(changes['status'] === undefined || (changes['status'] as string) in STATUS_META);
   check(changes['email'] === undefined || EMAIL.test((changes['email'] as string).trim()));
-  return changes as Partial<UserDraft>;
+  return changes as UserChanges;
 }
 
 function userDraft(input: unknown): UserDraft {
-  const changes = userChanges(input);
-  check(['firstName', 'lastName', 'email', 'department', 'roleId', 'status'].every(field => field in changes));
-  return { phone: '', avatar: '', ...changes } as UserDraft;
+  const { roles = [], ...profile } = fields(input, [...USER_FIELDS, 'roles']);
+  const changes = userChanges(profile);
+  check(['firstName', 'lastName', 'email', 'department', 'status'].every(field => field in changes));
+  check(Array.isArray(roles));
+  return { phone: '', avatar: '', ...changes, roles: (roles as unknown[]).map(grant => grantInput(fields(grant, GRANT_FIELDS))) } as UserDraft;
+}
+
+/** What a role grant may carry */
+const GRANT_FIELDS = ['roleId', 'startsAt', 'endsAt', 'reason'];
+
+function grantInput(grant: Record<string, unknown>): RoleGrant {
+  check(typeof grant['roleId'] === 'string');
+  check(grant['startsAt'] === undefined || isInstant(grant['startsAt']));
+  check(grant['endsAt'] === null || isInstant(grant['endsAt']));
+  check(grant['reason'] === undefined || (typeof grant['reason'] === 'string' && grant['reason'].length <= MAX_REASON_LENGTH));
+  return grant as unknown as RoleGrant;
+}
+
+/** A role's rules for an assignment from `start` until `endsAt`: assignment_too_long when it runs, or may run, too long */
+function assertWithinRules(rules: RoleAssignmentRules, start: number, endsAt: string | null) {
+  if (rules.maxDays !== null && (endsAt === null || new Date(endsAt).getTime() - start > rules.maxDays * DAY_MS)) {
+    throw new AdminApiError('assignment_too_long');
+  }
 }
 
 function roleChanges(input: unknown): Partial<RoleDraft> {
-  const changes = fields(input, ['name', 'description', 'tone', 'permissions']);
+  const changes = fields(input, ['name', 'description', 'tone', 'permissions', 'assignment']);
   check(['name', 'description'].every(field => changes[field] === undefined || typeof changes[field] === 'string'));
   check(changes['tone'] === undefined || ROLE_TONES.includes(changes['tone'] as never));
   check(changes['permissions'] === undefined
     || (Array.isArray(changes['permissions']) && changes['permissions'].every(key => ALL_PERMISSIONS.includes(key))));
+  if (changes['assignment'] !== undefined) {
+    const rules = fields(changes['assignment'], ['maxDays', 'reasonRequired']);
+    const maxDays = rules['maxDays'];
+    check(maxDays === null || (Number.isInteger(maxDays) && (maxDays as number) >= 1 && (maxDays as number) <= 365));
+    check(typeof rules['reasonRequired'] === 'boolean');
+  }
   return changes as Partial<RoleDraft>;
+}
+
+function logEntry(
+  actorId: string | null, action: ActivityAction, targetLabel: string, targetId: string | undefined, changes: ActivityChange[] | undefined,
+  client = { ip: '', browser: '', os: '' }, at = new Date().toISOString(),
+): Activity {
+  return { id: uuidV7(new Date(at).getTime()), at, actorId, action, targetLabel, targetId, ...client, changes: changes?.length ? changes : undefined };
+}
+
+/**
+ * What the server's expiry job does: logs each assignment that has ended, once, as role_assignment.expired at the
+ * moment it ended, and drops expired ones older than the activity the settings keep.
+ */
+function settleAssignments(data: AdminData, kept: string) {
+  const now = Date.now();
+  const logged = new Set(data.expiryLogged ?? []);
+  const entries: Activity[] = [];
+  data.users = data.users.map(user => {
+    const roles = user.roles.filter(item => !(item.endsAt && item.endsAt < kept));
+    for (const item of roles.filter(item => roleAssignmentState(item, now) === 'expired' && !logged.has(item.id))) {
+      logged.add(item.id);
+      entries.push(logEntry(null, 'role_assignment.expired', fullName(user), user.id, [{ field: 'roleId', from: item.roleId }], undefined, item.endsAt!));
+    }
+    return roles.length === user.roles.length ? user : { ...user, roles };
+  });
+  const ids = new Set(data.users.flatMap(user => user.roles.map(item => item.id)));
+  data.expiryLogged = [...logged].filter(id => ids.has(id));
+  if (entries.length) {
+    data.activity = [...entries, ...data.activity].sort((a, b) => b.at.localeCompare(a.at));
+  }
 }
 
 /** The whole numbers each settings field accepts */

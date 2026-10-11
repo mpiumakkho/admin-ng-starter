@@ -9,6 +9,7 @@ import {
   lucidePencil,
   lucideSearchX,
   lucideShield,
+  lucideShieldMinus,
   lucideTrash2,
   lucideUpload,
   lucideUserCheck,
@@ -44,19 +45,24 @@ import {
   UiToastService,
 } from '../ui';
 import { Session } from '../access/session';
+import { activeRoleIds, roleAssignmentState } from '../data/access-rules';
 import { AdminStore } from '../data/admin-store';
 import { STATUS_META } from '../data/catalog';
 import { fullName, User, UserStatus } from '../data/models';
-import { RoleBadge, StatusBadge } from '../shared/badges';
+import { RoleBadges, StatusBadge } from '../shared/badges';
 import { ExportMenu } from '../shared/export-menu.component';
 import { TableExport } from '../shared/table-export';
 import { errorMessage } from '../shared/errors';
 import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
-import { ChangeRoleDialog } from './change-role-dialog.component';
 import { ImportUsersDialog } from './import-users-dialog.component';
+import { RemoveRoleDialog } from './remove-role-dialog.component';
+import { RoleAssignmentDialog } from './role-assignment-dialog.component';
 
 type SortKey = 'name' | 'role' | 'department' | 'lastActive' | 'created';
+
+/** The role filter's value for everyone who holds a role for a time, or will; ?role=temporary */
+const TEMPORARY = 'temporary';
 
 @Component({
   selector: 'app-users-list',
@@ -85,12 +91,13 @@ type SortKey = 'name' | 'role' | 'department' | 'lastActive' | 'created';
     UiPagination,
     UiPageSize,
     UiEmptyState,
-    RoleBadge,
+    RoleBadges,
     StatusBadge,
     TimeAgoPipe,
     LocalDatePipe,
     ImportUsersDialog,
-    ChangeRoleDialog,
+    RoleAssignmentDialog,
+    RemoveRoleDialog,
   ],
   templateUrl: './users-list.component.html',
   styleUrl: './users-list.component.scss',
@@ -108,10 +115,11 @@ export class UsersListComponent {
   protected readonly icons = {
     page: lucideUsers, add: lucideUserPlus, more: lucideEllipsis, view: lucideEye, edit: lucidePencil,
     suspend: lucideBan, activate: lucideUserCheck, reset: lucideKeyRound, remove: lucideTrash2, empty: lucideSearchX,
-    import: lucideUpload, role: lucideShield,
+    import: lucideUpload, role: lucideShield, roleOff: lucideShieldMinus,
   };
   protected readonly importing = signal(false);
-  protected readonly changingRole = signal(false);
+  protected readonly givingRole = signal(false);
+  protected readonly takingRole = signal(false);
   protected readonly fullName = fullName;
   protected readonly busy = signal(false);
 
@@ -138,7 +146,18 @@ export class UsersListComponent {
   /* Filters */
 
   protected readonly status = signal<UserStatus | 'all'>('all');
+  /** A role id, all, or everyone who holds a role for a time (or will) */
   protected readonly roleFilter = signal('all');
+  protected readonly temporary = TEMPORARY;
+
+  /** Whether someone matches the role filter */
+  private holds(user: User, filter: string): boolean {
+    const now = this.store.now();
+    if (filter === TEMPORARY) {
+      return user.roles.some(item => roleAssignmentState(item, now) !== 'expired' && (item.endsAt !== null || roleAssignmentState(item, now) === 'scheduled'));
+    }
+    return filter === 'all' || activeRoleIds(user, now).includes(filter);
+  }
 
   private readonly i18n = translationsChanged();
 
@@ -147,7 +166,7 @@ export class UsersListComponent {
     this.i18n();
     const query = this.table.query().trim().toLowerCase();
     const role = this.roleFilter();
-    const users = this.store.users().filter(user => (role === 'all' || user.roleId === role) && (!query || matchesSearch(user, query)));
+    const users = this.store.users().filter(user => this.holds(user, role) && (!query || matchesSearch(user, query)));
     return [
       { value: 'all', label: this.translate.instant('All'), count: users.length },
       ...(Object.keys(STATUS_META) as UserStatus[]).map(status => ({
@@ -172,11 +191,12 @@ export class UsersListComponent {
     filter: computed(() => {
       const status = this.status();
       const role = this.roleFilter();
-      return (user: User) => (status === 'all' || user.status === status) && (role === 'all' || user.roleId === role);
+      return (user: User) => (status === 'all' || user.status === status) && this.holds(user, role);
     }),
     sorters: {
       name: (a, b) => fullName(a).localeCompare(fullName(b)),
-      role: (a, b) => (this.store.rolesById().get(a.roleId)?.name ?? '').localeCompare(this.store.rolesById().get(b.roleId)?.name ?? ''),
+      // By the role each is named by: the one with most permissions
+      role: (a, b) => (this.store.activeRoles(a)[0]?.name ?? '').localeCompare(this.store.activeRoles(b)[0]?.name ?? ''),
       department: (a, b) => a.department.localeCompare(b.department),
       // Never signed in sorts as the oldest
       lastActive: (a, b) => (a.lastActiveAt ?? '').localeCompare(b.lastActiveAt ?? ''),
@@ -205,7 +225,7 @@ export class UsersListComponent {
       const role = this.roleParam();
       untracked(() => {
         this.status.set(status && status in STATUS_META ? status as UserStatus : 'all');
-        this.roleFilter.set(role && this.store.rolesById().has(role) ? role : 'all');
+        this.roleFilter.set(role && (role === TEMPORARY || this.store.rolesById().has(role)) ? role : 'all');
         this.table.resetPage();
       });
     });
@@ -304,24 +324,25 @@ export class UsersListComponent {
   protected readonly exportTable = (): TableExport => {
     const t = this.translate;
     const users = this.table.sorted();
-    const roleName = (roleId: string) => this.store.rolesById().get(roleId)?.name ?? '';
+    // The roles held now, separated as an import file takes them
+    const roleNames = (user: User) => this.store.activeRoles(user).map(role => role.name).join('; ');
     return {
       fileName: 'users',
       title: t.instant('Users'),
       columns: [
         { header: t.instant('First name') }, { header: t.instant('Last name') }, { header: t.instant('Email') }, { header: t.instant('Phone') },
-        { header: t.instant('Department') }, { header: t.instant('Role') }, { header: t.instant('Status') },
+        { header: t.instant('Department') }, { header: t.instant('Roles') }, { header: t.instant('Status') },
         { header: t.instant('Joined'), date: 'day' }, { header: t.instant('Last active'), date: 'time' },
       ],
       rows: users.map(user => [
-        user.firstName, user.lastName, user.email, user.phone, t.instant(user.department), roleName(user.roleId),
+        user.firstName, user.lastName, user.email, user.phone, t.instant(user.department), roleNames(user),
         t.instant(STATUS_META[user.status].label), new Date(user.createdAt), user.lastActiveAt ? new Date(user.lastActiveAt) : null,
       ]),
       // The same first columns as an import file, so an export can be edited and imported elsewhere
       csv: [
-        ['First name', 'Last name', 'Email', 'Phone', 'Department', 'Role', 'Status', 'Joined', 'Last active'],
+        ['First name', 'Last name', 'Email', 'Phone', 'Department', 'Roles', 'Status', 'Joined', 'Last active'],
         ...users.map(user => [
-          user.firstName, user.lastName, user.email, user.phone, user.department, roleName(user.roleId),
+          user.firstName, user.lastName, user.email, user.phone, user.department, roleNames(user),
           user.status, user.createdAt.slice(0, 10), user.lastActiveAt?.slice(0, 10) ?? '',
         ]),
       ],

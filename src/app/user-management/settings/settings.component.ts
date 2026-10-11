@@ -147,7 +147,8 @@ export class SettingsComponent implements OnInit {
   /** Saving would hold the signed-in administrator back until they turn on two-step sign-in themselves (API.md) */
   protected holdsBackSelf(): boolean {
     const me = this.session.user();
-    return !!me && !me.twoFactor && this.form.controls.twoFactorRoleIds.value.includes(me.roleId);
+    const required = this.form.controls.twoFactorRoleIds.value;
+    return !!me && !me.twoFactor && this.session.roles().some(role => required.includes(role.id));
   }
 
   /** Asks before leaving with unsaved changes */

@@ -86,8 +86,13 @@
                 }
               </td>
               <td class="hide-lg cell-ip">
-                <span class="cell-main mono">{{ row.entry.ip }}</span>
-                <span class="cell-sub device"><ng-icon [svg]="row.mobile ? icons.phone : icons.desktop" /> {{ row.entry.browser }} · {{ row.entry.os }}</span>
+                <!-- What the server did by itself came from no browser -->
+                @if (row.entry.ip) {
+                  <span class="cell-main mono">{{ row.entry.ip }}</span>
+                  <span class="cell-sub device"><ng-icon [svg]="row.mobile ? icons.phone : icons.desktop" /> {{ row.entry.browser }} · {{ row.entry.os }}</span>
+                } @else {
+                  <span class="cell-main muted">—</span>
+                }
               </td>
               <td class="ui-cell-shrink cell-open" (click)="$event.stopPropagation()">
                 <button uiButton variant="ghost" size="sm" iconOnly type="button" (click)="open(row)" [attr.aria-label]="'View details' | translate">

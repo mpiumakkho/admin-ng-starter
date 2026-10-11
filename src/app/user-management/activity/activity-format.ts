@@ -4,7 +4,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, STATUS_META } from '../data/catalog';
 import { Activity, ActivityChange, fullName, UserStatus } from '../data/models';
-import { idleTimeoutLabel, passwordHistoryLabel, retentionLabel } from '../shared/formatting';
+import { idleTimeoutLabel, localDate, passwordHistoryLabel, retentionLabel } from '../shared/formatting';
 
 /** Where an entry's target can be opened, if it still exists */
 export interface ActivityTarget {
@@ -23,7 +23,11 @@ export class ActivityFormat {
   private readonly store = inject(AdminStore);
   private readonly translate = inject(TranslateService);
 
+  /** Who did it: a name, "System" for what the server did by itself, or "Deleted user" */
   actorName(entry: Activity): string {
+    if (entry.actorId === null) {
+      return this.translate.instant('System');
+    }
     const user = this.store.usersById().get(entry.actorId);
     return user ? fullName(user) : this.translate.instant('Deleted user');
   }
@@ -64,6 +68,13 @@ export class ActivityFormat {
       case 'roleId':
       case 'defaultRoleId':
         return this.store.rolesById().get(raw)?.name ?? raw;
+      case 'startsAt':
+      case 'endsAt':
+        return localDate(this.translate, raw);
+      case 'maxDays':
+        return raw === 'null' ? this.translate.instant('No limit') : this.translate.instant('dayCount', { count: Number(raw) });
+      case 'reasonRequired':
+        return this.translate.instant(raw === 'true' ? 'Yes' : 'No');
       case 'inviteExpiryDays':
         return this.translate.instant('dayCount', { count: Number(raw) });
       case 'sessionTimeoutMinutes':
@@ -90,7 +101,7 @@ export class ActivityFormat {
 
   /** One item of a list change: a permission's label, a role's name, or the item itself (a domain, a device) */
   listItem(field: string, key: string): string {
-    return field === 'twoFactorRoleIds' ? this.store.rolesById().get(key)?.name ?? key : this.permission(key);
+    return field === 'twoFactorRoleIds' || field === 'roles' ? this.store.rolesById().get(key)?.name ?? key : this.permission(key);
   }
 
   /** One line for the table, such as "Department: Sales → Marketing · +1" */

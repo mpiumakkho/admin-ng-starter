@@ -36,7 +36,7 @@ export class ActivityDetails {
 
   protected readonly meta = computed(() => ACTIVITY_META[this.entry().action]);
   protected readonly kind = computed(() => ACTIVITY_KINDS[this.meta().kind]);
-  protected readonly actor = computed(() => this.store.usersById().get(this.entry().actorId));
+  protected readonly actor = computed(() => this.store.usersById().get(this.entry().actorId ?? ''));
   protected readonly actorName = computed(() => { this.i18n(); return this.format.actorName(this.entry()); });
   protected readonly action = computed(() => { this.i18n(); return this.format.action(this.entry()); });
   protected readonly target = computed(() => this.format.target(this.entry()));

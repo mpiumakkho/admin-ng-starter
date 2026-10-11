@@ -6,6 +6,7 @@ import {
   lucideActivity,
   lucideBan,
   lucideCircleCheck,
+  lucideClockAlert,
   lucideHistory,
   lucideLayoutDashboard,
   lucideMailCheck,
@@ -41,12 +42,13 @@ import {
 import { UI_CHART_PALETTE } from '../ui/charts/chart-colors';
 import { UiChart } from '../ui/charts/chart.component';
 import { Session } from '../access/session';
+import { roleAssignmentState } from '../data/access-rules';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_META, DEPARTMENTS, STATUS_META } from '../data/catalog';
 import { Activity, fullName, User, UserStatus } from '../data/models';
 import { ActivityText } from '../shared/activity-text';
-import { RoleBadge } from '../shared/badges';
-import { intlLocale, TimeAgoPipe } from '../shared/formatting';
+import { RoleBadges } from '../shared/badges';
+import { intlLocale, LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -65,6 +67,9 @@ const TONE_COLORS: Record<UiTone, string> = {
 const CHART_ROLES = 5;
 /** Lighter than the neutral tone, so "other roles" never looks like a role of its own */
 const OTHER_ROLES_COLOR = '#cbd5e1';
+
+/** A role held for a time shows on the overview this many days before it ends */
+const ENDING_SOON_DAYS = 7;
 
 @Component({
   selector: 'app-overview',
@@ -87,10 +92,11 @@ const OTHER_ROLES_COLOR = '#cbd5e1';
     UiProgress,
     UiEmptyState,
     UiIconChip,
-    RoleBadge,
+    RoleBadges,
     ActivityDialog,
     ActivityText,
     TimeAgoPipe,
+    LocalDatePipe,
   ],
   templateUrl: './overview.component.html',
   styleUrl: './overview.component.scss',
@@ -104,7 +110,7 @@ export class OverviewComponent {
 
   protected readonly icons = {
     page: lucideLayoutDashboard, users: lucideUsers, active: lucideActivity, joined: lucideUserPlus, invited: lucideMailCheck, arrow: lucideArrowRight,
-    stale: lucideMailWarning, suspended: lucideBan, allClear: lucideCircleCheck, history: lucideHistory,
+    stale: lucideMailWarning, suspended: lucideBan, allClear: lucideCircleCheck, history: lucideHistory, ending: lucideClockAlert,
   };
   protected readonly activityMeta = ACTIVITY_META;
   protected readonly fullName = fullName;
@@ -215,7 +221,8 @@ export class OverviewComponent {
       id: role.id as string | null,
       label: role.name,
       color: TONE_COLORS[role.tone],
-      value: this.store.roleCounts().get(role.id) ?? 0,
+      // Each person once, by their main role, so the parts make up the whole
+      value: this.store.mainRoleCounts().get(role.id) ?? 0,
     }));
     if (roles.length <= CHART_ROLES + 1) {
       return roles;
@@ -286,6 +293,19 @@ export class OverviewComponent {
   });
 
   protected readonly suspended = computed(() => this.store.users().filter(user => user.status === 'suspended').length);
+
+  /** Roles held for a time that end within a week, soonest first, so someone can renew what is still needed */
+  protected readonly endingRoles = computed(() => {
+    const now = this.store.now();
+    const roles = this.store.rolesById();
+    return this.store.users()
+      .filter(user => user.status === 'active')
+      .flatMap(user => user.roles
+        .filter(assignment => assignment.endsAt && roleAssignmentState(assignment, now) === 'active'
+          && new Date(assignment.endsAt).getTime() - now <= ENDING_SOON_DAYS * DAY)
+        .map(assignment => ({ user, assignment, role: roles.get(assignment.roleId)?.name ?? '' })))
+      .sort((a, b) => a.assignment.endsAt!.localeCompare(b.assignment.endsAt!));
+  });
   protected readonly resending = signal<string | null>(null);
 
   protected async resendInvite(user: User) {

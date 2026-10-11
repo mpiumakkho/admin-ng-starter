@@ -18,7 +18,7 @@
           }
         </div>
         <div class="profile-badges">
-          <app-role-badge [roleId]="user.roleId" />
+          <app-role-badges [user]="user" [max]="3" />
           <app-status-badge [status]="user.status" />
           <span class="since">{{ 'Member since' | translate }} {{ user.createdAt | localDate }}</span>
         </div>
@@ -65,7 +65,7 @@
           <ui-detail-item [label]="'Email' | translate">{{ user.email }}</ui-detail-item>
           <ui-detail-item [label]="'Phone' | translate">{{ user.phone || '—' }}</ui-detail-item>
           <ui-detail-item [label]="'Department' | translate">{{ user.department | translate }}</ui-detail-item>
-          <ui-detail-item [label]="'Role' | translate"><app-role-badge [roleId]="user.roleId" /></ui-detail-item>
+          <ui-detail-item [label]="'Roles' | translate"><app-role-badges [user]="user" [max]="6" /></ui-detail-item>
           <ui-detail-item [label]="'Status' | translate"><app-status-badge [status]="user.status" /></ui-detail-item>
           <ui-detail-item [label]="'Joined' | translate">{{ user.createdAt | localDate: 'datetime' }}</ui-detail-item>
           <ui-detail-item [label]="'Last active' | translate">{{ user.lastActiveAt | timeAgo: ('Never' | translate) }}</ui-detail-item>
@@ -76,27 +76,91 @@
         </ui-detail-list>
       </ui-card>
     }
-    @case ('permissions') {
-      <ui-card [title]="'Permissions' | translate" [description]="'permissionsFrom' | translate: { role: role()?.name ?? '' }">
-        @if (session.can('roles.view')) {
-          <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/roles" [queryParams]="{ role: user.roleId }"><ng-icon [svg]="icons.role" /> {{ (session.can('roles.manage') ? 'Edit role' : 'View role') | translate }}</a>
-        }
-        <div class="permission-groups">
-          @for (group of permissionGroups; track group.key) {
-            <div class="permission-group">
-              <p class="permission-group-title">{{ group.label | translate }}</p>
-              <ul>
-                @for (permission of group.permissions; track permission.key) {
-                  <li [class.denied]="!granted(permission.key)">
-                    <ng-icon [svg]="granted(permission.key) ? icons.granted : icons.denied" />
-                    {{ permission.label | translate }}
-                  </li>
-                }
-              </ul>
-            </div>
+    @case ('roles') {
+      <div class="roles-tab">
+        <ui-card [title]="'Roles' | translate" [description]="'What they hold, from when and until when.' | translate">
+          @if (canChangeRoles()) {
+            <button uiButton uiCardActions variant="secondary" size="sm" type="button" (click)="giveRole()"><ng-icon [svg]="icons.giveRole" /> {{ 'Give role' | translate }}</button>
           }
-        </div>
-      </ui-card>
+          @if (assignments().length) {
+            <ul class="assignments">
+              @for (item of assignments(); track item.assignment.id) {
+                <li class="assignment" [class.assignment-expired]="item.state === 'expired'">
+                  <div class="assignment-main">
+                    <app-role-badge [roleId]="item.assignment.roleId" />
+                    <ui-badge [tone]="stateTones[item.state]" dot>{{ stateLabels[item.state] | translate }}</ui-badge>
+                    <span class="assignment-period">
+                      @if (item.state === 'scheduled') {
+                        {{ 'fromDate' | translate: { date: (item.assignment.startsAt | localDate) } }}
+                      } @else {
+                        {{ 'sinceDate' | translate: { date: (item.assignment.startsAt | localDate) } }}
+                      }
+                      ·
+                      @if (item.assignment.endsAt) {
+                        {{ (item.state === 'expired' ? 'endedOn' : 'untilDate') | translate: { date: (item.assignment.endsAt | localDate) } }}
+                      } @else {
+                        {{ 'For good' | translate }}
+                      }
+                    </span>
+                  </div>
+                  @if (item.assignment.reason || item.givenBy) {
+                    <p class="assignment-meta">
+                      @if (item.assignment.reason) {
+                        <span>{{ item.assignment.reason }}</span>
+                      }
+                      @if (item.givenBy) {
+                        <span>{{ 'givenBy' | translate: { name: item.givenBy } }}</span>
+                      }
+                    </p>
+                  }
+                  @if (item.canChange) {
+                    <div class="assignment-actions">
+                      <button uiButton variant="ghost" size="sm" type="button" (click)="changeAssignment(item.assignment)">
+                        {{ (item.state === 'expired' ? 'Renew' : 'Change end') | translate }}<span class="ui-sr-only"> {{ roleName(item.assignment.roleId) }}</span>
+                      </button>
+                      @if (item.state !== 'expired') {
+                        <button uiButton variant="ghost" size="sm" type="button" (click)="removeAssignment(item.assignment)">
+                          {{ 'Take away' | translate }}<span class="ui-sr-only"> {{ roleName(item.assignment.roleId) }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <ui-empty-state compact [icon]="icons.role" [title]="'No role' | translate" [description]="'They can sign in and see their own profile only.' | translate" />
+          }
+        </ui-card>
+        <ui-card [title]="'Permissions' | translate" [description]="'Everything the roles they hold now allow, together.' | translate">
+          @if (session.can('roles.view')) {
+            <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/roles"><ng-icon [svg]="icons.role" /> {{ 'Roles & permissions' | translate }}</a>
+          }
+          <div class="permission-groups">
+            @for (group of permissionGroups; track group.key) {
+              <div class="permission-group">
+                <p class="permission-group-title">{{ group.label | translate }}</p>
+                <ul>
+                  @for (permission of group.permissions; track permission.key) {
+                    <li [class.denied]="!granted(permission.key)">
+                      <ng-icon [svg]="granted(permission.key) ? icons.granted : icons.denied" />
+                      <span>
+                        {{ permission.label | translate }}
+                        @if (sources(permission.key); as from) {
+                          <span class="permission-source">{{ from }}</span>
+                        }
+                      </span>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+          </div>
+        </ui-card>
+      </div>
+      @if (canChangeRoles()) {
+        <app-role-assignment-dialog [users]="[user]" [assignment]="editing()" [(open)]="assigning" />
+      }
     }
     @case ('activity') {
       <ui-card [title]="'Activity' | translate" [description]="'Changes made by or to this user' | translate">

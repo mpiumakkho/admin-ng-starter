@@ -154,7 +154,7 @@ export class ActivityComponent {
 
   /** People who have done something, for the "Done by" filter */
   protected readonly actors = computed(() => {
-    const ids = new Set(this.entries().map(entry => entry.actorId));
+    const ids = new Set(this.entries().map(entry => entry.actorId ?? ''));
     return [...ids].map(id => this.store.usersById().get(id)).filter(user => !!user).map(user => ({ id: user.id, name: fullName(user) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
@@ -163,7 +163,7 @@ export class ActivityComponent {
     this.i18n();
     return this.entries().map(entry => ({
       entry,
-      actor: this.store.usersById().get(entry.actorId),
+      actor: this.store.usersById().get(entry.actorId ?? ''),
       actorName: this.format.actorName(entry),
       action: this.format.action(entry),
       summary: this.format.summary(entry),

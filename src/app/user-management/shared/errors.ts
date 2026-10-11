@@ -18,6 +18,10 @@ const MESSAGES: Partial<Record<AdminApiErrorCode, string>> = {
   invalid_token: 'This link has expired or was already used.',
   invalid_credentials: 'The current password is not right.',
   too_many_requests: 'Too many attempts. Wait a few minutes and try again.',
+  already_assigned: 'They already have this role for that time. Change its end instead.',
+  last_administrator: 'Someone must keep a role with every permission for good. Give it to another person first.',
+  assignment_too_long: 'This role cannot be given for that long. Pick an earlier end.',
+  reason_required: 'This role needs a reason.',
 };
 
 /** The translation key that explains why a request failed */

@@ -6,7 +6,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
 import { DEPARTMENTS } from '../data/catalog';
-import { UserStatus } from '../data/models';
+import { RoleGrant, UserStatus } from '../data/models';
 import { checkImportRows, IMPORT_COLUMNS } from '../data/user-import';
 import { downloadText, parseCsv, toCsv } from '../shared/csv';
 import { errorMessage } from '../shared/errors';
@@ -70,8 +70,8 @@ export class ImportUsersDialog {
   protected readonly ready = computed(() => this.result()?.rows.filter(row => !row.problems.length) ?? []);
   protected readonly withProblems = computed(() => this.result()?.rows.filter(row => row.problems.length).length ?? 0);
 
-  protected roleName(id: string) {
-    return this.store.rolesById().get(id)?.name ?? '—';
+  protected roleNames(grants: RoleGrant[]) {
+    return grants.map(grant => this.store.rolesById().get(grant.roleId)?.name).filter(Boolean).join(', ') || '—';
   }
 
   protected async pick(file: File) {

@@ -69,6 +69,11 @@ export class TimeAgoPipe implements PipeTransform {
   }
 }
 
+/** A date as the interface language writes it, such as "4 ต.ค. 2569", for text built in code */
+export function localDate(translate: TranslateService, iso: string): string {
+  return new Intl.DateTimeFormat(intlLocale(translate.currentLang() ?? ''), { dateStyle: 'medium' }).format(new Date(iso));
+}
+
 /**
  * A date in the interface language.
  *

@@ -1,9 +1,8 @@
 import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { CanDeactivateFn, Router, RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
-import { lucideSave, lucideUserPen, lucideUserPlus, lucideUserX } from '@ng-icons/lucide';
+import { lucideSave, lucideShieldPlus, lucideUserPen, lucideUserPlus, lucideUserX, lucideX } from '@ng-icons/lucide';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import {
@@ -11,8 +10,6 @@ import {
   UiButton,
   UiCard,
   UiCardFooter,
-  UiChoice,
-  UiChoiceCards,
   UiConfirmService,
   UiEmptyState,
   UiFileDropzone,
@@ -27,14 +24,14 @@ import { Session } from '../access/session';
 import { AdminApiError } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
 import { DEPARTMENTS, STATUS_META } from '../data/catalog';
-import { fullName, UserDraft, UserStatus } from '../data/models';
+import { fullName, RoleGrant, UserStatus } from '../data/models';
+import { RoleBadge, RoleBadges } from '../shared/badges';
 import { errorMessage } from '../shared/errors';
+import { LocalDatePipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
+import { RoleAssignmentDialog } from './role-assignment-dialog.component';
 
 const AVATAR_SIZE = 160;
-
-/** Up to this many roles show as cards with their description; more, and the form offers a dropdown */
-const ROLE_CARDS_UP_TO = 6;
 
 @Component({
   selector: 'app-user-form',
@@ -50,10 +47,13 @@ const ROLE_CARDS_UP_TO = 6;
     UiButton,
     UiFormField,
     UiInput,
-    UiChoiceCards,
     UiSegmented,
     UiFileDropzone,
     UiEmptyState,
+    RoleBadge,
+    RoleBadges,
+    LocalDatePipe,
+    RoleAssignmentDialog,
   ],
   templateUrl: './user-form.component.html',
   styleUrl: './user-form.component.scss',
@@ -74,7 +74,7 @@ export class UserFormComponent implements OnInit {
   /** From the route: missing when adding a user */
   readonly id = input<string>();
 
-  protected readonly icons = { add: lucideUserPlus, edit: lucideUserPen, save: lucideSave, missing: lucideUserX };
+  protected readonly icons = { add: lucideUserPlus, edit: lucideUserPen, save: lucideSave, missing: lucideUserX, addRole: lucideShieldPlus, remove: lucideX };
   protected readonly departments = DEPARTMENTS;
   protected readonly saving = signal(false);
   private saved = false;
@@ -97,31 +97,19 @@ export class UserFormComponent implements OnInit {
     email: ['', [Validators.required, Validators.email, (control: AbstractControl) => this.emailFree(control), (control: AbstractControl) => this.emailDomain(control)]],
     phone: ['', Validators.pattern(/^[0-9+\-\s]{9,15}$/)],
     department: [DEPARTMENTS[0], Validators.required],
-    roleId: [this.defaultRoleId(), Validators.required],
     status: ['invited' as UserStatus, Validators.required],
     avatar: [''],
   });
 
-  protected readonly roleChoices = computed<UiChoice[]>(() => {
-    this.i18n();
-    const current = this.user()?.roleId;
-    return this.store.roles().map(role => ({
-      value: role.id,
-      title: role.name,
-      description: role.description,
-      meta: this.translate.instant('permissionCount', { count: role.permissions.length }),
-      // Nobody gives out more than they have; the role someone already holds stays visible as picked
-      disabled: role.id !== current && !this.session.canAssign(role),
-    }));
+  /** A new user's first roles: the default role to begin with, when the signed-in user may give it */
+  protected readonly grants = signal<RoleGrant[]>(this.defaultGrants());
+  protected readonly grantedIds = computed(() => this.grants().map(grant => grant.roleId));
+  protected readonly addingRole = signal(false);
+  /** Someone else's roles, changed on their profile */
+  protected readonly canChangeRoles = computed(() => {
+    const user = this.user();
+    return !!user && !this.isSelf() && this.session.can('users.edit') && this.session.canManage(user);
   });
-
-  protected readonly manyRoles = computed(() => this.store.roles().length > ROLE_CARDS_UP_TO);
-  private readonly roleId = toSignal(this.form.controls.roleId.valueChanges, { initialValue: this.form.controls.roleId.value });
-  /** The role picked in the dropdown, whose description and permissions show under it */
-  protected readonly pickedRole = computed(() => this.roleChoices().find(choice => choice.value === this.roleId()));
-
-  /** Some roles grant permissions the signed-in user lacks, so they cannot be picked */
-  protected readonly someRolesLocked = computed(() => !this.isSelf() && this.roleChoices().some(choice => choice.disabled));
 
   protected readonly statusOptions = computed<UiOption<UserStatus>[]>(() => {
     this.i18n();
@@ -155,11 +143,10 @@ export class UserFormComponent implements OnInit {
     if (user) {
       this.form.reset({
         firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone,
-        department: user.department, roleId: user.roleId, status: user.status, avatar: user.avatar,
+        department: user.department, status: user.status, avatar: user.avatar,
       });
     }
     if (this.isSelf()) {
-      this.form.controls.roleId.disable();
       this.form.controls.status.disable();
     }
     if (this.profileOnly()) {
@@ -168,12 +155,29 @@ export class UserFormComponent implements OnInit {
     }
   }
 
-  /** The default role from the settings when the signed-in user may give it, otherwise the least powerful role they may give */
-  private defaultRoleId(): string {
-    const assignable = this.store.roles().filter(role => this.session.canAssign(role));
-    return assignable.find(role => role.id === this.store.settings().defaultRoleId)?.id
-      ?? [...assignable].sort((a, b) => a.permissions.length - b.permissions.length)[0]?.id
-      ?? '';
+  /**
+   * The default role from the settings, for good, when the signed-in user may give it; otherwise the least powerful
+   * role they may give that has no rules of its own
+   */
+  private defaultGrants(): RoleGrant[] {
+    const assignable = this.store.roles().filter(role => this.session.canAssign(role) && role.assignment.maxDays === null && !role.assignment.reasonRequired);
+    const role = assignable.find(item => item.id === this.store.settings().defaultRoleId)
+      ?? [...assignable].sort((a, b) => a.permissions.length - b.permissions.length)[0];
+    return role ? [{ roleId: role.id, endsAt: null }] : [];
+  }
+
+  protected roleName(roleId: string): string {
+    return this.store.rolesById().get(roleId)?.name ?? '';
+  }
+
+  protected addGrant(grant: RoleGrant) {
+    this.grants.update(grants => [...grants, grant]);
+    this.form.markAsDirty();
+  }
+
+  protected removeGrant(roleId: string) {
+    this.grants.update(grants => grants.filter(grant => grant.roleId !== roleId));
+    this.form.markAsDirty();
   }
 
   /** Allowed domains from the settings; a user keeps an email they already have */
@@ -215,11 +219,11 @@ export class UserFormComponent implements OnInit {
       this.toast.show(this.translate.instant('Check the highlighted fields.'), 'error');
       return;
     }
-    const draft: UserDraft = this.form.getRawValue();
+    const profile = this.form.getRawValue();
     this.saving.set(true);
     try {
       const id = this.id();
-      const user = id ? await this.store.updateUser(id, draft) : await this.store.createUser(draft);
+      const user = id ? await this.store.updateUser(id, profile) : await this.store.createUser({ ...profile, roles: this.grants() });
       this.saved = true;
       this.toast.show(this.translate.instant(id ? 'toast.userUpdated' : 'toast.userCreated', { name: fullName(user) }));
       this.router.navigate(['/users', user.id]);

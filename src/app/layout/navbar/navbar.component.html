@@ -39,7 +39,7 @@
                     <span class="search-result-name">{{ fullName(user) }}</span>
                     <span class="search-result-detail">{{ user.email }}</span>
                   </span>
-                  <app-role-badge [roleId]="user.roleId" />
+                  <app-role-badges [user]="user" [max]="1" />
                 </a>
               }
               @if (matches().length) {
@@ -116,7 +116,7 @@
             <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="sm" />
             <span class="user-text" aria-hidden="true">
               <span class="user-name">{{ fullName(me) }}</span>
-              <span class="user-role">{{ session.role()?.name }}</span>
+              <span class="user-role">{{ session.role()?.name }}@if (session.roles().length > 1) { +{{ session.roles().length - 1 }}}</span>
             </span>
           </button>
           <ng-template #accountMenu>
@@ -127,7 +127,7 @@
                 <div class="account-text">
                   <span class="account-name">{{ fullName(me) }}</span>
                   <span class="account-email">{{ me.email }}</span>
-                  <app-role-badge class="account-role" [roleId]="me.roleId" />
+                  <app-role-badges class="account-role" [user]="me" [max]="3" />
                   @if (idleTimeout(); as time) {
                     <span class="account-idle">{{ 'idleNotice' | translate: { time } }}</span>
                   }

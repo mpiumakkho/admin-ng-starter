@@ -65,24 +65,41 @@
           } @else if (isSelf()) {
             <ui-alert tone="info">{{ 'You cannot change your own role or status. Ask another administrator.' | translate }}</ui-alert>
           }
-          <ui-form-field [label]="'Role' | translate" [for]="manyRoles() ? 'roleId' : ''" [hint]="someRolesLocked() ? ('Roles with permissions you do not have yourself cannot be picked.' | translate) : ''">
-            @if (manyRoles()) {
-              <!-- A longer list of roles: a dropdown, with what the picked role allows under it -->
-              <select uiInput id="roleId" class="role-select" formControlName="roleId" aria-describedby="roleSummary">
-                @for (choice of roleChoices(); track choice.value) {
-                  <option [value]="choice.value" [disabled]="choice.disabled">{{ choice.title }}</option>
-                }
-              </select>
-              @if (pickedRole(); as role) {
-                <div class="role-summary" id="roleSummary">
-                  <span>{{ role.description }}</span>
-                  <span class="role-summary-meta">{{ role.meta }}</span>
-                </div>
+          @if (user(); as current) {
+            <!-- Roles change on the profile, one assignment at a time, each saved at once -->
+            <div class="roles-field" role="group" aria-labelledby="rolesLabel">
+              <span class="roles-label" id="rolesLabel">{{ 'Roles' | translate }}</span>
+              <app-role-badges [user]="current" [max]="6" />
+              @if (canChangeRoles()) {
+                <a class="roles-link" [routerLink]="['/users', current.id]" [queryParams]="{ tab: 'roles' }">{{ 'Change roles on the profile' | translate }}</a>
               }
-            } @else {
-              <ui-choice-cards class="role-choices" [choices]="roleChoices()" formControlName="roleId" [ariaLabel]="'Role' | translate" />
-            }
-          </ui-form-field>
+            </div>
+          } @else {
+            <div class="roles-field" role="group" aria-labelledby="rolesLabel">
+              <span class="roles-label" id="rolesLabel">{{ 'Roles' | translate }}</span>
+              <ul class="grant-list">
+                @for (grant of grants(); track grant.roleId) {
+                  <li class="grant">
+                    <app-role-badge [roleId]="grant.roleId" />
+                    <span class="grant-when">
+                      @if (grant.startsAt) {
+                        {{ 'fromDate' | translate: { date: (grant.startsAt | localDate) } }} ·
+                      }
+                      {{ grant.endsAt ? ('untilDate' | translate: { date: (grant.endsAt | localDate) }) : ('For good' | translate) }}
+                    </span>
+                    <button uiButton variant="ghost" size="sm" iconOnly type="button" class="grant-remove" (click)="removeGrant(grant.roleId)"
+                      [attr.aria-label]="'removeRoleNamed' | translate: { role: roleName(grant.roleId) }" [title]="'removeRoleNamed' | translate: { role: roleName(grant.roleId) }">
+                      <ng-icon [svg]="icons.remove" />
+                    </button>
+                  </li>
+                } @empty {
+                  <li class="grant-none">{{ 'noRolesGetDefault' | translate: { role: roleName(store.settings().defaultRoleId) } }}</li>
+                }
+              </ul>
+              <button uiButton variant="secondary" size="sm" type="button" class="grant-add" (click)="addingRole.set(true)"><ng-icon [svg]="icons.addRole" /> {{ 'Add a role' | translate }}</button>
+            </div>
+            <app-role-assignment-dialog draft [exclude]="grantedIds()" [(open)]="addingRole" (granted)="addGrant($event)" />
+          }
           <ui-form-field [label]="'Status' | translate" [hint]="'Invited users get an email to set their password. Suspended users cannot sign in.' | translate">
             <ui-segmented [options]="statusOptions()" formControlName="status" [ariaLabel]="'Status' | translate" />
           </ui-form-field>

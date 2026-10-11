@@ -60,9 +60,14 @@ for (const theme of ['light', 'dark'] as const) {
       await rows.nth(0).getByRole('checkbox').check();
       await rows.nth(1).getByRole('checkbox').check();
       await expectAccessible(page, 'the users list with people selected');
-      await page.locator('ui-bulk-bar').getByRole('button', { name: 'Change role' }).click();
+      await page.locator('ui-bulk-bar').getByRole('button', { name: 'Give role' }).click();
       await expect(page.locator('dialog[open] select')).toBeVisible();
-      await expectAccessible(page, 'the change role dialog');
+      await expectAccessible(page, 'the give role dialog');
+      await page.keyboard.press('Escape');
+
+      await page.goto('/users/u-002?tab=roles');
+      await expect(page.locator('.assignments')).toBeVisible();
+      await expectAccessible(page, 'the roles of a profile');
     });
 
     test('the two-step sign-in setup page', async ({ page }) => {

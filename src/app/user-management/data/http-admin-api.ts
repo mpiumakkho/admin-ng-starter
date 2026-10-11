@@ -4,7 +4,8 @@ import { firstValueFrom, Observable, Subscription } from 'rxjs';
 
 import { AdminApi, AdminApiError, AdminApiErrorCode } from './admin-api';
 import {
-  Activity, ActivityRange, AdminSettings, PasswordPolicy, Role, RoleDraft, TwoFactorSetup, User, UserDraft, UserSession, UserStatus,
+  Activity, ActivityRange, AdminSettings, PasswordPolicy, Role, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft,
+  RoleDraft, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
 /** Where the server's API starts, such as "/api" or "https://admin.example.com/api". Set by provideUserManagement(). */
@@ -24,7 +25,7 @@ const CODES: readonly AdminApiErrorCode[] = [
   'email_taken', 'not_found', 'not_invited', 'role_in_use', 'system_role', 'invalid_credentials', 'account_suspended',
   'invite_pending', 'unauthenticated', 'forbidden', 'self_change', 'email_domain', 'weak_password', 'default_role',
   'invalid_request', 'two_factor_required', 'invalid_code', 'invalid_token', 'two_factor_mandatory', 'password_reused',
-  'too_many_requests',
+  'too_many_requests', 'already_assigned', 'last_administrator', 'assignment_too_long', 'reason_required',
 ];
 
 /** The /auth requests carry the refresh cookie, also to an API on another origin */
@@ -115,16 +116,12 @@ export class HttpAdminApi extends AdminApi {
     return this.send<User[]>('POST', '/users/import', { users: drafts });
   }
 
-  updateUser(id: string, changes: Partial<UserDraft>): Promise<User> {
+  updateUser(id: string, changes: UserChanges): Promise<User> {
     return this.send<User>('PATCH', `/users/${encodeURIComponent(id)}`, changes);
   }
 
   setUserStatus(ids: string[], status: UserStatus): Promise<User[]> {
     return this.send<User[]>('POST', '/users/status', { ids, status });
-  }
-
-  setUsersRole(ids: string[], roleId: string): Promise<User[]> {
-    return this.send<User[]>('POST', '/users/role', { ids, roleId });
   }
 
   async deleteUsers(ids: string[]): Promise<void> {
@@ -137,6 +134,24 @@ export class HttpAdminApi extends AdminApi {
 
   async resendInvite(id: string): Promise<void> {
     await this.send('POST', `/users/${encodeURIComponent(id)}/resend-invite`);
+  }
+
+  /* Role assignments */
+
+  assignRole(draft: RoleAssignmentDraft): Promise<User> {
+    return this.send<User>('POST', '/role-assignments', draft);
+  }
+
+  updateRoleAssignment(id: string, changes: RoleAssignmentChanges): Promise<User> {
+    return this.send<User>('PATCH', `/role-assignments/${encodeURIComponent(id)}`, changes);
+  }
+
+  removeRoleAssignment(id: string): Promise<User> {
+    return this.send<User>('DELETE', `/role-assignments/${encodeURIComponent(id)}`);
+  }
+
+  assignRoles(userIds: string[], change: RoleAssignmentBatch): Promise<User[]> {
+    return this.send<User[]>('POST', '/role-assignments/batch', { userIds, ...change });
   }
 
   /* Roles */

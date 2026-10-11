@@ -5,7 +5,7 @@ import { catchError, from, map, throwError } from 'rxjs';
 import { AdminApiError, AdminApiErrorCode } from './admin-api';
 import { ADMIN_API_URL, TokenAnswer } from './http-admin-api';
 import { LocalAdminApi } from './local-admin-api';
-import { RoleDraft, User, UserDraft } from './models';
+import { RoleAssignmentBatch, RoleAssignmentDraft, RoleDraft, User, UserDraft } from './models';
 
 /** The status a server would answer each refusal with */
 const STATUS: Record<AdminApiErrorCode, number> = {
@@ -30,6 +30,10 @@ const STATUS: Record<AdminApiErrorCode, number> = {
   two_factor_mandatory: 403,
   password_reused: 422,
   too_many_requests: 429,
+  already_assigned: 409,
+  last_administrator: 409,
+  assignment_too_long: 422,
+  reason_required: 422,
 };
 
 /** How long an access token lasts, in seconds, as on the server */
@@ -73,11 +77,17 @@ const ROUTES: Route[] = [
   ['POST', /^\/users$/, (api, body) => api.createUser(body as unknown as UserDraft)],
   ['POST', /^\/users\/import$/, (api, body) => api.createUsers(body['users'])],
   ['POST', /^\/users\/status$/, (api, body) => api.setUserStatus(body['ids'], body['status'])],
-  ['POST', /^\/users\/role$/, (api, body) => api.setUsersRole(body['ids'], body['roleId'])],
   ['POST', /^\/users\/delete$/, (api, body) => api.deleteUsers(body['ids'])],
   ['POST', /^\/users\/([^/]+)\/reset-password$/, (api, _body, id) => api.resetPassword(id)],
   ['POST', /^\/users\/([^/]+)\/resend-invite$/, (api, _body, id) => api.resendInvite(id)],
   ['PATCH', /^\/users\/([^/]+)$/, (api, body, id) => api.updateUser(id, body)],
+  ['POST', /^\/role-assignments$/, (api, body) => api.assignRole(body as unknown as RoleAssignmentDraft)],
+  ['POST', /^\/role-assignments\/batch$/, (api, body) => {
+    const { userIds, ...change } = body;
+    return api.assignRoles(userIds, change as unknown as RoleAssignmentBatch);
+  }],
+  ['PATCH', /^\/role-assignments\/([^/]+)$/, (api, body, id) => api.updateRoleAssignment(id, body)],
+  ['DELETE', /^\/role-assignments\/([^/]+)$/, (api, _body, id) => api.removeRoleAssignment(id)],
   ['GET', /^\/roles$/, api => api.listRoles()],
   ['POST', /^\/roles$/, (api, body) => api.createRole(body as unknown as RoleDraft)],
   ['PATCH', /^\/roles\/([^/]+)$/, (api, body, id) => api.updateRole(id, body)],

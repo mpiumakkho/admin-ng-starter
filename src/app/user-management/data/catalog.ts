@@ -1,5 +1,8 @@
 import {
+  lucideBadgeMinus,
+  lucideBadgePlus,
   lucideBan,
+  lucideCalendarClock,
   lucideKeyRound,
   lucideLogIn,
   lucideLogOut,
@@ -11,13 +14,14 @@ import {
   lucideShieldOff,
   lucideShieldPlus,
   lucideShieldX,
+  lucideTimerOff,
   lucideTrash2,
   lucideUserCheck,
   lucideUserPlus,
 } from '@ng-icons/lucide';
 
 import { UiTone } from '../ui';
-import { ActivityAction, AdminSettings, Permission, UserStatus } from './models';
+import { ActivityAction, AdminSettings, Permission, RoleAssignmentRules, UserStatus } from './models';
 
 // Labels in this file are translation keys
 
@@ -112,6 +116,10 @@ export const ACTIVITY_META: Record<ActivityAction, { icon: string; tone: UiTone;
   'role.created': { icon: lucideShieldPlus, tone: 'primary', label: 'action.role.created', message: 'activity.role.created', kind: 'roles' },
   'role.updated': { icon: lucideShield, tone: 'info', label: 'action.role.updated', message: 'activity.role.updated', kind: 'roles' },
   'role.deleted': { icon: lucideShieldX, tone: 'danger', label: 'action.role.deleted', message: 'activity.role.deleted', kind: 'roles' },
+  'role_assignment.added': { icon: lucideBadgePlus, tone: 'primary', label: 'action.role_assignment.added', message: 'activity.role_assignment.added', kind: 'users' },
+  'role_assignment.updated': { icon: lucideCalendarClock, tone: 'info', label: 'action.role_assignment.updated', message: 'activity.role_assignment.updated', kind: 'users' },
+  'role_assignment.removed': { icon: lucideBadgeMinus, tone: 'warning', label: 'action.role_assignment.removed', message: 'activity.role_assignment.removed', kind: 'users' },
+  'role_assignment.expired': { icon: lucideTimerOff, tone: 'neutral', label: 'action.role_assignment.expired', message: 'activity.role_assignment.expired', kind: 'users' },
   'settings.updated': { icon: lucideSettings, tone: 'neutral', label: 'action.settings.updated', message: 'activity.settings.updated', kind: 'settings' },
   'auth.sign_in': { icon: lucideLogIn, tone: 'neutral', label: 'action.auth.sign_in', message: 'activity.auth.sign_in', kind: 'sessions' },
   'auth.sessions_ended': { icon: lucideLogOut, tone: 'warning', label: 'action.auth.sessions_ended', message: 'activity.auth.sessions_ended', kind: 'sessions' },
@@ -127,6 +135,12 @@ export const FIELD_LABELS: Record<string, string> = {
   phone: 'Phone',
   department: 'Department',
   roleId: 'Role',
+  roles: 'Roles',
+  startsAt: 'Starts',
+  endsAt: 'Ends',
+  reason: 'Reason',
+  maxDays: 'Longest assignment',
+  reasonRequired: 'Reason required',
   status: 'Status',
   avatar: 'Photo',
   name: 'Name',
@@ -143,6 +157,12 @@ export const FIELD_LABELS: Record<string, string> = {
   activityRetentionDays: 'Keep activity for',
   devices: 'Devices',
 };
+
+/** How a new role may be given: for good or for a time, with or without a reason */
+export const DEFAULT_ASSIGNMENT_RULES: RoleAssignmentRules = { maxDays: null, reasonRequired: false };
+
+/** Choices for a role's longest assignment, in days; null: no limit */
+export const ASSIGNMENT_MAX_DAYS: (number | null)[] = [null, 7, 30, 90, 180, 365];
 
 /** Settings for a new installation */
 export const DEFAULT_SETTINGS: AdminSettings = {

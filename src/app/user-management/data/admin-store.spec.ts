@@ -14,7 +14,7 @@ const draft: UserDraft = {
   email: 'ada@example.com',
   phone: '0812345678',
   department: 'Engineering',
-  roleId: 'viewer',
+  roles: [{ roleId: 'viewer', endsAt: null }],
   status: 'active',
   avatar: '',
 };
@@ -48,7 +48,9 @@ describe('AdminStore', () => {
     const user = await store.createUser(draft);
 
     expect(store.users()[0]).toEqual(user);
-    expect(store.activity()[0]).toMatchObject({ action: 'user.created', targetId: user.id, actorId: session.userId() });
+    // Newest first: the role it was given, after the user
+    expect(store.activity()[0]).toMatchObject({ action: 'role_assignment.added', targetId: user.id, changes: [{ field: 'roleId', to: 'viewer' }] });
+    expect(store.activity()[1]).toMatchObject({ action: 'user.created', targetId: user.id, actorId: session.userId() });
     expect(store.isEmailTaken('ADA@example.com')).toBe(true);
     expect(store.isEmailTaken('ada@example.com', user.id)).toBe(false);
   });

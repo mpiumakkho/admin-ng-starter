@@ -8,7 +8,10 @@
 
 @if (session.can('users.create')) {
   <app-import-users-dialog [(open)]="importing" />
-  <app-change-role-dialog [users]="table.selectedRows()" [(open)]="changingRole" (done)="table.clearSelection()" />
+}
+@if (canEdit()) {
+  <app-role-assignment-dialog [users]="table.selectedRows()" [(open)]="givingRole" (done)="table.clearSelection()" />
+  <app-remove-role-dialog [users]="table.selectedRows()" [(open)]="takingRole" (done)="table.clearSelection()" />
 }
 
 <ui-card flush fit>
@@ -17,6 +20,7 @@
     <!-- Each option marks itself selected: a value on the select is set before the role options exist, as with ?role=… on arrival -->
     <select uiInput class="ui-input-sm toolbar-role" (change)="setRole($any($event.target).value)" [attr.aria-label]="'Role' | translate">
       <option value="all" [selected]="roleFilter() === 'all'">{{ 'All roles' | translate }}</option>
+      <option [value]="temporary" [selected]="roleFilter() === temporary">{{ 'A role for a time' | translate }}</option>
       @for (role of store.roles(); track role.id) {
         <option [value]="role.id" [selected]="roleFilter() === role.id">{{ role.name }}</option>
       }
@@ -29,7 +33,8 @@
       @if (canEdit()) {
         <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="setStatusFor(table.selectedRows(), 'active')"><ng-icon [svg]="icons.activate" /> {{ 'Activate' | translate }}</button>
         <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="setStatusFor(table.selectedRows(), 'suspended')"><ng-icon [svg]="icons.suspend" /> {{ 'Suspend' | translate }}</button>
-        <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="changingRole.set(true)"><ng-icon [svg]="icons.role" /> {{ 'Change role' | translate }}</button>
+        <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="givingRole.set(true)"><ng-icon [svg]="icons.role" /> {{ 'Give role' | translate }}</button>
+        <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="takingRole.set(true)"><ng-icon [svg]="icons.roleOff" /> {{ 'Take role away' | translate }}</button>
       }
       @if (canDelete()) {
         <button uiButton size="sm" variant="danger-soft" type="button" [disabled]="busy()" (click)="remove(table.selectedRows())"><ng-icon [svg]="icons.remove" /> {{ 'Delete' | translate }}</button>
@@ -48,7 +53,7 @@
               </th>
             }
             <th><ui-sort-header [table]="table" key="name">{{ 'User' | translate }}</ui-sort-header></th>
-            <th><ui-sort-header [table]="table" key="role">{{ 'Role' | translate }}</ui-sort-header></th>
+            <th><ui-sort-header [table]="table" key="role">{{ 'Roles' | translate }}</ui-sort-header></th>
             <th class="hide-md"><ui-sort-header [table]="table" key="department">{{ 'Department' | translate }}</ui-sort-header></th>
             <th>{{ 'Status' | translate }}</th>
             <th class="hide-lg"><ui-sort-header [table]="table" key="lastActive">{{ 'Last active' | translate }}</ui-sort-header></th>
@@ -71,7 +76,7 @@
                   }
                 </ui-person>
               </td>
-              <td class="cell-role"><app-role-badge [roleId]="user.roleId" /></td>
+              <td class="cell-role"><app-role-badges [user]="user" /></td>
               <td class="hide-md muted">{{ user.department | translate }}</td>
               <td class="cell-status"><app-status-badge [status]="user.status" /></td>
               <td class="hide-lg muted">{{ user.lastActiveAt | timeAgo: ('Never' | translate) }}</td>

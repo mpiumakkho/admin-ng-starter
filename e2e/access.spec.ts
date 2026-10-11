@@ -71,9 +71,13 @@ test('a manager cannot give out or manage the Administrator role', async ({ page
   await start(page);
   await signInAs(page, 'Manager');
 
+  // Only roles within their own permissions are offered
   await page.goto('/users/new');
-  await expect(page.locator('#roleId option', { hasText: 'Administrator' })).toBeDisabled();
-  await expect(page.locator('#roleId option', { hasText: 'Support' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Add a role' }).click();
+  const roles = page.locator('dialog[open]').getByLabel('Role');
+  await expect(roles.locator('option', { hasText: 'Administrator' })).toHaveCount(0);
+  await expect(roles.locator('option', { hasText: 'Support' })).toHaveCount(1);
+  await page.keyboard.press('Escape');
 
   await page.goto('/users/u-001');
   await expect(page.locator('.profile-actions')).toHaveCount(0);
@@ -85,11 +89,16 @@ test('nobody changes their own role, status or role permissions', async ({ page 
   await start(page);
   await signInAs(page, 'Administrator');
 
+  // Their role is built in: its permissions come from the system
   await page.goto('/roles?role=admin');
-  await expect(page.locator('.editor-note')).toContainText('your own role');
+  await expect(page.locator('.editor-note')).toContainText('Built-in roles');
+  await expect(page.locator('.matrix .ui-check-input').first()).toBeDisabled();
   await page.goto('/users/u-001/edit');
   await expect(page.locator('ui-alert')).toContainText('your own role or status');
-  await expect(page.locator('#roleId')).toBeDisabled();
+  await expect(page.getByRole('link', { name: 'Change roles on the profile' })).toHaveCount(0);
+  await page.goto('/users/u-001?tab=roles');
+  await expect(page.locator('.assignments')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Give role' })).toHaveCount(0);
 });
 
 test('signing out with unsaved changes asks first', async ({ page }) => {

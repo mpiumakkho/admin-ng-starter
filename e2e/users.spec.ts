@@ -42,9 +42,11 @@ test('settings decide the default role and the allowed email domains', async ({ 
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.locator('ui-toaster')).toContainText('Settings saved.');
 
+  // A new user starts with the default role, for good
   await page.goto('/users/new');
-  await expect(page.locator('#roleId')).toHaveValue('support');
-  await expect(page.locator('.role-summary')).toContainText('Helps users with their accounts');
+  await expect(page.locator('.grant')).toHaveCount(1);
+  await expect(page.locator('.grant')).toContainText('Support');
+  await expect(page.locator('.grant')).toContainText('For good');
   await page.locator('#email').fill('someone@gmail.com');
   await page.locator('#firstName').click();
   await expect(page.locator('.ui-field-error')).toContainText('Use an email at corp.example.');

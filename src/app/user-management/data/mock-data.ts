@@ -1,5 +1,8 @@
-import { ALL_PERMISSIONS, DEFAULT_SETTINGS, DEPARTMENTS } from './catalog';
-import { Activity, ActivityAction, ActivityChange, AdminSettings, fullName, Role, User, UserSession, UserStatus } from './models';
+import { activeRoleIds } from './access-rules';
+import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, DEPARTMENTS } from './catalog';
+import {
+  Activity, ActivityAction, ActivityChange, AdminSettings, fullName, Role, RoleAssignment, RoleAssignmentRules, User, UserSession, UserStatus,
+} from './models';
 import { uuidV7 } from './uuid';
 
 export interface AdminData {
@@ -21,6 +24,8 @@ export interface AdminData {
   passwordHistory?: Record<string, string[]>;
   /** Links in emails that still work, by token: an invitation to set a first password, or a password reset */
   links?: Record<string, EmailLink>;
+  /** Assignments whose end is already in the activity log, as the server's expiry job keeps track */
+  expiryLogged?: string[];
 }
 
 export interface EmailLink {
@@ -47,7 +52,17 @@ const LAST_NAMES = [
   'Cooper', 'Bailey', 'Rungruang', 'Sangthong', 'Howard', 'Fisher', 'Nakorn', 'Charoen',
 ];
 
-const ROLES: Role[] = [
+/** Rules some roles have for giving them, so the sample shows them; the rest may be given for good, without a reason */
+const ASSIGNMENT_RULES: Record<string, RoleAssignmentRules> = {
+  contractor: { maxDays: 90, reasonRequired: true },
+  security: { maxDays: null, reasonRequired: true },
+};
+
+function withRules(roles: Omit<Role, 'assignment'>[]): Role[] {
+  return roles.map(role => ({ ...role, assignment: { ...(ASSIGNMENT_RULES[role.id] ?? DEFAULT_ASSIGNMENT_RULES) } }));
+}
+
+const ROLES: Role[] = withRules([
   {
     id: 'admin',
     name: 'Administrator',
@@ -80,13 +95,16 @@ const ROLES: Role[] = [
     permissions: ['users.view', 'roles.view'],
     system: false,
   },
-];
+]);
+
+/** The built-in roles, as the server's code defines them; LocalAdminApi puts them back on every load */
+export const BUILT_IN_ROLES = ROLES.filter(role => role.system);
 
 /**
  * Roles an organization adds of its own, so the sample shows the pages with a longer list of roles. A few people
  * hold each; the demo accounts on the sign-in page stay with the four roles above.
  */
-const CUSTOM_ROLES: Role[] = [
+const CUSTOM_ROLES: Role[] = withRules([
   { id: 'help-desk', name: 'Help desk', description: 'Unlocks accounts and fixes sign-in problems', tone: 'info', permissions: ['users.view', 'users.edit'], system: false },
   { id: 'hr', name: 'HR', description: 'Adds and invites new staff', tone: 'success', permissions: ['users.view', 'users.create', 'users.edit'], system: false },
   { id: 'auditor', name: 'Auditor', description: 'Reads the activity log and exports it', tone: 'warning', permissions: ['users.view', 'roles.view', 'activity.view', 'activity.export', 'settings.view'], system: false },
@@ -97,7 +115,7 @@ const CUSTOM_ROLES: Role[] = [
   { id: 'compliance', name: 'Compliance', description: 'Reads the roles, the settings and the activity log', tone: 'warning', permissions: ['users.view', 'roles.view', 'activity.view', 'activity.export', 'settings.view'], system: false },
   { id: 'finance', name: 'Finance', description: 'Reads the user list for billing', tone: 'neutral', permissions: ['users.view'], system: false },
   { id: 'contractor', name: 'Contractor', description: 'Limited access for outside staff', tone: 'neutral', permissions: ['users.view'], system: false },
-];
+]);
 
 /** How many people hold each custom role, in the order above */
 const CUSTOM_ROLE_HOLDERS = [3, 2, 2, 1, 2, 1, 1, 0, 1, 0];
@@ -112,6 +130,11 @@ function random(seed: number) {
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/** The role someone was given first: the sample gives everyone one, for good, when they joined */
+function firstRole(user: User): string {
+  return user.roles[0].roleId;
+}
+
 /** Sample organisation: 48 people over the last 14 months, and a month of activity */
 export function createMockData(now = Date.now()): AdminData {
   const next = random(20261004);
@@ -125,31 +148,37 @@ export function createMockData(now = Date.now()): AdminData {
     const ageDays = isOwner ? 420 : Math.floor(Math.pow(next(), 1.6) * 420);
     const status: UserStatus = isOwner ? 'active' : pick<UserStatus>(['active', 'active', 'active', 'active', 'active', 'invited', 'suspended']);
     const roleId = isOwner ? 'admin' : index < 4 ? 'admin' : pick(['manager', 'support', 'support', 'viewer', 'viewer', 'viewer']);
-    return {
+    // The random numbers are drawn in this order; keep it, so the sample stays the same
+    const user = {
       id,
       firstName,
       lastName,
       email: `${firstName}.${lastName}`.toLowerCase() + '@example.com',
       phone: `08${Math.floor(10000000 + next() * 89999999)}`,
       department: isOwner ? 'Operations' : pick(DEPARTMENTS),
-      roleId,
       status,
       // About two thirds have a photo; the rest show initials
       avatar: isOwner ? 'assets/images/faces/face8.jpg' : next() < 0.66 ? `assets/images/faces/face${1 + (index % 27)}.jpg` : '',
       createdAt: new Date(now - ageDays * DAY - next() * DAY).toISOString(),
       lastActiveAt: status === 'invited' ? null : new Date(now - (isOwner ? 0.01 : next() * 30) * DAY).toISOString(),
     };
+    // Given for good when they joined: by the owner, or by nobody for the owner's own
+    const assignment: RoleAssignment = {
+      id: `ra-${id}-1`, userId: id, roleId, startsAt: user.createdAt, endsAt: null, reason: '',
+      assignedById: isOwner ? null : 'u-001', assignedAt: user.createdAt,
+    };
+    return { ...user, roles: [assignment] };
   });
 
   // Every other Support and Viewer person moves to a custom role, until each has its holders. This draws no random
   // numbers, so everything generated after it is the same as without the custom roles.
   const holders = CUSTOM_ROLES.flatMap((role, index) => Array<string>(CUSTOM_ROLE_HOLDERS[index]).fill(role.id));
-  users.filter(user => user.roleId === 'support' || user.roleId === 'viewer')
+  users.filter(user => firstRole(user) === 'support' || firstRole(user) === 'viewer')
     .filter((_, index) => index % 2 === 1)
     .slice(0, holders.length)
-    .forEach((user, index) => user.roleId = holders[index]);
+    .forEach((user, index) => user.roles[0].roleId = holders[index]);
 
-  const admins = users.filter(user => user.roleId === 'admin' || user.roleId === 'manager');
+  const admins = users.filter(user => firstRole(user) === 'admin' || firstRole(user) === 'manager');
 
   // Each admin works from an office computer and now and then from a phone
   const devices = new Map(admins.map(admin => [admin.id, {
@@ -168,17 +197,18 @@ export function createMockData(now = Date.now()): AdminData {
   const changesFor = (action: ActivityAction, user: User, role: Role): ActivityChange[] | undefined => {
     switch (action) {
       case 'user.created':
-        return [{ field: 'roleId', to: user.roleId }, { field: 'department', to: user.department }, { field: 'email', to: user.email }, { field: 'status', to: 'active' }];
+        return [{ field: 'department', to: user.department }, { field: 'email', to: user.email }, { field: 'status', to: 'active' }];
       case 'user.invited':
-        return [{ field: 'roleId', to: user.roleId }, { field: 'email', to: user.email }, { field: 'status', to: 'invited' }];
+        return [{ field: 'email', to: user.email }, { field: 'status', to: 'invited' }];
       case 'user.updated': {
-        const otherRole = pick(ROLES.filter(item => item.id !== user.roleId)).id;
+        // Once a role to change from: roles change through assignments now, but the draw keeps the sample the same
+        next();
         const otherDepartment = pick(DEPARTMENTS.filter(item => item !== user.department));
         return pick<ActivityChange[]>([
           [{ field: 'department', from: otherDepartment, to: user.department }],
-          [{ field: 'roleId', from: otherRole, to: user.roleId }],
+          [{ field: 'department', from: otherDepartment, to: user.department }, { field: 'avatar' }],
           [{ field: 'phone', from: `08${Math.floor(10000000 + next() * 89999999)}`, to: user.phone }],
-          [{ field: 'roleId', from: otherRole, to: user.roleId }, { field: 'department', from: otherDepartment, to: user.department }],
+          [{ field: 'avatar' }],
         ]);
       }
       case 'user.suspended':
@@ -220,9 +250,55 @@ export function createMockData(now = Date.now()): AdminData {
       ...(next() < 0.8 ? device.desktop : device.phone),
       changes: changesFor(action, user, role),
     };
-  }).sort((a, b) => b.at.localeCompare(a.at));
+  });
 
-  return { users, roles: structuredClone([...ROLES, ...CUSTOM_ROLES]), activity, settings: { ...DEFAULT_SETTINGS }, sessions: createMockSessions(users, now) };
+  // Some people hold a second role, some for a time: one for good, one ending in a few days, one for a project, one
+  // that starts next week and one that has ended. Given by the owner; this draws no random numbers.
+  const activeWith = (roleId: string) => users.filter(user => user.status === 'active' && firstRole(user) === roleId);
+  const extra: [user: User | undefined, roleId: string, startDay: number, endDay: number | null, reason: string][] = [
+    [activeWith('support')[1], 'auditor', -40, null, 'Also checks the activity log every quarter'],
+    [activeWith('viewer')[1], 'manager', -11, 3, 'Covers for the team manager on leave'],
+    [activeWith('viewer')[2], 'it-operations', -5, 20, 'Moving to the new servers'],
+    [activeWith('support')[2], 'hr', 5, 35, 'Hiring season'],
+    [activeWith('viewer')[3], 'security', -32, -2, 'Security review'],
+  ];
+  const owner = users[0];
+  const office = devices.get(owner.id)!.desktop;
+  const expiryLogged: string[] = [];
+  for (const [user, roleId, startDay, endDay, reason] of extra) {
+    if (!user) {
+      continue;
+    }
+    const assignedAt = now + Math.min(startDay, -1) * DAY;
+    const assignment: RoleAssignment = {
+      id: `ra-${user.id}-2`, userId: user.id, roleId, startsAt: new Date(now + startDay * DAY).toISOString(),
+      endsAt: endDay === null ? null : new Date(now + endDay * DAY).toISOString(), reason, assignedById: owner.id,
+      assignedAt: new Date(assignedAt).toISOString(),
+    };
+    user.roles.push(assignment);
+    const changes: ActivityChange[] = [
+      { field: 'roleId', to: roleId },
+      ...(startDay > 0 ? [{ field: 'startsAt', to: assignment.startsAt }] : []),
+      ...(assignment.endsAt ? [{ field: 'endsAt', to: assignment.endsAt }] : []),
+      { field: 'reason', to: reason },
+    ];
+    const entry = (at: number, action: ActivityAction, actorId: string | null, entryChanges: ActivityChange[]): Activity => ({
+      id: uuidV7(at, bytes => bytes.forEach((_, byte) => bytes[byte] = Math.floor(idRandom() * 256))),
+      at: new Date(at).toISOString(), actorId, action, targetLabel: fullName(user), targetId: user.id,
+      ...(actorId ? office : { ip: '', browser: '', os: '' }), changes: entryChanges,
+    });
+    activity.push(entry(assignedAt, 'role_assignment.added', owner.id, changes));
+    if (endDay !== null && endDay < 0) {
+      activity.push(entry(now + endDay * DAY, 'role_assignment.expired', null, [{ field: 'roleId', from: roleId }]));
+      expiryLogged.push(assignment.id);
+    }
+  }
+  activity.sort((a, b) => b.at.localeCompare(a.at));
+
+  return {
+    users, roles: structuredClone([...ROLES, ...CUSTOM_ROLES]), activity, settings: { ...DEFAULT_SETTINGS },
+    sessions: createMockSessions(users, now), expiryLogged,
+  };
 }
 
 /**
@@ -261,13 +337,13 @@ export function createMockSessions(users: User[], now = Date.now()): UserSession
 }
 
 /**
- * One active account per role from the sample data, for trying each role on the sign-in page.
- * Any password of 6 or more characters signs in. Not for a real server.
+ * One active account per role from the sample data, for trying each role on the sign-in page: someone who holds that
+ * role and no other. Any password of 6 or more characters signs in. Not for a real server.
  */
 export const DEMO_ACCOUNTS: { email: string; roleId: string; roleName: string }[] = (() => {
   const { users } = createMockData(0);
   return ROLES.flatMap(role => {
-    const user = users.find(item => item.roleId === role.id && item.status === 'active');
+    const user = users.find(item => item.status === 'active' && activeRoleIds(item, 0).join() === role.id);
     return user ? [{ email: user.email, roleId: role.id, roleName: role.name }] : [];
   });
 })();

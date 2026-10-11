@@ -93,28 +93,66 @@ test('password rules: a longer shortest password, and no going back to a recent 
   await expect(page.locator('ui-toaster')).toContainText('You used this password recently. Choose another one.');
 });
 
-test('changes the role of several people at once', async ({ page }) => {
+test('gives several people a role at once, and takes it away again', async ({ page }) => {
   await start(page);
   await signInAs(page, 'Administrator');
   await page.goto('/users?role=support');
   const rows = page.locator('.users-table tbody tr');
   await expect(rows.first()).toBeVisible();
-  const emails = await rows.locator('ui-person').evaluateAll(people => people.slice(0, 2).map(person => person.textContent ?? ''));
-  await rows.nth(0).getByRole('checkbox').check();
-  await rows.nth(1).getByRole('checkbox').check();
+  const pick = async () => {
+    await rows.nth(0).getByRole('checkbox').check();
+    await rows.nth(1).getByRole('checkbox').check();
+  };
 
-  await page.locator('ui-bulk-bar').getByRole('button', { name: 'Change role' }).click();
+  await pick();
+  await page.locator('ui-bulk-bar').getByRole('button', { name: 'Give role' }).click();
   const dialog = page.locator('dialog[open]');
-  await expect(dialog).toContainText('Change the role of 2 people');
-  await dialog.locator('select').selectOption({ label: 'Viewer' });
-  await dialog.getByRole('button', { name: 'Change role' }).click();
-  await expect(page.locator('ui-toaster')).toContainText('Changed the role of 2 user(s)');
+  await expect(dialog).toContainText('Give a role to 2 people');
+  await dialog.locator('select').selectOption({ label: 'Compliance' });
+  await dialog.getByRole('button', { name: 'Give role' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Gave the role to 2 user(s)');
   await expect(page.locator('ui-bulk-bar')).toHaveCount(0);
+  // Each holds both roles now
+  await expect(rows.nth(0).locator('app-role-badges')).toContainText('Compliance');
+  await expect(rows.nth(1).locator('app-role-badges')).toContainText('Compliance');
 
-  // They have left the Support list
-  for (const text of emails) {
-    await expect(rows.filter({ hasText: text })).toHaveCount(0);
-  }
+  await pick();
+  await page.locator('ui-bulk-bar').getByRole('button', { name: 'Take role away' }).click();
+  await dialog.locator('select').selectOption({ label: 'Compliance' });
+  await dialog.getByRole('button', { name: 'Take role away' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Took the role away from 2 user(s)');
+  await expect(rows.nth(0).locator('app-role-badges')).not.toContainText('Compliance');
+  await expect(rows.nth(1).locator('app-role-badges')).not.toContainText('Compliance');
+});
+
+test('gives a role for a time from the profile, and it shows when it ends', async ({ page }) => {
+  await start(page);
+  await signInAs(page, 'Administrator');
+  await page.goto('/users?role=viewer');
+  await page.locator('.users-table tbody tr').first().click();
+  await page.getByRole('button', { name: /^Roles & permissions/ }).click();
+
+  const roles = page.locator('.assignments');
+  await page.getByRole('button', { name: 'Give role' }).click();
+  const dialog = page.locator('dialog[open]');
+  await dialog.getByLabel('Role').selectOption({ label: 'Contractor' });
+  // Contractor must end within 90 days and needs a reason
+  await expect(dialog.getByRole('button', { name: 'For good' })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Give role' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('This role needs a reason.');
+  await dialog.getByLabel('Reason').fill('Website project');
+  await dialog.getByRole('button', { name: 'Give role' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Role given.');
+
+  const contractor = roles.locator('.assignment', { hasText: 'Contractor' });
+  await expect(contractor).toContainText('Active');
+  await expect(contractor).toContainText('until');
+  await expect(contractor).toContainText('Website project');
+
+  // Taken away again, after asking
+  await contractor.getByRole('button', { name: /Take away/ }).click();
+  await page.locator('dialog[open]').getByRole('button', { name: 'Take away' }).click();
+  await expect(roles.locator('.assignment', { hasText: 'Contractor' })).toHaveCount(0);
 });
 
 test('the activity log between two dates, and exporting just that part', async ({ page }) => {

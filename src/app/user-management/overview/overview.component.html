@@ -35,7 +35,7 @@
     </div>
   </ui-card>
 
-  <ui-card class="span-4" [title]="'Users by role' | translate" [description]="'Who can do what' | translate">
+  <ui-card class="span-4" [title]="'Users by role' | translate" [description]="'Each person once, by their main role' | translate">
     @if (session.can('roles.view')) {
       <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/roles">{{ (session.can('roles.manage') ? 'Manage' : 'View all') | translate }}<span class="ui-sr-only"> {{ 'Roles & permissions' | translate }}</span> <ng-icon [svg]="icons.arrow" /></a>
     }
@@ -82,7 +82,7 @@
   }
 
   <ui-card class="span-5 lower" [title]="'Needs attention' | translate" [description]="'Things an admin should follow up' | translate" flush>
-    @if (staleInvites().length || suspended()) {
+    @if (staleInvites().length || suspended() || endingRoles().length) {
       <ul class="attention-list">
         @if (staleInvites().length) {
           <li class="attention-item">
@@ -106,6 +106,23 @@
             </li>
           }
         }
+        @if (endingRoles().length) {
+          <li class="attention-item">
+            <ui-icon-chip size="sm" [icon]="icons.ending" tone="info" />
+            <div class="attention-text">
+              <span class="attention-title">{{ 'endingRoles' | translate: { count: endingRoles().length } }}</span>
+              <span class="attention-sub">{{ 'Renew them on the profile if they are still needed.' | translate }}</span>
+            </div>
+            <a uiButton variant="ghost" size="sm" routerLink="/users" [queryParams]="{ role: 'temporary' }">{{ 'See list' | translate }}<span class="ui-sr-only"> {{ 'endingRoles' | translate: { count: endingRoles().length } }}</span></a>
+          </li>
+          @for (item of endingRoles().slice(0, 3); track item.assignment.id) {
+            <li class="attention-person">
+              <a class="person-link" [routerLink]="['/users', item.user.id]" [queryParams]="{ tab: 'roles' }">
+                <ui-person [name]="fullName(item.user)" [detail]="'roleEnds' | translate: { role: item.role, date: (item.assignment.endsAt | localDate) }" [src]="item.user.avatar" />
+              </a>
+            </li>
+          }
+        }
         @if (suspended()) {
           <li class="attention-item">
             <ui-icon-chip size="sm" [icon]="icons.suspended" tone="danger" />
@@ -118,7 +135,7 @@
         }
       </ul>
     } @else {
-      <ui-empty-state compact [icon]="icons.allClear" [title]="'Nothing needs your attention' | translate" [description]="'Every invitation is recent and no account is suspended.' | translate" />
+      <ui-empty-state compact [icon]="icons.allClear" [title]="'Nothing needs your attention' | translate" [description]="'Every invitation is recent, no account is suspended and no role ends this week.' | translate" />
     }
   </ui-card>
 
@@ -143,7 +160,7 @@
             <a class="person-link" [routerLink]="['/users', user.id]">
               <ui-person [name]="fullName(user)" [detail]="user.email" [src]="user.avatar" />
               <span class="person-meta">
-                <app-role-badge [roleId]="user.roleId" />
+                <app-role-badges [user]="user" [max]="1" />
                 <span class="joined">{{ user.createdAt | timeAgo }}</span>
               </span>
             </a>

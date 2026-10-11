@@ -81,5 +81,5 @@ test('the tabs of a profile never scroll up and down, and their focus ring is wh
   // The ring is drawn inside the tab, where the row's sideways scrolling does not cut it off
   await page.getByRole('button', { name: /^Details/ }).focus();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: /^Permissions/ })).toHaveCSS('outline-offset', '-2px');
+  await expect(page.getByRole('button', { name: /^Roles & permissions/ })).toHaveCSS('outline-offset', '-2px');
 });

@@ -2,7 +2,7 @@ import { afterRenderEffect, Component, computed, ElementRef, inject, input, link
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
-import { lucideLock, lucidePlus, lucideSave, lucideShieldCheck, lucideTrash2, lucideUsers } from '@ng-icons/lucide';
+import { lucideCopy, lucideLock, lucidePlus, lucideSave, lucideShieldCheck, lucideTrash2, lucideUsers } from '@ng-icons/lucide';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import {
@@ -24,9 +24,10 @@ import {
 } from '../ui';
 import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
-import { PERMISSION_GROUPS, PermissionGroup, ROLE_TONES, TONE_NAMES } from '../data/catalog';
+import { ASSIGNMENT_MAX_DAYS, DEFAULT_ASSIGNMENT_RULES, PERMISSION_GROUPS, PermissionGroup, ROLE_TONES, TONE_NAMES } from '../data/catalog';
 import { Permission, Role } from '../data/models';
 import { errorMessage } from '../shared/errors';
+import { translationsChanged } from '../shared/i18n';
 
 /** More roles than this, and the list gets a search box */
 const SEARCH_FROM = 6;
@@ -68,7 +69,8 @@ export class RolesComponent {
   /** ?role=… picks the role to edit */
   readonly role = input<string>();
 
-  protected readonly icons = { page: lucideShieldCheck, add: lucidePlus, save: lucideSave, remove: lucideTrash2, users: lucideUsers, locked: lucideLock };
+  protected readonly icons = { page: lucideShieldCheck, add: lucidePlus, save: lucideSave, remove: lucideTrash2, users: lucideUsers, locked: lucideLock, copy: lucideCopy };
+  private readonly i18n = translationsChanged();
   protected readonly groups = PERMISSION_GROUPS;
   protected readonly tones = ROLE_TONES;
   protected readonly toneNames = TONE_NAMES;
@@ -94,16 +96,28 @@ export class RolesComponent {
   protected readonly description = linkedSignal(() => this.selected()?.description ?? '');
   protected readonly tone = linkedSignal<UiTone>(() => this.selected()?.tone ?? 'primary');
   protected readonly permissions = linkedSignal<ReadonlySet<Permission>>(() => new Set(this.selected()?.permissions ?? []));
+  protected readonly maxDays = linkedSignal<number | null>(() => this.selected()?.assignment.maxDays ?? null);
+  protected readonly reasonRequired = linkedSignal(() => this.selected()?.assignment.reasonRequired ?? false);
+  protected readonly maxDayOptions = computed(() => {
+    this.i18n();
+    // A value set elsewhere stays in the list
+    const values = [...new Set([...ASSIGNMENT_MAX_DAYS, this.selected()?.assignment.maxDays ?? null])];
+    return values.map(value => ({
+      value,
+      label: value === null ? this.translate.instant('No limit') : this.translate.instant('dayCount', { count: value }),
+    }));
+  });
 
   /* What the signed-in user's role allows here */
 
   /** Without roles.manage the page is read-only */
   protected readonly canManage = computed(() => this.session.can('roles.manage'));
-  /** Nobody changes the permissions of the role they hold, so they cannot lock themselves out or promote themselves */
-  protected readonly isOwnRole = computed(() => this.selected()?.id === this.session.role()?.id);
+  /** Nobody changes the permissions of a role they hold, so they cannot lock themselves out or promote themselves */
+  protected readonly isOwnRole = computed(() => this.session.roles().some(role => role.id === this.selected()?.id));
   /** Nobody changes a role that allows more than their own, as with people (see access-rules.ts) */
   protected readonly roleEditable = computed(() => this.canManage() && this.session.canAssign(this.selected()));
-  protected readonly matrixLocked = computed(() => !this.roleEditable() || this.isOwnRole());
+  /** A built-in role's permissions come from the system */
+  protected readonly matrixLocked = computed(() => !this.roleEditable() || this.isOwnRole() || !!this.selected()?.system);
   protected readonly isDefaultRole = computed(() => this.selected()?.id === this.store.settings().defaultRoleId);
   /** Some permissions are ones the signed-in user does not hold, so they cannot tick or untick them */
   protected readonly someLocked = computed(() => !this.matrixLocked() && PERMISSION_GROUPS.some(group =>
@@ -118,10 +132,16 @@ export class RolesComponent {
     }
     const current = this.permissions();
     return this.name() !== role.name || this.description() !== role.description || this.tone() !== role.tone
-      || current.size !== role.permissions.length || role.permissions.some(permission => !current.has(permission));
+      || current.size !== role.permissions.length || role.permissions.some(permission => !current.has(permission))
+      || this.maxDays() !== role.assignment.maxDays || this.reasonRequired() !== role.assignment.reasonRequired;
   });
 
   protected readonly userCount = computed(() => this.store.roleCounts().get(this.selected()?.id ?? '') ?? 0);
+  /** Someone holds it now, or will: it cannot be deleted yet */
+  protected readonly inUse = computed(() => {
+    const id = this.selected()?.id ?? '';
+    return this.store.users().some(user => this.store.holdsOrWillHold(user, id));
+  });
 
   constructor() {
     // The role being edited stays in sight in a long list, as after creating one or opening ?role=…
@@ -215,6 +235,8 @@ export class RolesComponent {
       this.description.set(role.description);
       this.tone.set(role.tone);
       this.permissions.set(new Set(role.permissions));
+      this.maxDays.set(role.assignment.maxDays);
+      this.reasonRequired.set(role.assignment.reasonRequired);
     }
   }
 
@@ -225,11 +247,14 @@ export class RolesComponent {
     }
     this.saving.set(true);
     try {
-      await this.store.updateRole(role.id, {
+      const assignment = { maxDays: this.maxDays(), reasonRequired: this.reasonRequired() };
+      // A built-in role keeps the name, description and permissions the system gives it
+      await this.store.updateRole(role.id, role.system ? { tone: this.tone(), assignment } : {
         name: this.name().trim(),
         description: this.description().trim(),
         tone: this.tone(),
         permissions: PERMISSION_GROUPS.flatMap(group => group.permissions.map(permission => permission.key)).filter(key => this.has(key)),
+        assignment,
       });
       this.toast.show(this.translate.instant('toast.roleSaved', { name: this.name().trim() }));
     } catch (error) {
@@ -277,6 +302,14 @@ export class RolesComponent {
     this.creating.set(true);
   }
 
+  /** A new role of your own, starting as a copy of this one: the way to change what a built-in role allows */
+  protected duplicate(role: Role) {
+    this.newName.set(this.translate.instant('copyOfRole', { name: role.name }).slice(0, 40));
+    this.newDescription.set(role.description);
+    this.copyFrom.set(role.id);
+    this.creating.set(true);
+  }
+
   protected async create() {
     const name = this.newName().trim();
     if (!name) {
@@ -289,6 +322,7 @@ export class RolesComponent {
         description: this.newDescription().trim(),
         tone: ROLE_TONES[this.store.roles().length % ROLE_TONES.length],
         permissions: source ? [...source.permissions] : this.session.can('users.view') ? ['users.view'] : [],
+        assignment: source ? { ...source.assignment } : { ...DEFAULT_ASSIGNMENT_RULES },
       });
       this.creating.set(false);
       this.toast.show(this.translate.instant('toast.roleCreated', { name: role.name }));

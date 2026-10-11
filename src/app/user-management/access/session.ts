@@ -2,7 +2,7 @@ import { computed, DOCUMENT, effect, inject, Injectable, InjectionToken, signal,
 import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 
-import { canManageRole, holdsAll } from '../data/access-rules';
+import { canManageUser, holdsAll, permissionsOf } from '../data/access-rules';
 import { AdminApi } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
 import { Permission, Role, User } from '../data/models';
@@ -57,11 +57,12 @@ export class Session {
   });
   readonly userId = computed(() => this.account()?.id ?? null);
   readonly signedIn = computed(() => this.account() !== null);
-  readonly role = computed(() => {
-    const user = this.user();
-    return user ? this.store.rolesById().get(user.roleId) : undefined;
-  });
-  readonly permissions = computed<ReadonlySet<Permission>>(() => new Set(this.role()?.permissions ?? []));
+  /** The roles the signed-in user holds now, the ones with most permissions first */
+  readonly roles = computed(() => this.store.activeRoles(this.user()));
+  /** The role to name them by: the one with most permissions */
+  readonly role = computed<Role | undefined>(() => this.roles()[0]);
+  /** Every permission of the roles they hold now, together; follows assignments as they start and end */
+  readonly permissions = computed<ReadonlySet<Permission>>(() => permissionsOf(this.user(), this.store.roles(), this.store.now()));
   /** The role requires two-step sign-in and it is off: only the setup page opens (API.md, "Roles that must use…") */
   readonly twoFactorSetupRequired = computed(() => this.signedIn() && this.store.twoFactorSetupRequired());
   /**
@@ -167,9 +168,9 @@ export class Session {
     return !!role && holdsAll(this.permissions(), role.permissions);
   }
 
-  /** Whether the signed-in user may change this person: themselves, or someone whose role they could assign */
-  canManage(user: Pick<User, 'id' | 'roleId'>): boolean {
-    return this.isSelf(user) || canManageRole(this.permissions(), this.store.rolesById().get(user.roleId));
+  /** Whether the signed-in user may change this person: themselves, or someone whose roles, now or scheduled, they could give */
+  canManage(user: Pick<User, 'id' | 'roles'>): boolean {
+    return this.isSelf(user) || canManageUser(this.permissions(), user, this.store.roles(), this.store.now());
   }
 
   /** The first page the signed-in user can open: the overview, or their own profile when nothing else is allowed */
@@ -257,7 +258,7 @@ export class Session {
   }
 
   /** Whether the signed-in user can edit this person's profile: their own name, phone and photo always */
-  canEditProfile(user: Pick<User, 'id' | 'roleId'>): boolean {
+  canEditProfile(user: Pick<User, 'id' | 'roles'>): boolean {
     return this.isSelf(user) || (this.can('users.edit') && this.canManage(user));
   }
 

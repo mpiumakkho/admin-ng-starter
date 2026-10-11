@@ -22,7 +22,8 @@ export interface User {
   email: string;
   phone: string;
   department: string;
-  roleId: string;
+  /** Every role given to them: the ones they hold now, scheduled ones and expired ones (see roleAssignmentState) */
+  roles: RoleAssignment[];
   status: UserStatus;
   /** Image URL or data URL; empty shows initials */
   avatar: string;
@@ -33,8 +34,52 @@ export interface User {
   twoFactor?: boolean;
 }
 
-/** What a form edits: everything the server does not assign */
-export type UserDraft = Omit<User, 'id' | 'createdAt' | 'lastActiveAt' | 'twoFactor'>;
+/** A new user: what a form edits, and the roles they start with (none: the default role from the settings) */
+export type UserDraft = Omit<User, 'id' | 'createdAt' | 'lastActiveAt' | 'twoFactor' | 'roles'> & { roles: RoleGrant[] };
+
+/** What PATCH /users/:id changes; roles change through role assignments */
+export type UserChanges = Partial<Omit<UserDraft, 'roles'>>;
+
+/**
+ * One role given to one person, for a time or for good, as NIST RBAC's user assignment with Microsoft Entra's
+ * start and end. It counts while startsAt <= now < endsAt.
+ */
+export interface RoleAssignment {
+  id: string;
+  userId: string;
+  roleId: string;
+  startsAt: string;
+  /** null: for good */
+  endsAt: string | null;
+  /** Why it was given; empty when nobody said */
+  reason: string;
+  /** null: given by the server, such as the default role for an imported user */
+  assignedById: string | null;
+  assignedAt: string;
+}
+
+/** A role to give someone */
+export interface RoleGrant {
+  roleId: string;
+  /** Left out, or earlier than now: from now */
+  startsAt?: string;
+  /** null: for good */
+  endsAt: string | null;
+  reason?: string;
+}
+
+export interface RoleAssignmentDraft extends RoleGrant {
+  userId: string;
+}
+
+/** What PATCH /role-assignments/:id changes: extend, shorten or renew it, or correct the reason */
+export interface RoleAssignmentChanges {
+  endsAt?: string | null;
+  reason?: string;
+}
+
+/** POST /role-assignments/batch: give several people a role, or take one away from them */
+export type RoleAssignmentBatch = { add: RoleGrant } | { removeRoleId: string };
 
 /** A browser someone is signed in on */
 export interface UserSession {
@@ -64,11 +109,22 @@ export interface Role {
   description: string;
   tone: UiTone;
   permissions: Permission[];
-  /** Built-in roles can be edited but not deleted */
+  /** How the role may be given */
+  assignment: RoleAssignmentRules;
+  /** Built in: its name, description and permissions come from the server's code; only its color and assignment rules change */
   system: boolean;
 }
 
-export type RoleDraft = Omit<Role, 'id' | 'system'>;
+/** A role's own rules for giving it, as Microsoft Entra PIM's role settings */
+export interface RoleAssignmentRules {
+  /** Each assignment must end within this many days of starting; null: no limit, and it may be for good */
+  maxDays: number | null;
+  /** Each assignment needs a reason */
+  reasonRequired: boolean;
+}
+
+/** A role to create or change; without assignment rules, a new role may be given for good, without a reason */
+export type RoleDraft = Omit<Role, 'id' | 'system' | 'assignment'> & { assignment?: RoleAssignmentRules };
 
 /** How user management behaves, changed on the settings page */
 export interface AdminSettings {
@@ -114,6 +170,10 @@ export type ActivityAction =
   | 'role.created'
   | 'role.updated'
   | 'role.deleted'
+  | 'role_assignment.added'
+  | 'role_assignment.updated'
+  | 'role_assignment.removed'
+  | 'role_assignment.expired'
   | 'settings.updated'
   | 'auth.sign_in'
   | 'auth.sessions_ended'
@@ -134,7 +194,8 @@ export interface ActivityChange {
 export interface Activity {
   id: string;
   at: string;
-  actorId: string;
+  /** null: the server did it by itself, such as ending an assignment on time */
+  actorId: string | null;
   action: ActivityAction;
   /** Who or what the action was about, kept as text so it survives deletion */
   targetLabel: string;

@@ -39,7 +39,7 @@
                 <td class="ui-cell-shrink muted">{{ row.line }}</td>
                 <td>{{ row.draft.firstName }} {{ row.draft.lastName }}</td>
                 <td class="muted">{{ row.draft.email }}</td>
-                <td>{{ roleName(row.draft.roleId) }}</td>
+                <td>{{ roleNames(row.draft.roles) }}</td>
                 <td>
                   @if (row.problems.length) {
                     <span class="problem-text">

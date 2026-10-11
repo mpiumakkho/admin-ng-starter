@@ -200,13 +200,19 @@ describe('HttpAdminApi', () => {
       await expect(policy).resolves.toEqual({ minLength: 12, history: 3 });
     });
 
-    it('changes several roles at once and reads a part of the activity log', async () => {
+    it('gives several people a role at once, changes one assignment and reads a part of the activity log', async () => {
       await signIn();
-      const changed = api.setUsersRole(['u-1', 'u-2'], 'viewer');
-      const role = await sent('POST', '/users/role');
-      expect(role.request.body).toEqual({ ids: ['u-1', 'u-2'], roleId: 'viewer' });
-      role.flush([user]);
+      const changed = api.assignRoles(['u-1', 'u-2'], { add: { roleId: 'viewer', endsAt: null } });
+      const batch = await sent('POST', '/role-assignments/batch');
+      expect(batch.request.body).toEqual({ userIds: ['u-1', 'u-2'], add: { roleId: 'viewer', endsAt: null } });
+      batch.flush([user]);
       await expect(changed).resolves.toEqual([user]);
+
+      const moved = api.updateRoleAssignment('ra/1', { endsAt: null });
+      const patch = await sent('PATCH', '/role-assignments/ra%2F1');
+      expect(patch.request.body).toEqual({ endsAt: null });
+      patch.flush(user);
+      await expect(moved).resolves.toEqual(user);
 
       const part = api.listActivity({ from: '2026-10-01T00:00:00.000Z', to: '2026-10-02T00:00:00.000Z' });
       (await sent('GET', '/activity?from=2026-10-01T00%3A00%3A00.000Z&to=2026-10-02T00%3A00%3A00.000Z')).flush([]);

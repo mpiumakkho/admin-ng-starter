@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_META } from '../data/catalog';
@@ -29,13 +29,14 @@ const TOKENS = { actor: '{actor}', target: '{target}' };
 })
 export class ActivityText {
   private readonly store = inject(AdminStore);
+  private readonly translate = inject(TranslateService);
   readonly entry = input.required<Activity>();
 
   protected readonly tokens = TOKENS;
   protected readonly message = computed(() => ACTIVITY_META[this.entry().action].message);
   protected readonly actor = computed(() => {
-    const user = this.store.usersById().get(this.entry().actorId);
-    return user ? fullName(user) : '—';
+    const user = this.store.usersById().get(this.entry().actorId ?? '');
+    return user ? fullName(user) : this.entry().actorId === null ? this.translate.instant('System') : '—';
   });
 
   protected split(text: string): string[] {

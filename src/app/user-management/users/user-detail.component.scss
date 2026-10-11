@@ -114,6 +114,74 @@ ui-page-header {
   font-size: .8125rem;
 }
 
+.roles-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.assignments {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// One assignment per row: the role, its state and dates; why and by whom under it; the actions at the end
+.assignment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .25rem 1rem;
+  padding: .75rem 0;
+  border-top: 1px solid var(--ui-border);
+
+  &:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+.assignment-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+}
+
+.assignment-period {
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+.assignment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem 1rem;
+  grid-column: 1;
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+.assignment-actions {
+  display: flex;
+  gap: .25rem;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.assignment-expired .assignment-main {
+  opacity: .8;
+}
+
+.permission-source {
+  margin-inline-start: .375rem;
+  color: var(--ui-muted);
+  font-size: .75rem;
+}
+
 .permission-groups {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

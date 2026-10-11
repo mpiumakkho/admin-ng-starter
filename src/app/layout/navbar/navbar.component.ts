@@ -40,7 +40,7 @@ import {
 } from '../../user-management/ui';
 import { Activity, AdminStore, fullName, Session, User } from '../../user-management';
 import { ActivityText } from '../../user-management/shared/activity-text';
-import { RoleBadge } from '../../user-management/shared/badges';
+import { RoleBadges } from '../../user-management/shared/badges';
 import { idleTimeoutLabel, TimeAgoPipe } from '../../user-management/shared/formatting';
 import { translationsChanged } from '../../user-management/shared/i18n';
 import { LanguageCode, LANGUAGES, LanguageService } from '../language.service';
@@ -69,7 +69,7 @@ const ACTIVITY_SEEN_KEY = 'activity-seen';
     UiSegmented,
     ActivityDialog,
     ActivityText,
-    RoleBadge,
+    RoleBadges,
     TimeAgoPipe,
   ],
   templateUrl: './navbar.component.html',
@@ -154,13 +154,14 @@ export class NavbarComponent {
     }
   }
 
-  protected actorName(id: string) {
-    const user = this.store.usersById().get(id);
+  /** Who did it; nothing for what the server did by itself */
+  protected actorName(id: string | null) {
+    const user = this.store.usersById().get(id ?? '');
     return user ? fullName(user) : '';
   }
 
-  protected actorAvatar(id: string) {
-    return this.store.usersById().get(id)?.avatar ?? '';
+  protected actorAvatar(id: string | null) {
+    return this.store.usersById().get(id ?? '')?.avatar ?? '';
   }
 
   /* Search */

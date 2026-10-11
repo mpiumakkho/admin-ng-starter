@@ -2,9 +2,10 @@ import { parseCsv, toCsv } from '../shared/csv';
 import { Role } from './models';
 import { checkImportRows, ImportContext } from './user-import';
 
+const anyTime = { maxDays: null, reasonRequired: false };
 const roles = [
-  { id: 'admin', name: 'Administrator', permissions: ['users.view', 'roles.manage'] },
-  { id: 'viewer', name: 'Viewer', permissions: ['users.view'] },
+  { id: 'admin', name: 'Administrator', permissions: ['users.view', 'roles.manage'], assignment: anyTime },
+  { id: 'viewer', name: 'Viewer', permissions: ['users.view'], assignment: anyTime },
 ] as Role[];
 
 const context: ImportContext = {
@@ -43,7 +44,21 @@ describe('checkImportRows', () => {
     const { rows, missingColumns } = checkImportRows([['FIRST_NAME', 'last name', 'E-mail'], ['Ann', 'Smith', 'ANN@example.com']], context);
 
     expect(missingColumns).toEqual([]);
-    expect(rows[0]).toMatchObject({ line: 2, problems: [], draft: { email: 'ann@example.com', roleId: 'viewer', department: 'Engineering', status: 'invited' } });
+    expect(rows[0]).toMatchObject({
+      line: 2, problems: [], draft: { email: 'ann@example.com', roles: [{ roleId: 'viewer', endsAt: null }], department: 'Engineering', status: 'invited' },
+    });
+  });
+
+  it('takes several roles in one cell, each for good, but not a role with rules of its own', () => {
+    const contractor = { id: 'contractor', name: 'Contractor', permissions: ['users.view'], assignment: { maxDays: 90, reasonRequired: true } } as Role;
+    const { rows } = checkImportRows([
+      ['First name', 'Last name', 'Email', 'Roles'],
+      ['Ann', 'Lee', 'ann@example.com', 'Viewer; admin'],
+      ['Bo', 'Kim', 'bo@example.com', 'Contractor'],
+    ], { ...context, roles: [...roles, contractor], canAssign: () => true });
+
+    expect(rows[0].draft.roles).toEqual([{ roleId: 'viewer', endsAt: null }, { roleId: 'admin', endsAt: null }]);
+    expect(rows[1].problems).toEqual(['This role needs an end date or a reason. Give it from the profile after the import.']);
   });
 
   it('names the required columns a file lacks', () => {
