@@ -88,6 +88,18 @@ protected readonly session = inject(Session);
 
 A page someone may not open shows the no-access page at the address they asked for. Everyone can open their own profile and change their own name, phone and photo.
 
+### Roles and role assignments
+
+The model follows NIST RBAC, with the role assignments of Microsoft Entra:
+
+- **A person can hold several roles**, and has every permission of each one, together. Their roles are the `RoleAssignment`s in `User.roles`, each with a start, an end (`null` for good) and a reason. The profile's "Roles & permissions" tab lists them, active, scheduled and ended, and gives, extends, renews or takes them away; the users list gives or takes a role from everyone selected.
+- **A role can be given for a time.** It counts from `startsAt` until `endsAt` and then stops by itself; `roleAssignmentState()` in `data/access-rules.ts` says which it is. `AdminStore.now` moves on at each start and end, so permissions, badges and counts follow without a reload. An ended assignment stays on the profile, to renew it, until the activity log forgets it.
+- **Each role has its own rules for giving it** (`Role.assignment`): a longest assignment (`maxDays`), after which it must end, and whether a reason is required. They are set on the roles page.
+- **Built-in roles** (Administrator, Manager) keep the name, description and permissions the server's code gives them; their color and rules can change. "Duplicate" copies one into a role of your own.
+- **Someone can always run the system:** the server refuses to take away, time-limit, suspend or delete the last active person who holds every permission for good (`last_administrator`).
+
+Nobody gives a role that grants a permission they lack, manages someone whose roles (now or scheduled) grant one, or changes their own roles. [API.md](API.md#role-assignments) has the requests and rules a server checks.
+
 ## Security
 
 The Security tab of a profile (`/users/:id?tab=security`) shows:
