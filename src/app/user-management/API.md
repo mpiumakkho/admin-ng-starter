@@ -75,6 +75,7 @@ As Google and Microsoft do, the server also tells people by email when something
 | Someone changes the person's email | The old address |
 | The person's password changes (`POST /me/password`, or a reset link), once they have signed in before | The person |
 | The server suspends an account nobody used for the settings' `suspendInactiveDays` | The person |
+| An access review starts with role assignments the person may decide | The person, with how many, the review and when it closes |
 
 Email is the only channel for now; LINE or another channel can be added alongside it later.
 
@@ -125,6 +126,7 @@ As GitHub's sudo mode and Microsoft Entra's reauthentication ask for the passwor
 | Deleting people | `POST /users/delete` |
 | Someone else's sign-in | `POST /users/:id/reset-password`, `POST /users/:id/two-factor/reset`, and `DELETE /sessions/:id` and `POST /users/:id/sessions/end`, each for someone else |
 | Your own recovery codes | `POST /me/recovery-codes` |
+| Closing an access review, which takes away the roles decided `remove` | `POST /access-reviews/:id/close` |
 | The settings | `PATCH /settings` |
 
 The list is fixed, so whoever changes the settings cannot take one of them off it; the settings decide only how long a confirmation lasts.
@@ -164,7 +166,7 @@ The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status 
 
 Someone's roles are the `RoleAssignment`s in `User.roles`, as in NIST RBAC: a person can hold several roles, and their permissions are those of every role they hold now, together. Each assignment gives one role from `startsAt` until `endsAt`, or for good when `endsAt` is `null`. It counts while `startsAt <= now < endsAt`: before that it is *scheduled*, after it *expired*. Someone who holds no role now can still sign in, and sees their own profile only.
 
-**Scope**, as Azure RBAC scopes a role assignment: `branchId` `null` gives the role across the whole organization; a branch limits it to that branch (an open one: `not_found`, `branch_closed`). User management's own permissions (`users.*`, `roles.*`, `activity.*`, `settings.*`, `branches.*`) come from assignments for the whole organization, except the four that one limited to a branch grants over the people of that branch (see Branch administrators). Otherwise an assignment limited to a branch grants its permissions in that branch, for the app's own modules to check (`Session.can(permission, branchId)` in the app, `Actor.can(permission, branchId)` on the server).
+**Scope**, as Azure RBAC scopes a role assignment: `branchId` `null` gives the role across the whole organization; a branch limits it to that branch (an open one: `not_found`, `branch_closed`). User management's own permissions (`users.*`, `roles.*`, `activity.*`, `settings.*`, `branches.*`, `reviews.*`) come from assignments for the whole organization, except the four that one limited to a branch grants over the people of that branch (see Branch administrators). Otherwise an assignment limited to a branch grants its permissions in that branch, for the app's own modules to check (`Session.can(permission, branchId)` in the app, `Actor.can(permission, branchId)` on the server).
 
 | Request | Body | Answer | Permission |
 | --- | --- | --- | --- |
@@ -181,7 +183,7 @@ Someone's roles are the `RoleAssignment`s in `User.roles`, as in NIST RBAC: a pe
 - **Expired ones stay** on the user, so they can be renewed, until they are older than the settings' `activityRetentionDays`. A removed one is gone at once; the activity log keeps what it was.
 - **Several people at once.** `add` gives the role to everyone in `userIds` who does not hold it now or later; `removeRoleId` takes away their current and scheduled assignments of that role. Send one of the two. All or none: refuse the whole request when one change is refused. Repeated ids count once, and people with nothing to change are left out of the answer and the log.
 
-Log each change with the person as the target: `role_assignment.added` (changes `roleId`, `branchId`, `startsAt`, `endsAt`, with the grant's reason as the entry's `reason`), `role_assignment.updated` (the fields that changed, `reason` among them), `role_assignment.removed` (`roleId`, with the request's reason) and, written by the server itself when an assignment ends, `role_assignment.expired` with `actorId: null`. Deleting a user removes their assignments without entries of their own.
+Log each change with the person as the target: `role_assignment.added` (changes `roleId`, `branchId`, `startsAt`, `endsAt`, with the grant's reason as the entry's `reason`), `role_assignment.updated` (the fields that changed, `reason` among them), `role_assignment.removed` (`roleId`, with the request's reason) and, written by the server itself when an assignment ends, `role_assignment.expired` with `actorId: null`. A review that takes one away writes `role_assignment.removed` with `actorId: null` (see Access reviews). Deleting a user removes their assignments without entries of their own.
 
 ## Branches
 
@@ -198,7 +200,7 @@ Branches (sites, offices) are optional: the settings' `branchesEnabled` shows th
 
 ## Branch administrators
 
-As Microsoft Entra's administrative units and Google Workspace's organizational units let someone look after one part of the organization, a role limited to a branch grants four of user management's permissions over the people who belong to that branch (`User.branchId`), so a branch manager looks after their branch's staff and nobody else. Deleting people, roles, settings, branches and exporting the log (`users.delete`, `roles.*`, `settings.*`, `branches.*`, `activity.export`) still need a role for the whole organization. Someone who has one of the four only through branches gets:
+As Microsoft Entra's administrative units and Google Workspace's organizational units let someone look after one part of the organization, a role limited to a branch grants four of user management's permissions over the people who belong to that branch (`User.branchId`), so a branch manager looks after their branch's staff and nobody else. Deleting people, roles, settings, branches, access reviews and exporting the log (`users.delete`, `roles.*`, `settings.*`, `branches.*`, `reviews.*`, `activity.export`) still need a role for the whole organization. Someone who has one of the four only through branches gets:
 
 | Permission | Through a branch |
 | --- | --- |
@@ -230,7 +232,7 @@ As Microsoft Entra asks for a justification, the changes that take or reset some
 | --- | --- | --- |
 | `status` | `POST /users/status` | `user.suspended`, `user.activated` |
 | `delete` | `POST /users/delete` | `user.deleted` |
-| `removeRole` | `DELETE /role-assignments/:id`; `POST /role-assignments/batch` with `removeRoleId` | `role_assignment.removed` |
+| `removeRole` | `DELETE /role-assignments/:id`; `POST /role-assignments/batch` with `removeRoleId`; `remove` in `POST /access-reviews/:id/decisions`, as its `note` | `role_assignment.removed`, `access_review.decided` |
 | `resetSignIn` | `POST /users/:id/reset-password`; `POST /users/:id/two-factor/reset` | `user.password_reset`, `auth.two_factor_off` |
 | `endSessions` | `DELETE /sessions/:id`, `POST /users/:id/sessions/end`, for someone else | `auth.sessions_ended` |
 
@@ -250,6 +252,37 @@ As NIST RBAC's static separation of duty, a rule names roles nobody may hold at 
 `name` is 1 to 100 characters, `description` at most 500, and `roleIds` 2 to 20 different roles that exist (`not_found` otherwise). Giving a role (`POST /role-assignments`, `add` in `POST /role-assignments/batch`, a new or imported user's roles) is refused with `role_conflict` (`409`) when the person holds, now or later, another role of a rule with that role at a time the new assignment overlaps. Scope does not matter: a role for one branch still lets one person do both. Moving an assignment's end (`PATCH /role-assignments/:id`) is checked the same way.
 
 A rule made while people already hold its roles is kept: the roles page lists them as the people to fix, and the rule stops anyone new. Deleting a role takes it off the rules; a rule left with fewer than two roles goes with it. Log `role_conflict.created`, `role_conflict.updated` (the `name` and `description` that changed, and `roles` as items added and removed) and `role_conflict.deleted`.
+
+## Access reviews
+
+As Microsoft Entra's access reviews, and the regular checks of who can do what that ISO 27001 (control 5.18) and the Bank of Thailand's IT risk rules ask for, a review asks whether people still need the roles they hold. Someone with `reviews.manage` starts one; the people who look after each person decide, before a due date, whether each of their roles stays or goes; when it closes, the roles marked to go are taken away, and the review stays as the record an auditor asks for.
+
+| Request | Body | Answer | Permission |
+| --- | --- | --- | --- |
+| `GET /access-reviews` | | `AccessReview[]`, newest first | `reviews.manage`: every review; without it, the ones they take part in (see Who decides) |
+| `POST /access-reviews` | `AccessReviewDraft`: `{ name, roleId?, branchId?, dueAt, reviewerIds? }` | The new `AccessReview` | `reviews.manage` |
+| `GET /access-reviews/:id/items` | | `AccessReviewItem[]`, by person | `reviews.manage`, or named by the review: all of them; without it, the ones they may decide (or decided, once it is closed), and `not_found` for a review they take no part in |
+| `POST /access-reviews/:id/decisions` | `{ itemIds, decision, note? }` | The `AccessReviewItem`s decided | Someone who may decide each of them |
+| `POST /access-reviews/:id/close` | | The `AccessReview`, closed | `reviews.manage` |
+| `DELETE /access-reviews/:id` | | Nothing | `reviews.manage`; an open review only |
+
+**What it covers.** Starting a review takes, at that moment, every role assignment held now or later (not ended) by the people in its scope: of the role `roleId`, or of every role when it is left out or `null`; of the people who belong to the branch `branchId` (`User.branchId`), or of everyone. Each becomes an `AccessReviewItem` that keeps the person's name and email, the role's name, the assignment's scope and dates as text, so the report reads the same after they change or are deleted. `name` is 1 to 100 characters; `dueAt` an instant after now and at most 365 days ahead; `reviewerIds` at most 20 different people. An unknown role, branch or person is `not_found`; anything else wrong is `invalid_request`.
+
+**Who decides.** An assignment is decided by the people who look after its holder: those who may manage them with `users.edit` (rules 1, 3 and 4, so a branch administrator decides for the people of their branch) and have every permission of the role in the assignment's scope. The people the review names in `reviewerIds` decide all of it besides. Nobody decides about their own roles. Someone without `reviews.manage` takes part in a review that names them, in an open one that holds an assignment they may decide, and in a closed one where they decided some: `GET /access-reviews` lists those, and `GET …/items` answers them those assignments, the ones they decided once it is closed (all of them, to the people it names). Who may decide is worked out when asked, from the roles people hold then. `canDecide` marks each assignment the signed-in user may decide now, and each review says how many of those still wait for a decision (`waitingCount`).
+
+**Deciding.** `decision` is `keep` or `remove`; `note`, at most 500 characters, says why. With `removeRole` in the settings' `reasonsRequired` (see Reasons), `remove` without a note is `reason_required`. A decision changes nothing yet and can change until the review closes: the last one counts, with who made it and when. All or none: an assignment of another review is `not_found`, one the person may not decide `forbidden`, their own `self_change`, and nothing is decided. On a closed review, `review_closed` (`409`).
+
+**Closing.** At `dueAt` the server closes the review by itself; `POST …/close` closes it sooner, a change that asks for the password again (see Confirming who you are). Closing takes away each assignment decided `remove`, writing `role_assignment.removed` with `actorId: null`, the review's name as `accessReview` among the changes and the decision's note as the reason, and gives every item its `outcome`:
+
+| `outcome` | When |
+| --- | --- |
+| `kept` | Decided `keep` |
+| `removed` | Decided `remove`, and taken away |
+| `not_reviewed` | Nobody decided: it stays, and the report says so |
+| `gone` | Decided `remove`, but it had already ended or been taken away |
+| `last_administrator` | Decided `remove`, but nobody else would be left to run the system (rule 6): it stays |
+
+A closed review cannot change or be deleted (`review_closed`): it is the record. Log `access_review.started` (the `roleId` and `branchId` when given, `dueAt`, the `reviewers` as items added, and how many `assignments`), `access_review.decided` (the `decision` and how many `assignments`, with the note as the reason), `access_review.closed` (how many were `kept`, `removed` and `notReviewed`; `actorId: null` when the server closed it) and `access_review.deleted`, each with the review as the target. When a review starts, the server emails each active person who may decide some of it how many and by when (see Emails about your account).
 
 ## Activity
 
@@ -278,7 +311,7 @@ The pages hide what a role cannot do, but only the server can enforce it. `data/
    - adds or removes a permission they lack on a role.
 3. Nobody manages someone who holds, now or later, a role that grants a permission they lack in that role's scope (see Branch administrators). Refuse editing, suspending, deleting, resetting or inviting that person, or changing their role assignments, with `forbidden`. The same goes for roles: nobody edits or deletes a role that grants a permission they lack.
 4. Nobody suspends or deletes themselves, changes their own role assignments, or changes the permissions of a role they hold now. Refuse with `self_change`.
-5. Take only the fields each request may set (the `UserDraft`, `UserChanges`, `RoleAssignmentDraft`, `RoleDraft` and `AdminSettings` fields), and refuse anything else with `invalid_request`, so nobody can set an `id`, the `system` flag or the dates the server keeps.
+5. Take only the fields each request may set (the `UserDraft`, `UserChanges`, `RoleAssignmentDraft`, `RoleDraft`, `AccessReviewDraft` and `AdminSettings` fields), and refuse anything else with `invalid_request`, so nobody can set an `id`, the `system` flag or the dates the server keeps.
 6. Someone must always be able to run the system, as Google Workspace keeps a last super administrator: at least one active user holds, for good and for the whole organization, a role with every permission. Refuse removing that assignment, giving it an end, or suspending or deleting its holder, when it is the last one, with `last_administrator` (`409`).
 
 ## Errors
@@ -291,7 +324,7 @@ Refuse a request with a 4xx status and a body such as `{ "code": "email_taken" }
 | `403` | `forbidden`, `self_change`, `account_suspended`, `invite_pending`, `two_factor_mandatory`: the role requires two-step sign-in and it is off; `reauth_required`: the change needs the password confirmed again |
 | `404` | `not_found` |
 | `400` | `invalid_request`: a field the request may not set, or a value of the wrong kind; `invalid_token`: an email link that has expired or was used |
-| `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role`, `already_assigned`, `last_administrator`, `code_taken`, `branch_in_use`, `branch_closed`, `role_conflict` |
+| `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role`, `already_assigned`, `last_administrator`, `code_taken`, `branch_in_use`, `branch_closed`, `role_conflict`, `review_closed` |
 | `422` | `email_domain`, `weak_password`, `password_reused`, `assignment_too_long`, `reason_required` |
 | `429` | `too_many_requests`: too many sign-in, refresh or reset attempts from one address |
 
