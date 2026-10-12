@@ -178,15 +178,18 @@ The settings page (`settings.view` to open, `settings.manage` to change) decides
 - whether people belong to branches (see [Branches](#branches));
 - which changes must have a reason (see [Reasons](#reasons)); suspending or reactivating someone and deleting people on a new installation;
 - how long a sign-in or a confirmed password lasts for the risky changes (see [Confirming who you are](#confirming-who-you-are)), or never asking again;
-- after how many days nobody signed in to an account it is suspended, every night (off on a new installation; never the last administrator).
+- after how many days nobody signed in to an account it is suspended, every night (off on a new installation; never the last administrator);
+- the language of emails to people who have not used the app yet, such as someone just invited (Thai on a new installation).
 
 The server also emails people when their account is signed in from a new device, gets a role, or has its email or password changed, and when it is suspended for not being used ([API.md](API.md#emails-about-your-account)). With the sample data these emails go to the browser console.
+
+Each email is in Thai or English, the language the person last used the app in: `Session` saves it as `User.language` once they have signed in, and again whenever they switch. Their profile shows it as Email language, and the user form can set it for someone new, so the invitation comes in that language; until it is known, the setting above decides ([API.md](API.md#the-language-of-emails)). Changing it writes nothing to the activity log.
 
 `AdminStore.settings` holds them for any page that needs them.
 
 ## Trying it with the sample data
 
-`LocalAdminApi` keeps 48 sample users, 14 roles, a month of activity and two access reviews (one open, of the people of Chiang Mai; one closed, of the Support role) in the browser's `localStorage`: the four built-in roles and ten an organization might add (Help desk, HR, Auditor and so on), so the pages show a longer list of roles. With more than six roles, the roles page searches its list, the user form offers roles in a dropdown and the overview chart adds up all but the five largest. The sign-in page offers one account for each built-in role (Administrator, Manager, Support and Viewer); any active user's email works too, with any password of 6 or more characters. Clear the `admin-data-v7` key in the browser to start over.
+`LocalAdminApi` keeps 48 sample users, 14 roles, a month of activity and two access reviews (one open, of the people of Chiang Mai; one closed, of the Support role) in the browser's `localStorage`. Its departments and the names of its access reviews read in the interface language (the reviews through `localName` in `shared/formatting.ts`); a name someone types reads as typed. It has the four built-in roles and ten an organization might add (Help desk, HR, Auditor and so on), so the pages show a longer list of roles. With more than six roles, the roles page searches its list, the user form offers roles in a dropdown and the overview chart adds up all but the five largest. The sign-in page offers one account for each built-in role (Administrator, Manager, Support and Viewer); any active user's email works too, with any password of 6 or more characters. Clear the `admin-data-v8` key in the browser to start over.
 
 ## Using a real server
 
