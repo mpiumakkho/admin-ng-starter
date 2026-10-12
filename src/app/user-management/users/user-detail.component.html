@@ -70,6 +70,7 @@
           <ui-detail-item [label]="'Email' | translate">{{ user.email }}</ui-detail-item>
           <ui-detail-item [label]="'Phone' | translate">{{ user.phone || '—' }}</ui-detail-item>
           <ui-detail-item [label]="'Department' | translate">{{ user.department | translate }}</ui-detail-item>
+          <ui-detail-item [label]="'Email language' | translate">{{ languageName(user.language) }}</ui-detail-item>
           @if (store.branchesEnabled()) {
             <ui-detail-item [label]="'Branch' | translate">{{ branchName(user.branchId) || ('No branch' | translate) }}</ui-detail-item>
           }

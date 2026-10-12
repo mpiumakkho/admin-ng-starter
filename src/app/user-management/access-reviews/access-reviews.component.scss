@@ -3,16 +3,37 @@
   flex-direction: column;
 }
 
-.reviews-waiting {
-  margin-bottom: 1rem;
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 1.5rem;
+  border-bottom: 1px solid var(--ui-border);
 }
 
-.cell-review {
-  min-width: 14rem;
+.toolbar-search {
+  flex: 0 1 300px;
+}
+
+.toolbar-chips {
+  min-width: 0;
+  margin-inline-start: auto;
+}
+
+.table-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .625rem 1.5rem;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-muted);
+  font-size: .8125rem;
 }
 
 .review-name {
-  display: block;
   color: var(--ui-heading);
   font-weight: 500;
   text-decoration: none;
@@ -20,13 +41,6 @@
   &:hover {
     text-decoration: underline;
   }
-}
-
-.review-scope {
-  display: block;
-  margin-top: .125rem;
-  color: var(--ui-muted);
-  font-size: .8125rem;
 }
 
 .muted {
@@ -63,17 +77,33 @@
   font-variant-numeric: tabular-nums;
 }
 
-// Phones: the dates and the count for you give way; the bar stays
-@media (max-width: 575px) {
-  .hide-sm {
+// Less important columns give way on smaller screens
+@media (max-width: 991px) {
+  .hide-md {
     display: none;
   }
+}
 
-  .cell-review {
-    min-width: 0;
-  }
-
+@media (max-width: 575px) {
+  .hide-sm,
   .progress {
     display: none;
+  }
+
+  .toolbar {
+    padding: .75rem 1rem;
+  }
+
+  .toolbar-search {
+    flex: 1 1 100%;
+  }
+
+  .toolbar-chips {
+    flex: 1 1 100%;
+    margin-inline-start: 0;
+  }
+
+  .table-footer {
+    padding-inline: 1rem;
   }
 }

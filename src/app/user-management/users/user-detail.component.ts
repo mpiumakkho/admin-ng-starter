@@ -53,8 +53,8 @@ import { Session } from '../access/session';
 import { TwoFactorDialog } from '../access/two-factor-dialog.component';
 import { activeRoleIds, permissionsOf, roleAssignmentState, RoleAssignmentState } from '../data/access-rules';
 import { AdminStore } from '../data/admin-store';
-import { ACTIVITY_META, PERMISSION_GROUPS } from '../data/catalog';
-import { fullName, Permission, RoleAssignment, UserSession, UserStatus } from '../data/models';
+import { ACTIVITY_META, EMAIL_LANGUAGES, PERMISSION_GROUPS } from '../data/catalog';
+import { fullName, Language, Permission, RoleAssignment, UserSession, UserStatus } from '../data/models';
 import { ActivityText } from '../shared/activity-text';
 import { RoleBadge, RoleBadges, StatusBadge } from '../shared/badges';
 import { errorMessage } from '../shared/errors';
@@ -354,6 +354,12 @@ export class UserDetailComponent {
 
   protected branchName(branchId: string | null): string {
     return branchId ? this.store.branchesById().get(branchId)?.name ?? '' : '';
+  }
+
+  /** The language of their emails, by its own name; until known, the settings' one */
+  protected languageName(language: Language | null): string {
+    const fallback = EMAIL_LANGUAGES[this.store.settings().defaultLanguage];
+    return language ? EMAIL_LANGUAGES[language] : this.translate.instant('sameAsSettings', { language: fallback });
   }
 
   protected roleName(roleId: string): string {

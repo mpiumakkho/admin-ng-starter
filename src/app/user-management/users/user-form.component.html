@@ -63,6 +63,14 @@
               </select>
             </ui-form-field>
           }
+          <ui-form-field [label]="'Email language' | translate" for="language" [hint]="'Their emails are in this language. The app keeps it to the one they last used.' | translate">
+            <select uiInput id="language" formControlName="language">
+              <option value="">{{ 'sameAsSettings' | translate: { language: defaultLanguage() } }}</option>
+              @for (language of languages; track language.code) {
+                <option [value]="language.code" [attr.lang]="language.code">{{ language.name }}</option>
+              }
+            </select>
+          </ui-form-field>
         </div>
       </section>
 

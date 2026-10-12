@@ -70,9 +70,9 @@
                     <span class="cell-main action-label">{{ row.action }}</span>
                     @if (row.entry.action !== 'auth.sign_in') {
                       @if (row.target; as target) {
-                        <a class="cell-sub target-link" [routerLink]="target.link" [queryParams]="target.queryParams" (click)="$event.stopPropagation()">{{ target.label ? (target.label | translate) : row.entry.targetLabel }}</a>
+                        <a class="cell-sub target-link" [routerLink]="target.link" [queryParams]="target.queryParams" (click)="$event.stopPropagation()">{{ target.label ? (target.label | translate) : (row.entry.targetLabel | localName) }}</a>
                       } @else {
-                        <span class="cell-sub">{{ row.entry.targetLabel }} ({{ 'deleted' | translate }})</span>
+                        <span class="cell-sub">{{ row.entry.targetLabel | localName }} ({{ 'deleted' | translate }})</span>
                       }
                     }
                   </div>

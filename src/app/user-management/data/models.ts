@@ -2,6 +2,9 @@ import { UiTone } from '../ui';
 
 export type UserStatus = 'active' | 'invited' | 'suspended';
 
+/** The languages emails are written in: Thai and English, as the app's */
+export type Language = 'th' | 'en';
+
 /** Everything a role can allow; catalog.ts groups and labels them */
 export type Permission =
   | 'users.view'
@@ -37,13 +40,20 @@ export interface User {
   lastActiveAt: string | null;
   /** Signs in with a code from an authenticator app as well as the password; only the server changes it */
   twoFactor?: boolean;
+  /**
+   * The language of their emails: the one they last used the app in, which Session keeps up to date; null until then,
+   * for the settings' defaultLanguage (API.md, "The language of emails")
+   */
+  language: Language | null;
 }
 
 /** A new user: what a form edits, and the roles they start with (none: the default role from the settings) */
-export type UserDraft = Omit<User, 'id' | 'createdAt' | 'lastActiveAt' | 'twoFactor' | 'roles' | 'branchId'> & {
+export type UserDraft = Omit<User, 'id' | 'createdAt' | 'lastActiveAt' | 'twoFactor' | 'roles' | 'branchId' | 'language'> & {
   roles: RoleGrant[];
   /** Left out: no branch */
   branchId?: string | null;
+  /** Left out or null: the settings' defaultLanguage, until they use the app */
+  language?: Language | null;
 };
 
 /** What PATCH /users/:id changes; roles change through role assignments */
@@ -205,6 +215,8 @@ export interface AdminSettings {
   reauthMinutes: number;
   /** Every night, accounts nobody used for this many days are suspended; 0 leaves them */
   suspendInactiveDays: number;
+  /** The language of emails to people whose own language is not known yet, such as someone just invited */
+  defaultLanguage: Language;
 }
 
 /** Two-step sign-in is on: the user, and their first recovery codes, shown this once */

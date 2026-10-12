@@ -225,6 +225,30 @@ describe('Session and permissions', () => {
       expect(guard(() => canEditUser(route(me), state(`/users/${me}/edit`)))).toBe(true);
     });
 
+    it('keeps the language of their emails, a preference the activity log leaves out', async () => {
+      await signInAs('viewer');
+      const me = session.userId()!;
+      const logged = store.activity().length;
+
+      await expect(store.updateUser(me, { language: 'en' })).resolves.toMatchObject({ language: 'en' });
+      await expect(store.updateUser(me, { language: null })).resolves.toMatchObject({ language: null });
+      await expect(store.updateUser(me, { language: 'fr' as never })).rejects.toEqual(new AdminApiError('invalid_request'));
+      expect(store.activity().filter(entry => entry.action === 'user.updated' && entry.targetId === me)).toHaveLength(0);
+      expect(store.activity().length).toBe(logged);
+    });
+
+    it('invites someone in the language picked for them, or the settings one', async () => {
+      await signInAs('admin');
+      expect(store.settings().defaultLanguage).toBe('th');
+      const picked = await store.createUser({ ...draft('viewer'), language: 'en' });
+      const left = await store.createUser({ ...draft('support') });
+      expect([picked.language, left.language]).toEqual(['en', null]);
+
+      await store.updateSettings({ defaultLanguage: 'en' });
+      expect(store.activity()[0]).toMatchObject({ action: 'settings.updated', changes: [{ field: 'defaultLanguage', from: 'th', to: 'en' }] });
+      await expect(store.updateSettings({ defaultLanguage: 'fr' as never })).rejects.toEqual(new AdminApiError('invalid_request'));
+    });
+
     it('changes the password, and sign-in then needs the new one', async () => {
       await signInAs('support');
       const account = email('support');
@@ -651,14 +675,14 @@ describe('Session and permissions', () => {
       await signInAs('admin');
       const revision = store.revision();
 
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v7' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v8' }));
       await vi.waitFor(() => expect(store.revision()).toBe(revision + 1), { timeout: 3000 });
 
       // Another tab signs this browser's session out
-      const data = JSON.parse(localStorage.getItem('admin-data-v7')!);
+      const data = JSON.parse(localStorage.getItem('admin-data-v8')!);
       data.sessions = data.sessions.filter((item: { userId: string }) => item.userId !== session.userId());
-      localStorage.setItem('admin-data-v7', JSON.stringify(data));
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v7' }));
+      localStorage.setItem('admin-data-v8', JSON.stringify(data));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v8' }));
       await vi.waitFor(() => expect(session.signedIn()).toBe(false), { timeout: 3000 });
     });
   });
@@ -675,10 +699,10 @@ describe('Session and permissions', () => {
       const revision = store.revision();
       const someone = userWithRole('viewer');
 
-      const data = JSON.parse(localStorage.getItem('admin-data-v7')!);
+      const data = JSON.parse(localStorage.getItem('admin-data-v8')!);
       data.users.find((user: { id: string }) => user.id === someone.id).department = 'Elsewhere';
-      localStorage.setItem('admin-data-v7', JSON.stringify(data));
-      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v7' }));
+      localStorage.setItem('admin-data-v8', JSON.stringify(data));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'admin-data-v8' }));
       await vi.waitFor(() => expect(store.changesWaiting()).toBe(true), { timeout: 3000 });
       expect(store.revision()).toBe(revision);
       expect(store.usersById().get(someone.id)?.department).toBe(someone.department);
@@ -772,7 +796,7 @@ describe('Session and permissions', () => {
   });
 
   describe('accounts nobody uses, and idle sessions', () => {
-    const STORAGE = 'admin-data-v7';
+    const STORAGE = 'admin-data-v8';
     const longAgo = new Date(Date.now() - 100 * 24 * 60 * 60_000).toISOString();
     /** Changes the saved sample data, as time passing would */
     const change = (edit: (data: { users: { id: string; lastActiveAt: string | null; createdAt: string }[] }) => void) => {
@@ -823,7 +847,7 @@ describe('Session and permissions', () => {
   });
 
   describe('access reviews', () => {
-    const STORAGE = 'admin-data-v7';
+    const STORAGE = 'admin-data-v8';
     const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60_000).toISOString();
     const idOf = (address: string) => sample.users.find(user => user.email === address)!.id;
     const branchManager = () => DEMO_ACCOUNTS.find(account => account.roleName === 'Branch manager')!.email;

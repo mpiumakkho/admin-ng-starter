@@ -214,6 +214,8 @@ export function createMockData(now = Date.now()): AdminData {
       avatar: isOwner ? 'assets/images/faces/face8.jpg' : next() < 0.66 ? `assets/images/faces/face${1 + (index % 27)}.jpg` : '',
       createdAt: new Date(now - ageDays * DAY - next() * DAY).toISOString(),
       lastActiveAt: status === 'invited' ? null : new Date(now - (isOwner ? 0.01 : next() * 30) * DAY).toISOString(),
+      // Learnt from the app once they use it; until then the settings' language
+      language: null,
     };
     // Given for good when they joined: by the owner, or by nobody for the owner's own
     const assignment: RoleAssignment = {
@@ -399,6 +401,15 @@ export function createMockData(now = Date.now()): AdminData {
 }
 
 /**
+ * The names the sample gives its access reviews: translation keys too, so the pages show them in the reader's
+ * language, as the sample's departments (localName in shared/formatting.ts)
+ */
+export const SAMPLE_REVIEW_NAMES = { quarter: 'Chiang Mai, quarterly review', support: 'Mid-year access review' } as const;
+
+/** Names from the sample data that read in the reader's language */
+export const SAMPLE_NAMES: ReadonlySet<string> = new Set(Object.values(SAMPLE_REVIEW_NAMES));
+
+/**
  * The sample's access reviews, newest first: one of the people of Chiang Mai, open now, where the owner has decided a
  * few roles and the branch manager has the rest of their staff to decide; and one of the Support role, closed by the
  * server on its due date, with one role nobody decided. They draw no random numbers.
@@ -439,12 +450,12 @@ export function createSampleReviews(users: User[], roles: Role[], now = Date.now
 
   return [
     {
-      id: 'ar-quarter', name: 'Chiang Mai, quarterly review', roleId: null, branchId: 'b-cnx', reviewerIds: [],
+      id: 'ar-quarter', name: SAMPLE_REVIEW_NAMES.quarter, roleId: null, branchId: 'b-cnx', reviewerIds: [],
       dueAt: new Date(now + 11 * DAY).toISOString(), status: 'open', createdById: owner.id, createdAt: new Date(openedAt).toISOString(),
       closedAt: null, closedById: null, items: open,
     },
     {
-      id: 'ar-support', name: 'Support role review', roleId: 'support', branchId: null, reviewerIds: [], dueAt: supportDue,
+      id: 'ar-support', name: SAMPLE_REVIEW_NAMES.support, roleId: 'support', branchId: null, reviewerIds: [], dueAt: supportDue,
       status: 'closed', createdById: owner.id, createdAt: new Date(supportAt).toISOString(), closedAt: supportDue, closedById: null,
       items: support,
     },

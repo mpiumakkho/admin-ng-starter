@@ -8,10 +8,10 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Session } from '../access/session';
 import { AdminStore } from '../data/admin-store';
 import {
-  ACTIVITY_RETENTION_DAYS, INVITE_EXPIRY_DAYS, PASSWORD_HISTORY, PASSWORD_MIN_LENGTHS, REASON_ACTIONS, REAUTH_MINUTES,
+  ACTIVITY_RETENTION_DAYS, EMAIL_LANGUAGES, INVITE_EXPIRY_DAYS, PASSWORD_HISTORY, PASSWORD_MIN_LENGTHS, REASON_ACTIONS, REAUTH_MINUTES,
   SESSION_TIMEOUT_MINUTES, SUSPEND_INACTIVE_DAYS,
 } from '../data/catalog';
-import { AdminSettings, ReasonAction } from '../data/models';
+import { AdminSettings, Language, ReasonAction } from '../data/models';
 import { errorMessage } from '../shared/errors';
 import { idleTimeoutLabel, inactiveLabel, passwordHistoryLabel, reauthLabel, retentionLabel } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
@@ -80,7 +80,11 @@ export class SettingsComponent implements OnInit {
     reasonsRequired: [[] as ReasonAction[]],
     reauthMinutes: [10],
     suspendInactiveDays: [0],
+    defaultLanguage: ['th' as Language],
   });
+
+  /** Each by its own name */
+  protected readonly languages = Object.entries(EMAIL_LANGUAGES).map(([code, name]) => ({ code, name }));
 
   /** The changes that can require a reason, in the order of REASON_ACTIONS */
   protected readonly reasonActions = (Object.keys(REASON_ACTIONS) as ReasonAction[]).map(key => ({ key, label: REASON_ACTIONS[key] }));

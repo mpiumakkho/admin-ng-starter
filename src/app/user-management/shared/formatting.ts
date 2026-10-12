@@ -1,6 +1,8 @@
 import { inject, Pipe, PipeTransform } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 
+import { SAMPLE_NAMES } from '../data/mock-data';
+
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['year', 365 * 24 * 3600],
   ['month', 30 * 24 * 3600],
@@ -78,6 +80,28 @@ export class TimeAgoPipe implements PipeTransform {
 
   transform(iso: string | null | undefined, fallback = ''): string {
     return iso ? timeAgo(iso, this.translate.currentLang() ?? '') : fallback;
+  }
+}
+
+/**
+ * A name in the interface language when it comes from the sample data, such as a sample access review's (SAMPLE_NAMES);
+ * a name someone typed, as they typed it
+ */
+export function localName(translate: TranslateService, name: string): string {
+  return SAMPLE_NAMES.has(name) ? translate.instant(name) : name;
+}
+
+/**
+ * localName() in a template. Reads the language itself, so the pipe is impure.
+ *
+ *   {{ review.name | localName }}
+ */
+@Pipe({ name: 'localName', pure: false })
+export class LocalNamePipe implements PipeTransform {
+  private readonly translate = inject(TranslateService);
+
+  transform(name: string): string {
+    return localName(this.translate, name);
   }
 }
 

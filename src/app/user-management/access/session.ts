@@ -7,7 +7,8 @@ import {
 } from '../data/access-rules';
 import { AdminApi } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
-import { Permission, Role, User } from '../data/models';
+import { EMAIL_LANGUAGES } from '../data/catalog';
+import { Language, Permission, Role, User } from '../data/models';
 import { idleTimeoutLabel } from '../shared/formatting';
 import { UiAccessibleViewService, UiToastService } from '../ui';
 
@@ -103,6 +104,18 @@ export class Session {
       if (this.twoFactorSetupRequired() && !untracked(this.accessibleView.on)) {
         untracked(() => this.router.navigateByUrl(TWO_FACTOR_SETUP_PATH));
       }
+    });
+
+    // The language someone uses the app in is the language of their emails (API.md, "The language of emails"): kept on
+    // the server once the data has loaded after signing in, and whenever they switch
+    effect(() => {
+      const language = this.translate?.currentLang();
+      const user = this.user();
+      if (!user || !language || !(language in EMAIL_LANGUAGES) || user.language === language || !this.store.loaded()
+        || this.twoFactorSetupRequired() || this.paused()) {
+        return;
+      }
+      untracked(() => this.store.updateUser(user.id, { language: language as Language }).catch(() => undefined));
     });
 
     // The accessible view holds changes made elsewhere until asked for; turned off, any that wait show at once

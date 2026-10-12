@@ -1,5 +1,5 @@
 @if (review(); as review) {
-  <ui-page-header [title]="review.name" [subtitle]="scope()" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate"
+  <ui-page-header [title]="name()" [subtitle]="summary()" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate"
     [breadcrumbs]="[{ label: 'User management' | translate }, { label: 'Access reviews' | translate, link: '/access-reviews' }]">
     @if (items().length) {
       <app-export-menu [source]="exportTable" />
@@ -16,35 +16,6 @@
       </ng-template>
     }
   </ui-page-header>
-
-  <div class="review-summary">
-    <ui-stat-card [label]="'Role assignments' | translate" [value]="counts().all" />
-    @if (isOpen()) {
-      <ui-stat-card [label]="'Keep' | translate" [value]="counts().keep" />
-      <ui-stat-card [label]="'Remove' | translate" [value]="counts().remove" />
-      <ui-stat-card [label]="'Not decided' | translate" [value]="counts().undecided" />
-    } @else {
-      <ui-stat-card [label]="'Kept' | translate" [value]="counts().kept + counts().last_administrator" />
-      <ui-stat-card [label]="'Removed' | translate" [value]="counts().removed" />
-      <ui-stat-card [label]="'Not reviewed' | translate" [value]="counts().not_reviewed" />
-    }
-  </div>
-
-  <ui-alert class="review-note" [tone]="isOpen() ? 'info' : 'neutral'">
-    @if (isOpen()) {
-      {{ 'reviewOpenNote' | translate: { date: (review.dueAt | localDate: 'datetime') } }}
-    } @else if (review.closedById) {
-      {{ 'reviewClosedBy' | translate: { date: (review.closedAt | localDate: 'datetime'), name: closedBy() } }}
-    } @else {
-      {{ 'reviewClosedOnDue' | translate: { date: (review.closedAt | localDate: 'datetime') } }}
-    }
-    <span class="review-meta">
-      {{ 'reviewStartedBy' | translate: { name: startedBy() || ('Deleted user' | translate), date: (review.createdAt | localDate) } }}
-      @if (reviewerNames()) {
-        · {{ 'reviewNamed' | translate: { names: reviewerNames() } }}
-      }
-    </span>
-  </ui-alert>
 
   <ui-card flush fit>
     <div class="toolbar">
@@ -64,7 +35,7 @@
     } @else if (loading()) {
       <p class="loading">{{ 'Loading…' | translate }}</p>
     } @else if (table.total()) {
-      <div class="ui-table-scroll" [uiTableMinRows]="10" [uiTableScrollReset]="table">
+      <div class="ui-table-scroll" [uiTableMinRows]="pageSizes[0]" [uiTableScrollReset]="table">
         <table uiTable dense class="review-table">
           <thead>
             <tr>
@@ -75,12 +46,11 @@
               }
               <th><ui-sort-header [table]="table" key="person">{{ 'User' | translate }}</ui-sort-header></th>
               <th><ui-sort-header [table]="table" key="role">{{ 'Role' | translate }}</ui-sort-header></th>
-              <th class="hide-md"><ui-sort-header [table]="table" key="since">{{ 'Held since' | translate }}</ui-sort-header></th>
+              <th class="hide-md">{{ 'Applies in' | translate }}</th>
+              <th class="hide-xl"><ui-sort-header [table]="table" key="since">{{ 'Held since' | translate }}</ui-sort-header></th>
               <th class="hide-lg">{{ 'Last active' | translate }}</th>
-              <th><ui-sort-header [table]="table" key="decision">{{ 'Decision' | translate }}</ui-sort-header></th>
-              @if (!isOpen()) {
-                <th>{{ 'Outcome' | translate }}</th>
-              }
+              <th><ui-sort-header [table]="table" key="decision">{{ (isOpen() ? 'Decision' : 'Outcome') | translate }}</ui-sort-header></th>
+              <th class="hide-md">{{ 'Decided by' | translate }}</th>
             </tr>
           </thead>
           <tbody>
@@ -99,9 +69,6 @@
                   } @else {
                     <ui-person [name]="item.userName" [detail]="item.email" size="xs" />
                   }
-                  @if (item.userId === session.userId()) {
-                    <span class="you">{{ 'You' | translate }}</span>
-                  }
                 </td>
                 <td class="cell-role">
                   @if (store.rolesById().has(item.roleId)) {
@@ -109,17 +76,16 @@
                   } @else {
                     <ui-badge tone="neutral">{{ item.roleName }}</ui-badge>
                   }
-                  <span class="cell-detail">
-                    {{ item.branchId ? ('branchOnly' | translate: { branch: branchName(item.branchId) }) : ('Whole organization' | translate) }}
-                    @if (item.endsAt) {
-                      · {{ 'untilDate' | translate: { date: (item.endsAt | localDate) } }}
-                    }
-                  </span>
                 </td>
-                <td class="hide-md muted">{{ item.startsAt | localDate }}</td>
+                <td class="hide-md muted">{{ item.branchId ? ('branchOnly' | translate: { branch: branchName(item.branchId) }) : ('Whole organization' | translate) }}</td>
+                <td class="hide-xl muted">{{ item.startsAt | localDate }}</td>
                 <td class="hide-lg muted">{{ person(item) ? (person(item)!.lastActiveAt | timeAgo: ('Never' | translate)) : '—' }}</td>
                 <td class="cell-decision">
-                  @if (item.canDecide) {
+                  @if (!isOpen()) {
+                    @if (item.outcome) {
+                      <ui-badge [tone]="outcomes[item.outcome].tone" dot>{{ outcomes[item.outcome].label | translate }}</ui-badge>
+                    }
+                  } @else if (item.canDecide) {
                     <div class="decision-buttons" role="group" [attr.aria-label]="'decisionFor' | translate: { name: item.userName, role: item.roleName }">
                       <button uiButton size="sm" type="button" [variant]="item.decision === 'keep' ? 'primary' : 'secondary'" [attr.aria-pressed]="item.decision === 'keep'"
                         [disabled]="busy()" (click)="item.decision !== 'keep' && decide([item], 'keep')">
@@ -135,20 +101,18 @@
                   } @else {
                     <span class="muted">{{ 'Not decided' | translate }}</span>
                   }
+                </td>
+                <td class="hide-md cell-decided" [attr.title]="item.note || null">
                   @if (item.decidedAt) {
-                    <span class="cell-detail">{{ decidedText(item) }}</span>
-                  }
-                  @if (item.note) {
-                    <span class="decision-note" [title]="item.note">{{ item.note }}</span>
+                    <span class="decided-by">{{ item.decidedByName }}</span>
+                    <span class="muted"> · {{ item.decidedAt | localDate }}</span>
+                    @if (item.note) {
+                      <span class="decision-note">{{ item.note }}</span>
+                    }
+                  } @else {
+                    <span class="muted">—</span>
                   }
                 </td>
-                @if (!isOpen()) {
-                  <td class="cell-outcome">
-                    @if (item.outcome) {
-                      <ui-badge [tone]="outcomes[item.outcome].tone" dot>{{ outcomes[item.outcome].label | translate }}</ui-badge>
-                    }
-                  </td>
-                }
               </tr>
             }
           </tbody>

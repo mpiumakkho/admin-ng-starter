@@ -4,6 +4,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_META } from '../data/catalog';
 import { Activity, fullName } from '../data/models';
+import { LocalNamePipe } from './formatting';
 
 // Placeholders handed to the translation, then swapped for the names. Names are inserted as text,
 // never as HTML, because they come from user data.
@@ -12,13 +13,13 @@ const TOKENS = { actor: '{actor}', target: '{target}' };
 /** One activity entry as a sentence, such as "Henry Klein suspended Jane Doe", with the names in bold */
 @Component({
   selector: 'app-activity-text',
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, LocalNamePipe],
   template: `
     @for (part of split(message() | translate: tokens); track $index) {
       @if (part === tokens.actor) {
         <b>{{ actor() }}</b>
       } @else if (part === tokens.target) {
-        <b>{{ entry().targetLabel }}</b>
+        <b>{{ entry().targetLabel | localName }}</b>
       } @else {
         {{ part }}
       }

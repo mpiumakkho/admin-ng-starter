@@ -23,8 +23,8 @@ import {
 import { Session } from '../access/session';
 import { AdminApiError } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
-import { DEPARTMENTS, STATUS_META } from '../data/catalog';
-import { fullName, RoleGrant, UserStatus } from '../data/models';
+import { DEPARTMENTS, EMAIL_LANGUAGES, STATUS_META } from '../data/catalog';
+import { fullName, Language, RoleGrant, UserStatus } from '../data/models';
 import { RoleBadge, RoleBadges } from '../shared/badges';
 import { errorMessage } from '../shared/errors';
 import { LocalDatePipe } from '../shared/formatting';
@@ -76,6 +76,8 @@ export class UserFormComponent implements OnInit {
 
   protected readonly icons = { add: lucideUserPlus, edit: lucideUserPen, save: lucideSave, missing: lucideUserX, addRole: lucideShieldPlus, remove: lucideX };
   protected readonly departments = DEPARTMENTS;
+  protected readonly languages = Object.entries(EMAIL_LANGUAGES).map(([code, name]) => ({ code, name }));
+  protected readonly defaultLanguage = computed(() => EMAIL_LANGUAGES[this.store.settings().defaultLanguage]);
   protected readonly saving = signal(false);
   private saved = false;
 
@@ -105,6 +107,8 @@ export class UserFormComponent implements OnInit {
     department: [DEPARTMENTS[0], Validators.required],
     /** Empty: no branch */
     branchId: [''],
+    /** Empty: the settings' language, until they use the app */
+    language: ['' as Language | ''],
     status: ['invited' as UserStatus, Validators.required],
     avatar: [''],
   });
@@ -158,7 +162,7 @@ export class UserFormComponent implements OnInit {
     if (user) {
       this.form.reset({
         firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone,
-        department: user.department, branchId: user.branchId ?? '', status: user.status, avatar: user.avatar,
+        department: user.department, branchId: user.branchId ?? '', language: user.language ?? '', status: user.status, avatar: user.avatar,
       });
     }
     if (!user && !this.noBranchAllowed()) {
@@ -245,8 +249,8 @@ export class UserFormComponent implements OnInit {
       this.toast.show(this.translate.instant('Check the highlighted fields.'), 'error');
       return;
     }
-    const { branchId, ...rest } = this.form.getRawValue();
-    const profile = { ...rest, branchId: branchId || null };
+    const { branchId, language, ...rest } = this.form.getRawValue();
+    const profile = { ...rest, branchId: branchId || null, language: language || null };
     this.saving.set(true);
     try {
       const id = this.id();

@@ -9,7 +9,7 @@ import { AdminStore } from '../data/admin-store';
 import { ACTIVITY_KINDS, ACTIVITY_META } from '../data/catalog';
 import { Activity } from '../data/models';
 import { ActivityText } from '../shared/activity-text';
-import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
+import { LocalDatePipe, LocalNamePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import { ActivityFormat } from './activity-format';
 
@@ -18,7 +18,7 @@ type ChangeKind = 'value' | 'list' | 'tone' | 'changed';
 /** Everything recorded about one activity entry: who, what, where from, and each field it changed */
 @Component({
   selector: 'app-activity-details',
-  imports: [RouterLink, NgIcon, TranslatePipe, UiBadge, UiButton, UiDetailList, UiDetailItem, UiIconChip, UiPerson, UiTable, ActivityText, LocalDatePipe, TimeAgoPipe],
+  imports: [RouterLink, NgIcon, TranslatePipe, UiBadge, UiButton, UiDetailList, UiDetailItem, UiIconChip, UiPerson, UiTable, ActivityText, LocalDatePipe, LocalNamePipe, TimeAgoPipe],
   templateUrl: './activity-details.component.html',
   styleUrl: './activity-details.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

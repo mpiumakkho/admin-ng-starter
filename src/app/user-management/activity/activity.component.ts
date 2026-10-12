@@ -30,7 +30,7 @@ import { ACTIVITY_KINDS, ACTIVITY_META, ActivityKind } from '../data/catalog';
 import { Activity, fullName, User } from '../data/models';
 import { ExportMenu } from '../shared/export-menu.component';
 import { TableExport } from '../shared/table-export';
-import { LocalDatePipe, TimeAgoPipe } from '../shared/formatting';
+import { LocalDatePipe, LocalNamePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import { ActivityDialog } from './activity-dialog.component';
 import { ActivityFormat, ActivityTarget } from './activity-format';
@@ -77,6 +77,7 @@ const DAY = 24 * 60 * 60 * 1000;
     UiEmptyState,
     ActivityDialog,
     LocalDatePipe,
+    LocalNamePipe,
     TimeAgoPipe,
   ],
   templateUrl: './activity.component.html',

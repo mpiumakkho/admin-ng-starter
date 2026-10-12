@@ -9,35 +9,33 @@
   <app-start-review-dialog [(open)]="starting" (started)="open($event)" />
 }
 
-@if (store.accessReviewsWaiting(); as count) {
-  <ui-alert class="reviews-waiting" tone="info">{{ 'reviewsWaiting' | translate: { count } }}</ui-alert>
-}
-
 <ui-card flush fit>
   @if (rows().length) {
-    <div class="ui-table-scroll">
+    <div class="toolbar">
+      <ui-search-input class="toolbar-search" size="sm" [value]="table.query()" (valueChange)="table.search($event)" [placeholder]="'Search reviews' | translate" [clearLabel]="'Clear search' | translate" />
+      <ui-filter-chips class="toolbar-chips" scroll [options]="statusOptions()" [value]="status()" (valueChange)="setStatus($event)" [ariaLabel]="'Status' | translate" />
+    </div>
+  }
+  @if (table.total()) {
+    <div class="ui-table-scroll" [uiTableMinRows]="pageSizes[0]" [uiTableScrollReset]="table">
       <table uiTable dense class="reviews-table">
         <thead>
           <tr>
-            <th>{{ 'Review' | translate }}</th>
-            <th class="hide-sm">{{ 'Closes' | translate }}</th>
-            <th>{{ 'Decided' | translate }}</th>
+            <th><ui-sort-header [table]="table" key="name">{{ 'Review' | translate }}</ui-sort-header></th>
+            <th class="hide-md">{{ 'Covers' | translate }}</th>
+            <th class="hide-sm"><ui-sort-header [table]="table" key="closes">{{ 'Closes' | translate }}</ui-sort-header></th>
+            <th><ui-sort-header [table]="table" key="decided">{{ 'Decided' | translate }}</ui-sort-header></th>
             <th class="hide-sm">{{ 'For you' | translate }}</th>
-            <th>{{ 'Status' | translate }}</th>
+            <th><ui-sort-header [table]="table" key="status">{{ 'Status' | translate }}</ui-sort-header></th>
           </tr>
         </thead>
         <tbody>
-          @for (row of rows(); track row.review.id) {
+          @for (row of table.pageRows(); track row.review.id) {
             <tr class="ui-row-link" (click)="open(row.review)">
-              <td class="cell-review">
-                <a class="review-name" [routerLink]="['/access-reviews', row.review.id]" (click)="$event.stopPropagation()">{{ row.review.name }}</a>
-                <span class="review-scope">
-                  {{ row.review.roleId ? (roleName(row.review.roleId) || ('Deleted role' | translate)) : ('Every role' | translate) }}
-                  @if (row.review.branchId) {
-                    · {{ 'peopleOf' | translate: { branch: branchName(row.review.branchId) } }}
-                  }
-                </span>
+              <td class="cell-name">
+                <a class="review-name" [routerLink]="['/access-reviews', row.review.id]" (click)="$event.stopPropagation()">{{ row.name }}</a>
               </td>
+              <td class="hide-md muted">{{ row.scope }}</td>
               <td class="hide-sm muted">{{ (row.review.closedAt ?? row.review.dueAt) | localDate }}</td>
               <td class="cell-progress">
                 <span class="progress" aria-hidden="true"><span class="progress-bar" [style.width.%]="row.progress"></span></span>
@@ -50,12 +48,20 @@
                   <span class="muted">—</span>
                 }
               </td>
-              <td><ui-badge [tone]="status[row.review.status].tone" dot>{{ status[row.review.status].label | translate }}</ui-badge></td>
+              <td><ui-badge [tone]="statusMeta[row.review.status].tone" dot>{{ statusMeta[row.review.status].label | translate }}</ui-badge></td>
             </tr>
           }
         </tbody>
       </table>
     </div>
+    <div class="table-footer">
+      <ui-page-size [table]="table" [sizes]="pageSizes" [label]="'rangeOf' | translate: table.range()" [heading]="'Rows per page' | translate" />
+      <ui-pagination [ariaLabel]="'Pagination' | translate" [page]="table.currentPage()" (pageChange)="table.page.set($event)" [pageCount]="table.pageCount()" [firstLabel]="'First page' | translate" [previousLabel]="'Previous page' | translate" [nextLabel]="'Next page' | translate" [lastLabel]="'Last page' | translate" />
+    </div>
+  } @else if (rows().length) {
+    <ui-empty-state [icon]="icons.empty" [title]="'Nothing matches' | translate" [description]="'Try another search or clear the filters.' | translate">
+      <button uiButton variant="secondary" type="button" (click)="clearFilters()">{{ 'Clear filters' | translate }}</button>
+    </ui-empty-state>
   } @else {
     <ui-empty-state [icon]="icons.page" [title]="'No access reviews yet' | translate"
       [description]="(canManage() ? 'Start one to check that people still need the roles they hold.' : 'Reviews you decide in show here.') | translate">

@@ -28,6 +28,13 @@
         <ui-form-field [label]="'Allowed email domains' | translate" for="allowedDomains" [errors]="errorMessages()" [hint]="'Separate domains with commas. Leave empty to allow any email.' | translate">
           <input uiInput class="domains-input" id="allowedDomains" formControlName="allowedDomains" placeholder="example.com, example.co.th" autocomplete="off" />
         </ui-form-field>
+        <ui-form-field class="field-fit" [label]="'Email language' | translate" for="defaultLanguage" [hint]="'For people who have not used the app yet, such as someone just invited. Everyone else gets emails in the language they last used.' | translate">
+          <select uiInput id="defaultLanguage" formControlName="defaultLanguage" class="select-input">
+            @for (language of languages; track language.code) {
+              <option [value]="language.code" [attr.lang]="language.code">{{ language.name }}</option>
+            }
+          </select>
+        </ui-form-field>
         <ui-switch class="branches-switch" formControlName="branchesEnabled" [description]="'People belong to a branch, and roles can be given for one branch only.' | translate">
           {{ 'Use branches' | translate }}
         </ui-switch>

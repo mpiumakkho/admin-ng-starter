@@ -3,10 +3,12 @@ import { TranslateService } from '@ngx-translate/core';
 
 import { AdminStore } from '../data/admin-store';
 import {
-  ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, REASON_ACTIONS, REVIEW_DECISIONS, SIGN_IN_FAILURES, STATUS_META,
+  ACTIVITY_META, EMAIL_LANGUAGES, FIELD_LABELS, PERMISSION_LABELS, REASON_ACTIONS, REVIEW_DECISIONS, SIGN_IN_FAILURES, STATUS_META,
 } from '../data/catalog';
-import { AccessReviewDecision, Activity, ActivityChange, fullName, ReasonAction, UserStatus } from '../data/models';
-import { idleTimeoutLabel, inactiveLabel, localDate, passwordHistoryLabel, reauthLabel, retentionLabel } from '../shared/formatting';
+import { AccessReviewDecision, Activity, ActivityChange, fullName, Language, ReasonAction, UserStatus } from '../data/models';
+import {
+  idleTimeoutLabel, inactiveLabel, localDate, localName, passwordHistoryLabel, reauthLabel, retentionLabel,
+} from '../shared/formatting';
 
 /** Where an entry's target can be opened, if it still exists */
 export interface ActivityTarget {
@@ -41,7 +43,9 @@ export class ActivityFormat {
 
   /** The whole event as a sentence, such as "Henry Klein suspended Jane Doe" */
   sentence(entry: Activity): string {
-    return this.translate.instant(ACTIVITY_META[entry.action].message, { actor: this.actorName(entry), target: entry.targetLabel });
+    return this.translate.instant(ACTIVITY_META[entry.action].message, {
+      actor: this.actorName(entry), target: localName(this.translate, entry.targetLabel),
+    });
   }
 
   target(entry: Activity): ActivityTarget | null {
@@ -89,6 +93,8 @@ export class ActivityFormat {
       case 'endsAt':
       case 'dueAt':
         return localDate(this.translate, raw);
+      case 'defaultLanguage':
+        return EMAIL_LANGUAGES[raw as Language] ?? raw;
       case 'decision':
         return REVIEW_DECISIONS[raw as AccessReviewDecision] ? this.translate.instant(REVIEW_DECISIONS[raw as AccessReviewDecision].label) : raw;
       case 'maxDays':

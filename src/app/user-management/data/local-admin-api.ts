@@ -6,7 +6,7 @@ import {
 } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
 import {
-  ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, REASON_ACTIONS, REVIEW_MAX_DAYS, ROLE_TONES, STATUS_META,
+  ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, EMAIL_LANGUAGES, REASON_ACTIONS, REVIEW_MAX_DAYS, ROLE_TONES, STATUS_META,
 } from './catalog';
 import {
   AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, createSampleReviews, EmailLink, SAMPLE_ROLE_CONFLICTS, StoredAccessReview,
@@ -20,7 +20,7 @@ import {
 import { createSecret, otpauthUri, verifyTotp } from './totp';
 import { uuidV7 } from './uuid';
 
-const STORAGE_KEY = 'admin-data-v7';
+const STORAGE_KEY = 'admin-data-v8';
 /** This browser's session id: kept in sessionStorage, or in localStorage with "Keep me signed in" */
 const SESSION_KEY = 'admin-session';
 /** The name authenticator apps show next to the codes */
@@ -45,8 +45,10 @@ const MAX_DECISIONS = 1000;
 const RECOVERY_CODE_COUNT = 10;
 const RECOVERY_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 
-/** User fields the activity log tracks, in the order it lists them; also every field PATCH /users/:id may set */
+/** User fields the activity log tracks, in the order it lists them; PATCH /users/:id may set these and language */
 const USER_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'department', 'branchId', 'status', 'avatar'] as const;
+/** Every field PATCH /users/:id may set: the language too, a preference the log leaves out */
+const USER_CHANGE_FIELDS = [...USER_FIELDS, 'language'];
 /** A branch code: short letters, digits and dashes */
 const BRANCH_CODE = /^[A-Za-z0-9-]{1,10}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,7 +56,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /**
  * AdminApi backed by localStorage, seeded with sample data on first use. It plays the server's part: it knows
  * who is signed in, checks their permissions (see access-rules.ts) and writes the activity log.
- * Clear the "admin-data-v7" key in the browser to start over.
+ * Clear the "admin-data-v8" key in the browser to start over.
  */
 @Injectable()
 export class LocalAdminApi extends AdminApi {
@@ -272,7 +274,10 @@ export class LocalAdminApi extends AdminApi {
     const diff = USER_FIELDS.filter(field => current[field] !== user[field]).map<ActivityChange>(field =>
       // Photos are data URLs: too big to keep, so the log only notes that it changed
       field === 'avatar' ? { field } : { field, from: current[field], to: user[field] });
-    this.log(actor.id, 'user.updated', fullName(user), id, diff);
+    // Nothing the log keeps, such as the language alone: no entry
+    if (diff.length) {
+      this.log(actor.id, 'user.updated', fullName(user), id, diff);
+    }
     return this.respond(user);
   }
 
@@ -957,7 +962,7 @@ export class LocalAdminApi extends AdminApi {
     this.data.settings = settings;
     const diff: ActivityChange[] = ([
       'defaultRoleId', 'inviteExpiryDays', 'sessionTimeoutMinutes', 'passwordMinLength', 'passwordHistory', 'activityRetentionDays',
-      'branchesEnabled', 'reauthMinutes', 'suspendInactiveDays',
+      'branchesEnabled', 'reauthMinutes', 'suspendInactiveDays', 'defaultLanguage',
     ] as const)
       .filter(field => current[field] !== settings[field])
       .map(field => ({ field, from: String(current[field]), to: String(settings[field]) }));
@@ -1138,8 +1143,10 @@ export class LocalAdminApi extends AdminApi {
   private addUser(actor: User, draft: UserDraft): User {
     const now = new Date().toISOString();
     const id = `u-${crypto.randomUUID().slice(0, 8)}`;
-    const { roles: grants, branchId = null, ...profile } = draft;
-    const user: User = { ...profile, id, branchId, roles: this.newRoles(actor, { id }, grants, branchId), createdAt: now, lastActiveAt: null };
+    const { roles: grants, branchId = null, language = null, ...profile } = draft;
+    const user: User = {
+      ...profile, id, branchId, language, roles: this.newRoles(actor, { id }, grants, branchId), createdAt: now, lastActiveAt: null,
+    };
     this.data.users = [user, ...this.data.users];
     this.log(actor.id, draft.status === 'invited' ? 'user.invited' : 'user.created', fullName(user), user.id, [
       { field: 'department', to: user.department },
@@ -1542,6 +1549,8 @@ export class LocalAdminApi extends AdminApi {
         // Saved when 30 days were allowed: at least 90 now (API.md, "Settings")
         data.settings.activityRetentionDays = Math.max(data.settings.activityRetentionDays, 90);
         data.sessions ??= createMockSessions(data.users);
+        // Saved before people had a language for their emails
+        data.users.forEach(user => user.language ??= null);
         data.roleConflicts ??= SAMPLE_ROLE_CONFLICTS.filter(rule => rule.roleIds.every(roleId => data.roles.some(role => role.id === roleId)));
         // Activity older than the settings keep is gone, as the server deletes it every night
         const kept = new Date(Date.now() - data.settings.activityRetentionDays * DAY_MS).toISOString();
@@ -1602,16 +1611,17 @@ function check(ok: boolean) {
 }
 
 function userChanges(input: unknown): UserChanges {
-  const changes = fields(input, USER_FIELDS);
-  // Every field is text; the branch may also be null, for none
-  check(Object.entries(changes).every(([field, value]) => typeof value === 'string' || (field === 'branchId' && value === null)));
+  const changes = fields(input, USER_CHANGE_FIELDS);
+  // Every field is text; the branch may also be null, for none, and the language, for the settings' one
+  check(Object.entries(changes).every(([field, value]) => typeof value === 'string' || ((field === 'branchId' || field === 'language') && value === null)));
+  check(changes['language'] === undefined || changes['language'] === null || (changes['language'] as string) in EMAIL_LANGUAGES);
   check(changes['status'] === undefined || (changes['status'] as string) in STATUS_META);
   check(changes['email'] === undefined || EMAIL.test((changes['email'] as string).trim()));
   return changes as UserChanges;
 }
 
 function userDraft(input: unknown): UserDraft {
-  const { roles = [], ...profile } = fields(input, [...USER_FIELDS, 'roles']);
+  const { roles = [], ...profile } = fields(input, [...USER_CHANGE_FIELDS, 'roles']);
   const changes = userChanges(profile);
   check(['firstName', 'lastName', 'email', 'department', 'status'].every(field => field in changes));
   check(Array.isArray(roles));
@@ -1791,8 +1801,9 @@ const SETTINGS_RANGES: Record<string, [min: number, max: number]> = {
 
 function settingsChanges(input: unknown): Partial<AdminSettings> {
   const changes = fields(input, [
-    'defaultRoleId', 'allowedDomains', 'twoFactorRoleIds', 'branchesEnabled', 'reasonsRequired', ...Object.keys(SETTINGS_RANGES),
+    'defaultRoleId', 'allowedDomains', 'twoFactorRoleIds', 'branchesEnabled', 'reasonsRequired', 'defaultLanguage', ...Object.keys(SETTINGS_RANGES),
   ]);
+  check(changes['defaultLanguage'] === undefined || (typeof changes['defaultLanguage'] === 'string' && changes['defaultLanguage'] in EMAIL_LANGUAGES));
   check(changes['branchesEnabled'] === undefined || typeof changes['branchesEnabled'] === 'boolean');
   check(changes['defaultRoleId'] === undefined || typeof changes['defaultRoleId'] === 'string');
   check(['allowedDomains', 'twoFactorRoleIds', 'reasonsRequired'].every(field => changes[field] === undefined

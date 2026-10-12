@@ -18,9 +18,9 @@
     @if (entry().action === 'auth.sign_in') {
       <span class="muted">—</span>
     } @else if (target(); as found) {
-      <a [routerLink]="found.link" [queryParams]="found.queryParams">{{ found.label ? (found.label | translate) : entry().targetLabel }}</a>
+      <a [routerLink]="found.link" [queryParams]="found.queryParams">{{ found.label ? (found.label | translate) : (entry().targetLabel | localName) }}</a>
     } @else {
-      {{ entry().targetLabel }} <span class="muted">({{ 'deleted' | translate }})</span>
+      {{ entry().targetLabel | localName }} <span class="muted">({{ 'deleted' | translate }})</span>
     }
   </ui-detail-item>
   <ui-detail-item [label]="'Action' | translate">

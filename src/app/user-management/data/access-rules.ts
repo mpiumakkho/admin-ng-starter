@@ -21,8 +21,8 @@ import { Permission, Role, RoleAssignment, RoleConflict, User } from './models';
  * - Everyone can change their own name, phone and photo, and their password, without any permission.
  */
 
-/** What people can change on their own account without users.edit */
-export const SELF_EDITABLE_FIELDS = ['firstName', 'lastName', 'phone', 'avatar'] as const;
+/** What people can change on their own account without users.edit; language is the app's own doing (Session) */
+export const SELF_EDITABLE_FIELDS = ['firstName', 'lastName', 'phone', 'avatar', 'language'] as const;
 
 /**
  * The user-management permissions a role limited to a branch grants over the people who belong to that branch, so a

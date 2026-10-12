@@ -11,12 +11,11 @@ import { AccessReviewDecision, AccessReviewItem, AccessReviewOutcome, fullName }
 import { RoleBadge } from '../shared/badges';
 import { errorMessage } from '../shared/errors';
 import { ExportMenu } from '../shared/export-menu.component';
-import { LocalDatePipe, localDate, TimeAgoPipe } from '../shared/formatting';
+import { LocalDatePipe, localDate, localName, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import { ReasonPrompt } from '../shared/reason-prompt';
 import { TableExport } from '../shared/table-export';
 import {
-  UiAlert,
   UiBadge,
   UiBulkBar,
   UiButton,
@@ -35,13 +34,13 @@ import {
   UiPerson,
   UiSearchInput,
   UiSortHeader,
-  UiStatCard,
   UiTable,
   UiTableMinRows,
   UiTableScrollReset,
   UiTableState,
   UiToastService,
 } from '../ui';
+import { reviewScope } from './review-text';
 
 type SortKey = 'person' | 'role' | 'since' | 'decision';
 /** What the list shows: everything, what waits for the signed-in user, a decision, or, once closed, an outcome */
@@ -55,9 +54,9 @@ type ItemFilter = 'all' | 'mine' | 'undecided' | AccessReviewDecision | AccessRe
 @Component({
   selector: 'app-access-review',
   imports: [
-    RouterLink, NgIcon, TranslatePipe, LocalDatePipe, TimeAgoPipe, ExportMenu, RoleBadge, UiAlert, UiBadge, UiBulkBar, UiButton, UiCard,
-    UiCheckbox, UiEmptyState, UiFilterChips, UiMenu, UiMenuItem, UiMenuTrigger, UiPageHeader, UiPageSize, UiPagination, UiPerson,
-    UiSearchInput, UiSortHeader, UiStatCard, UiTable, UiTableMinRows, UiTableScrollReset,
+    RouterLink, NgIcon, TranslatePipe, LocalDatePipe, TimeAgoPipe, ExportMenu, RoleBadge, UiBadge, UiBulkBar, UiButton,
+    UiCard, UiCheckbox, UiEmptyState, UiFilterChips, UiMenu, UiMenuItem, UiMenuTrigger, UiPageHeader, UiPageSize, UiPagination, UiPerson,
+    UiSearchInput, UiSortHeader, UiTable, UiTableMinRows, UiTableScrollReset,
   ],
   templateUrl: './access-review.component.html',
   styleUrl: './access-review.component.scss',
@@ -96,25 +95,34 @@ export class AccessReviewComponent {
   /** Rows have checkboxes when some of them are the signed-in user's to decide */
   protected readonly canSelect = computed(() => this.isOpen() && this.items().some(item => item.canDecide));
 
-  /** What it covers, as the header's subtitle: "Every role · People of Chiang Mai" */
-  protected readonly scope = computed(() => {
+  /** Its name in the reader's language, when it is one of the sample's */
+  protected readonly name = computed(() => {
+    this.i18n();
+    const review = this.review();
+    return review ? localName(this.translate, review.name) : '';
+  });
+
+  /**
+   * The header's subtitle: what it covers, when it closes or closed, and who it names to decide all of it, such as
+   * "Every role · People of Chiang Mai · closes 23 Oct 2026"
+   */
+  protected readonly summary = computed(() => {
     this.i18n();
     const review = this.review();
     if (!review) {
       return '';
     }
-    const role = review.roleId
-      ? this.store.rolesById().get(review.roleId)?.name ?? this.translate.instant('Deleted role')
-      : this.translate.instant('Every role');
-    const branch = review.branchId ? this.store.branchesById().get(review.branchId)?.name : null;
-    return branch ? `${role} · ${this.translate.instant('peopleOf', { branch })}` : role;
+    const t = this.translate;
+    const when = review.status === 'open'
+      ? t.instant('reviewClosesOn', { date: localDate(t, review.dueAt) })
+      : review.closedById
+        ? t.instant('reviewClosedOnBy', { date: localDate(t, review.closedAt ?? review.dueAt), name: this.userName(review.closedById) })
+        : t.instant('reviewClosedOn', { date: localDate(t, review.closedAt ?? review.dueAt) });
+    const named = review.reviewerIds.length
+      ? [t.instant('reviewNamed', { names: review.reviewerIds.map(id => this.userName(id)).join(', ') })]
+      : [];
+    return [reviewScope(review, this.store, t), when, ...named].join(' · ');
   });
-
-  /** The people it names to decide all of it */
-  protected readonly reviewerNames = computed(() => (this.review()?.reviewerIds ?? []).map(id => this.userName(id)).join(', '));
-  /** Who started it, and who closed it; nobody when the server did */
-  protected readonly startedBy = computed(() => this.userName(this.review()?.createdById ?? null));
-  protected readonly closedBy = computed(() => this.userName(this.review()?.closedById ?? null));
 
   protected readonly counts = computed(() => {
     const items = this.items();
@@ -155,7 +163,8 @@ export class AccessReviewComponent {
     ];
   });
 
-  protected readonly pageSizes = [25, 50, 100];
+  /** As the users list; the table keeps the height of the smallest size, so a short page doesn't move the pagination */
+  protected readonly pageSizes = [10, 25, 50, 100];
 
   protected readonly table = new UiTableState<AccessReviewItem, SortKey>({
     rows: this.items,
@@ -261,7 +270,7 @@ export class AccessReviewComponent {
     const t = this.translate;
     const { remove, undecided } = this.counts();
     const confirmed = await this.confirm.ask({
-      title: t.instant('confirm.closeReview', { name: review.name }),
+      title: t.instant('confirm.closeReview', { name: localName(t, review.name) }),
       message: [
         remove ? t.instant('closeReviewRemoves', { count: remove }) : t.instant('No roles are taken away.'),
         undecided ? t.instant('closeReviewUndecided', { count: undecided }) : '',
@@ -276,7 +285,7 @@ export class AccessReviewComponent {
     this.busy.set(true);
     try {
       await this.store.closeAccessReview(review.id);
-      this.toast.show(t.instant('toast.reviewClosed', { name: review.name }));
+      this.toast.show(t.instant('toast.reviewClosed', { name: localName(t, review.name) }));
       await this.load(review.id);
     } catch (error) {
       this.toast.show(t.instant(errorMessage(error)), 'error');
@@ -292,7 +301,7 @@ export class AccessReviewComponent {
     }
     const t = this.translate;
     const confirmed = await this.confirm.ask({
-      title: t.instant('confirm.deleteReview', { name: review.name }),
+      title: t.instant('confirm.deleteReview', { name: localName(t, review.name) }),
       message: t.instant('Its decisions are lost, and nobody\'s roles change.'),
       confirmLabel: t.instant('Delete'),
       cancelLabel: t.instant('Cancel'),
@@ -303,7 +312,7 @@ export class AccessReviewComponent {
     }
     try {
       await this.store.deleteAccessReview(review.id);
-      this.toast.show(t.instant('toast.reviewDeleted', { name: review.name }));
+      this.toast.show(t.instant('toast.reviewDeleted', { name: localName(t, review.name) }));
       this.router.navigate(['/access-reviews']);
     } catch (error) {
       this.toast.show(t.instant(errorMessage(error)), 'error');
@@ -319,7 +328,7 @@ export class AccessReviewComponent {
     const scope = (item: AccessReviewItem) => item.branchId ? this.branchName(item.branchId) : t.instant('Whole organization');
     return {
       fileName: 'access-review',
-      title: review?.name ?? t.instant('Access reviews'),
+      title: review ? localName(t, review.name) : t.instant('Access reviews'),
       columns: [
         { header: t.instant('Name') }, { header: t.instant('Email') }, { header: t.instant('Role') }, { header: t.instant('Applies in') },
         { header: t.instant('Held since'), date: 'day' }, { header: t.instant('Ends'), date: 'day' }, { header: t.instant('Decision') },
@@ -341,14 +350,6 @@ export class AccessReviewComponent {
       ],
     };
   };
-
-  /** "Decided by Ann Lee, 4 Oct 2026" */
-  protected decidedText(item: AccessReviewItem): string {
-    this.i18n();
-    return item.decidedAt
-      ? this.translate.instant('decidedBy', { name: item.decidedByName, date: localDate(this.translate, item.decidedAt) })
-      : '';
-  }
 
   private async load(id: string) {
     try {

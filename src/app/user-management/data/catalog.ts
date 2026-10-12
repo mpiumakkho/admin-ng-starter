@@ -35,8 +35,8 @@ import {
 
 import { UiTone } from '../ui';
 import {
-  AccessReviewDecision, AccessReviewOutcome, AccessReviewStatus, ActivityAction, AdminSettings, Permission, ReasonAction, RoleAssignmentRules,
-  UserStatus,
+  AccessReviewDecision, AccessReviewOutcome, AccessReviewStatus, ActivityAction, AdminSettings, Language, Permission, ReasonAction,
+  RoleAssignmentRules, UserStatus,
 } from './models';
 
 // Labels in this file are translation keys
@@ -244,6 +244,13 @@ export const FIELD_LABELS: Record<string, string> = {
   kept: 'Kept',
   removed: 'Removed',
   notReviewed: 'Not reviewed',
+  defaultLanguage: 'Email language',
+};
+
+/** The languages emails can be written in, each by its own name, as language pickers show them */
+export const EMAIL_LANGUAGES: Record<Language, string> = {
+  th: 'ไทย',
+  en: 'English',
 };
 
 /** The changes the settings can require a reason for, as the settings page and the log name them */
@@ -309,6 +316,7 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   reasonsRequired: ['status', 'delete'],
   reauthMinutes: 10,
   suspendInactiveDays: 0,
+  defaultLanguage: 'th',
 };
 
 /** Choices on the settings page */
