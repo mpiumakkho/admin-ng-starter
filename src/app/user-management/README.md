@@ -4,7 +4,7 @@ Users, roles and permissions, and the activity log for an Angular 22 app, in one
 
 | Folder | What it holds |
 | --- | --- |
-| `overview/`, `users/`, `roles/`, `branches/`, `activity/`, `settings/` | The pages |
+| `overview/`, `users/`, `roles/`, `access-reviews/`, `branches/`, `activity/`, `settings/` | The pages |
 | `access/` | `Session` (who is signed in and what their role allows), the route guards and the no-access page |
 | `data/` | Types, `AdminApi` (the contract with the server), `LocalAdminApi` (sample data in the browser), `HttpAdminApi` (a real server, see [API.md](API.md)), `AdminStore` (signals the pages read) and the permission rules |
 | `shared/` | Pieces several pages use: role and status badges, the activity sentence, date pipes, error messages, CSV, and the Export menu (copy, Excel, CSV, print) with its own small .xlsx writer |
@@ -70,7 +70,7 @@ Users, roles and permissions, and the activity log for an Angular 22 app, in one
 
    Someone whose role must use two-step sign-in while theirs is off is kept on `/setup-two-factor` (`TWO_FACTOR_SETUP_PATH`), which comes with `USER_MANAGEMENT_ROUTES`. It is a page of its own, like sign-in: show it without the navbar and sidebar (this project lists it in `AUTH_PAGES` in `src/app/app.component.ts`).
 
-7. Put the pages in the app's menu. `USER_MANAGEMENT_MENU` is one group, "User management", with a link per page and the permission each needs; show a link only when `Session.can(link.permission)`, and the group only when it has a link to show. This project's sidebar (`src/app/layout/sidebar`) shows it as a dropdown.
+7. Put the pages in the app's menu. `USER_MANAGEMENT_MENU` is one group, "User management", with a link per page and the permission each needs; show a link only when `Session.canSomewhere(link.permission)`, and the group only when it has a link to show. A link with `tasks: 'accessReviews'` also shows to people who take part in an access review without the permission (`AdminStore.accessReviews()` has any), with `AdminStore.accessReviewsWaiting()` as a count beside it. This project's sidebar (`src/app/layout/sidebar`) shows it as a dropdown.
 
 The sample users' photos are in this project's `src/assets/images/faces`. Without them the avatars show initials instead.
 
@@ -126,6 +126,16 @@ As Microsoft Entra's administrative units and Google Workspace's organizational 
 
 [API.md](API.md#branch-administrators) has the rules the server checks; `LocalAdminApi` checks the same.
 
+### Access reviews
+
+As Microsoft Entra's access reviews, and the regular checks that ISO 27001 and the Bank of Thailand's IT risk rules ask for, an access review asks whether people still need the roles they hold (`/access-reviews`, under User management; `reviews.manage` to start one):
+
+- **Starting one** picks the roles (one, or every role), whose (the people of one branch, or everyone), the day it closes, and, if wanted, people who decide all of it besides each person's administrators, such as a department head. It covers the role assignments held then or later, kept as they were, so the report reads the same after people or roles change. The dialog says how many it will cover.
+- **Deciding.** The people who look after each person (who may manage them with `users.edit`, so a branch manager decides for their branch's staff) and the people the review names choose Keep or Remove for each role, one at a time or for everyone selected; Remove asks why, required where the settings ask a reason for taking a role away. Nobody decides about their own roles. Nothing changes before it closes, and a decision can change until then. The menu link shows to everyone with roles to decide, with how many, and the overview says so too.
+- **Closing.** At the end of its last day the server closes it by itself, or someone with `reviews.manage` closes it sooner (a risky change: the password may be asked again). The roles decided Remove are taken away; the ones nobody decided stay, marked Not reviewed; the last administrator's stays. A closed review no longer changes and cannot be deleted: Export gives the report an auditor asks for (Excel, CSV or print), with each decision, who made it, when and why, and what became of it.
+
+[API.md](API.md#access-reviews) has the requests and rules; `LocalAdminApi` follows them.
+
 ## Security
 
 The Security tab of a profile (`/users/:id?tab=security`) shows:
@@ -176,7 +186,7 @@ The server also emails people when their account is signed in from a new device,
 
 ## Trying it with the sample data
 
-`LocalAdminApi` keeps 48 sample users, 14 roles and a month of activity in the browser's `localStorage`: the four built-in roles and ten an organization might add (Help desk, HR, Auditor and so on), so the pages show a longer list of roles. With more than six roles, the roles page searches its list, the user form offers roles in a dropdown and the overview chart adds up all but the five largest. The sign-in page offers one account for each built-in role (Administrator, Manager, Support and Viewer); any active user's email works too, with any password of 6 or more characters. Clear the `admin-data-v7` key in the browser to start over.
+`LocalAdminApi` keeps 48 sample users, 14 roles, a month of activity and two access reviews (one open, of the people of Chiang Mai; one closed, of the Support role) in the browser's `localStorage`: the four built-in roles and ten an organization might add (Help desk, HR, Auditor and so on), so the pages show a longer list of roles. With more than six roles, the roles page searches its list, the user form offers roles in a dropdown and the overview chart adds up all but the five largest. The sign-in page offers one account for each built-in role (Administrator, Manager, Support and Viewer); any active user's email works too, with any password of 6 or more characters. Clear the `admin-data-v7` key in the browser to start over.
 
 ## Using a real server
 
