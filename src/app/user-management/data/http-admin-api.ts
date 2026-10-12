@@ -4,7 +4,7 @@ import { firstValueFrom, Observable, Subscription } from 'rxjs';
 
 import { AdminApi, AdminApiError, AdminApiErrorCode } from './admin-api';
 import {
-  Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
+  AccessReview, AccessReviewDecision, AccessReviewDraft, AccessReviewItem, Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
   RoleAssignmentChanges, RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorConfirmation, TwoFactorSetup, User, UserChanges, UserDraft,
   UserSession, UserStatus,
 } from './models';
@@ -30,7 +30,7 @@ const CODES: Record<AdminApiErrorCode, true> = {
   two_factor_required: true, invalid_code: true, invalid_token: true, two_factor_mandatory: true, password_reused: true,
   too_many_requests: true, already_assigned: true, last_administrator: true, assignment_too_long: true,
   reason_required: true, code_taken: true, branch_in_use: true, branch_closed: true, role_conflict: true,
-  reauth_required: true,
+  reauth_required: true, review_closed: true,
 };
 
 /** The /auth requests carry the refresh cookie, also to an API on another origin */
@@ -179,6 +179,34 @@ export class HttpAdminApi extends AdminApi {
 
   async deleteRoleConflict(id: string): Promise<void> {
     await this.send('DELETE', `/role-conflicts/${encodeURIComponent(id)}`);
+  }
+
+  /* Access reviews */
+
+  listAccessReviews(): Promise<AccessReview[]> {
+    return this.send<AccessReview[]>('GET', '/access-reviews');
+  }
+
+  startAccessReview(draft: AccessReviewDraft): Promise<AccessReview> {
+    return this.send<AccessReview>('POST', '/access-reviews', draft);
+  }
+
+  listAccessReviewItems(reviewId: string): Promise<AccessReviewItem[]> {
+    return this.send<AccessReviewItem[]>('GET', `/access-reviews/${encodeURIComponent(reviewId)}/items`);
+  }
+
+  decideAccessReview(reviewId: string, itemIds: string[], decision: AccessReviewDecision, note?: string): Promise<AccessReviewItem[]> {
+    return this.send<AccessReviewItem[]>('POST', `/access-reviews/${encodeURIComponent(reviewId)}/decisions`, {
+      itemIds, decision, ...(note ? { note } : {}),
+    });
+  }
+
+  closeAccessReview(reviewId: string): Promise<AccessReview> {
+    return this.send<AccessReview>('POST', `/access-reviews/${encodeURIComponent(reviewId)}/close`);
+  }
+
+  async deleteAccessReview(reviewId: string): Promise<void> {
+    await this.send('DELETE', `/access-reviews/${encodeURIComponent(reviewId)}`);
   }
 
   /* Branches */

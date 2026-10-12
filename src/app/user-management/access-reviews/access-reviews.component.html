@@ -1,0 +1,67 @@
+<ui-page-header [title]="'Access reviews' | translate" [subtitle]="'Check now and then that people still need the roles they hold, as audits ask.' | translate" [icon]="icons.page"
+  [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]">
+  @if (canManage()) {
+    <button uiButton type="button" (click)="starting.set(true)"><ng-icon [svg]="icons.add" /> {{ 'Start review' | translate }}</button>
+  }
+</ui-page-header>
+
+@if (canManage()) {
+  <app-start-review-dialog [(open)]="starting" (started)="open($event)" />
+}
+
+@if (store.accessReviewsWaiting(); as count) {
+  <ui-alert class="reviews-waiting" tone="info">{{ 'reviewsWaiting' | translate: { count } }}</ui-alert>
+}
+
+<ui-card flush fit>
+  @if (rows().length) {
+    <div class="ui-table-scroll">
+      <table uiTable dense class="reviews-table">
+        <thead>
+          <tr>
+            <th>{{ 'Review' | translate }}</th>
+            <th class="hide-sm">{{ 'Closes' | translate }}</th>
+            <th>{{ 'Decided' | translate }}</th>
+            <th class="hide-sm">{{ 'For you' | translate }}</th>
+            <th>{{ 'Status' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.review.id) {
+            <tr class="ui-row-link" (click)="open(row.review)">
+              <td class="cell-review">
+                <a class="review-name" [routerLink]="['/access-reviews', row.review.id]" (click)="$event.stopPropagation()">{{ row.review.name }}</a>
+                <span class="review-scope">
+                  {{ row.review.roleId ? (roleName(row.review.roleId) || ('Deleted role' | translate)) : ('Every role' | translate) }}
+                  @if (row.review.branchId) {
+                    · {{ 'peopleOf' | translate: { branch: branchName(row.review.branchId) } }}
+                  }
+                </span>
+              </td>
+              <td class="hide-sm muted">{{ (row.review.closedAt ?? row.review.dueAt) | localDate }}</td>
+              <td class="cell-progress">
+                <span class="progress" aria-hidden="true"><span class="progress-bar" [style.width.%]="row.progress"></span></span>
+                <span class="progress-text">{{ 'decidedOf' | translate: { decided: row.review.decidedCount, total: row.review.itemCount } }}</span>
+              </td>
+              <td class="hide-sm">
+                @if (row.review.waitingCount) {
+                  <ui-badge tone="warning">{{ 'toDecide' | translate: { count: row.review.waitingCount } }}</ui-badge>
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td><ui-badge [tone]="status[row.review.status].tone" dot>{{ status[row.review.status].label | translate }}</ui-badge></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <ui-empty-state [icon]="icons.page" [title]="'No access reviews yet' | translate"
+      [description]="(canManage() ? 'Start one to check that people still need the roles they hold.' : 'Reviews you decide in show here.') | translate">
+      @if (canManage()) {
+        <button uiButton type="button" (click)="starting.set(true)">{{ 'Start review' | translate }}</button>
+      }
+    </ui-empty-state>
+  }
+</ui-card>

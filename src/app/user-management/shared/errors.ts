@@ -27,6 +27,7 @@ const MESSAGES: Partial<Record<AdminApiErrorCode, string>> = {
   branch_closed: 'This branch is closed. Pick an open one.',
   role_conflict: 'They hold a role that cannot be held together with this one. See Conflicting roles on the roles page.',
   reauth_required: 'This change needs your password first. Try again and confirm it is you.',
+  review_closed: 'This review is closed. Its decisions can no longer change.',
 };
 
 /** The translation key that explains why a request failed */

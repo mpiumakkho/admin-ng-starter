@@ -4,6 +4,13 @@
   }
 </ui-page-header>
 
+@if (store.accessReviewsWaiting(); as count) {
+  <ui-alert class="reviews-waiting" tone="info">
+    {{ 'reviewsWaiting' | translate: { count } }}
+    <a uiAlertActions uiButton size="sm" variant="secondary" routerLink="/access-reviews">{{ 'Review now' | translate }}</a>
+  </ui-alert>
+}
+
 <!-- Each number opens the users behind it -->
 <div class="stat-grid">
   <a routerLink="/users">

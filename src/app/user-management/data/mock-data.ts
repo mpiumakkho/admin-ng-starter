@@ -1,8 +1,8 @@
 import { activeRoleIds } from './access-rules';
 import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, DEPARTMENTS } from './catalog';
 import {
-  Activity, ActivityAction, ActivityChange, AdminSettings, Branch, fullName, Role, RoleAssignment, RoleAssignmentRules, RoleConflict,
-  User, UserSession, UserStatus,
+  AccessReview, AccessReviewItem, Activity, ActivityAction, ActivityChange, AdminSettings, Branch, fullName, Role, RoleAssignment,
+  RoleAssignmentRules, RoleConflict, User, UserSession, UserStatus,
 } from './models';
 import { uuidV7 } from './uuid';
 
@@ -37,7 +37,16 @@ export interface AdminData {
   links?: Record<string, EmailLink>;
   /** Assignments whose end is already in the activity log, as the server's expiry job keeps track */
   expiryLogged?: string[];
+  /** Newest first; saved before access reviews existed: the sample ones */
+  accessReviews?: StoredAccessReview[];
 }
+
+/** An access review as the server keeps it: its items, without what depends on who asks */
+export interface StoredAccessReview extends Omit<AccessReview, 'itemCount' | 'decidedCount' | 'waitingCount'> {
+  items: StoredReviewItem[];
+}
+
+export type StoredReviewItem = Omit<AccessReviewItem, 'canDecide'>;
 
 export interface EmailLink {
   userId: string;
@@ -138,7 +147,7 @@ const CUSTOM_ROLES: Role[] = withRules([
   { id: 'team-lead', name: 'Team lead', description: 'Edits the people in their team', tone: 'primary', permissions: ['users.view', 'users.edit', 'activity.view'], system: false },
   { id: 'onboarding', name: 'Onboarding', description: 'Invites new people and sends invitations again', tone: 'success', permissions: ['users.view', 'users.create'], system: false },
   { id: 'it-operations', name: 'IT operations', description: 'Looks after the settings and signed-in devices', tone: 'info', permissions: ['users.view', 'users.edit', 'settings.view', 'settings.manage'], system: false },
-  { id: 'compliance', name: 'Compliance', description: 'Reads the roles, the settings and the activity log', tone: 'warning', permissions: ['users.view', 'roles.view', 'activity.view', 'activity.export', 'settings.view'], system: false },
+  { id: 'compliance', name: 'Compliance', description: 'Reads the roles, the settings and the activity log, and runs access reviews', tone: 'warning', permissions: ['users.view', 'roles.view', 'activity.view', 'activity.export', 'settings.view', 'reviews.manage'], system: false },
   { id: 'finance', name: 'Finance', description: 'Reads the user list for billing', tone: 'neutral', permissions: ['users.view'], system: false },
   { id: 'contractor', name: 'Contractor', description: 'Limited access for outside staff', tone: 'neutral', permissions: ['users.view'], system: false },
 ]);
@@ -352,6 +361,31 @@ export function createMockData(now = Date.now()): AdminData {
       expiryLogged.push(assignment.id);
     }
   }
+  // The access reviews, and what the log says of them; ids from the same generator, after all the others
+  const accessReviews = createSampleReviews(users, [...ROLES, ...CUSTOM_ROLES], now);
+  for (const review of accessReviews) {
+    const reviewEntry = (at: string, action: ActivityAction, actorId: string | null, changes: ActivityChange[]): Activity => ({
+      id: uuidV7(new Date(at).getTime(), bytes => bytes.forEach((_, byte) => bytes[byte] = Math.floor(idRandom() * 256))),
+      at, actorId, action, targetLabel: review.name, targetId: review.id, ...(actorId ? office : { ip: '', browser: '', os: '' }), changes,
+    });
+    activity.push(reviewEntry(review.createdAt, 'access_review.started', owner.id, [
+      ...(review.roleId ? [{ field: 'roleId', to: review.roleId }] : []),
+      { field: 'dueAt', to: review.dueAt },
+      { field: 'assignments', to: String(review.items.length) },
+    ]));
+    const kept = review.items.filter(item => item.decision === 'keep');
+    if (kept.length) {
+      activity.push(reviewEntry(kept[0].decidedAt!, 'access_review.decided', owner.id, [
+        { field: 'decision', to: 'keep' }, { field: 'assignments', to: String(kept.length) },
+      ]));
+    }
+    if (review.closedAt) {
+      const count = (outcome: string) => String(review.items.filter(item => item.outcome === outcome).length);
+      activity.push(reviewEntry(review.closedAt, 'access_review.closed', null, [
+        { field: 'kept', to: count('kept') }, { field: 'removed', to: count('removed') }, { field: 'notReviewed', to: count('not_reviewed') },
+      ]));
+    }
+  }
   activity.sort((a, b) => b.at.localeCompare(a.at));
 
   // A year ago, before the first people joined
@@ -360,8 +394,61 @@ export function createMockData(now = Date.now()): AdminData {
     users, roles: structuredClone([...ROLES, ...CUSTOM_ROLES]), roleConflicts: structuredClone(SAMPLE_ROLE_CONFLICTS), branches, activity,
     // The sample shows branches; a new installation starts without them
     settings: { ...DEFAULT_SETTINGS, branchesEnabled: true },
-    sessions: createMockSessions(users, now), expiryLogged,
+    sessions: createMockSessions(users, now), expiryLogged, accessReviews,
   };
+}
+
+/**
+ * The sample's access reviews, newest first: one of the people of Chiang Mai, open now, where the owner has decided a
+ * few roles and the branch manager has the rest of their staff to decide; and one of the Support role, closed by the
+ * server on its due date, with one role nobody decided. They draw no random numbers.
+ */
+export function createSampleReviews(users: User[], roles: Role[], now = Date.now()): StoredAccessReview[] {
+  const owner = users[0];
+  const roleName = (roleId: string) => roles.find(role => role.id === roleId)?.name ?? roleId;
+  /** The assignments held at that moment or later, of one role or all, by the people of one branch or all, as kept */
+  const itemsAt = (reviewId: string, at: number, roleId: string | null, branchId: string | null): StoredReviewItem[] => users
+    .filter(user => !branchId || user.branchId === branchId)
+    .flatMap(user => user.roles
+      .filter(item => (!roleId || item.roleId === roleId) && new Date(item.assignedAt).getTime() <= at
+        && (!item.endsAt || new Date(item.endsAt).getTime() > at))
+      .map(item => ({
+        id: `${reviewId}-${item.id}`, assignmentId: item.id, userId: user.id, userName: fullName(user), email: user.email,
+        roleId: item.roleId, roleName: roleName(item.roleId), branchId: item.branchId, startsAt: item.startsAt, endsAt: item.endsAt,
+        decision: null, note: '', decidedById: null, decidedByName: '', decidedAt: null, outcome: null,
+      })))
+    .sort((a, b) => a.userName.localeCompare(b.userName) || a.roleName.localeCompare(b.roleName));
+  const decide = (item: StoredReviewItem, decision: 'keep' | 'remove', at: number, note = ''): StoredReviewItem => ({
+    ...item, decision, note, decidedById: owner.id, decidedByName: fullName(owner), decidedAt: new Date(at).toISOString(),
+  });
+
+  // Open: every role of the people of Chiang Mai, started three days ago by the owner, who has kept a few and marked
+  // the one held for a time to go
+  const openedAt = now - 3 * DAY;
+  const open = itemsAt('ar-quarter', openedAt, null, 'b-cnx').map((item, index) => item.endsAt
+    ? decide(item, 'remove', openedAt + DAY, 'The cover is no longer needed.')
+    : index < 3 ? decide(item, 'keep', openedAt + DAY) : item);
+
+  // Closed: the Support role, a quarter ago; the server closed it on its due date, with the last one undecided
+  const supportAt = now - 100 * DAY;
+  const supportDue = new Date(supportAt + 14 * DAY).toISOString();
+  const support = itemsAt('ar-support', supportAt, 'support', null).map((item, index, all) => {
+    const decided = index < all.length - 1 ? decide(item, 'keep', supportAt + 2 * DAY) : item;
+    return { ...decided, outcome: decided.decision ? 'kept' as const : 'not_reviewed' as const };
+  });
+
+  return [
+    {
+      id: 'ar-quarter', name: 'Chiang Mai, quarterly review', roleId: null, branchId: 'b-cnx', reviewerIds: [],
+      dueAt: new Date(now + 11 * DAY).toISOString(), status: 'open', createdById: owner.id, createdAt: new Date(openedAt).toISOString(),
+      closedAt: null, closedById: null, items: open,
+    },
+    {
+      id: 'ar-support', name: 'Support role review', roleId: 'support', branchId: null, reviewerIds: [], dueAt: supportDue,
+      status: 'closed', createdById: owner.id, createdAt: new Date(supportAt).toISOString(), closedAt: supportDue, closedById: null,
+      items: support,
+    },
+  ];
 }
 
 /**

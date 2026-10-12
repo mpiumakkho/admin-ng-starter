@@ -5,7 +5,7 @@ import { catchError, from, map, throwError } from 'rxjs';
 import { AdminApiError, AdminApiErrorCode } from './admin-api';
 import { ADMIN_API_URL, TokenAnswer } from './http-admin-api';
 import { LocalAdminApi } from './local-admin-api';
-import { BranchDraft, RoleAssignmentBatch, RoleAssignmentDraft, RoleConflictDraft, RoleDraft, User, UserDraft } from './models';
+import { AccessReviewDraft, BranchDraft, RoleAssignmentBatch, RoleAssignmentDraft, RoleConflictDraft, RoleDraft, User, UserDraft } from './models';
 
 /** The status a server would answer each refusal with */
 const STATUS: Record<AdminApiErrorCode, number> = {
@@ -39,6 +39,7 @@ const STATUS: Record<AdminApiErrorCode, number> = {
   branch_closed: 409,
   role_conflict: 409,
   reauth_required: 403,
+  review_closed: 409,
 };
 
 /** How long an access token lasts, in seconds, as on the server */
@@ -108,6 +109,12 @@ const ROUTES: Route[] = [
   ['POST', /^\/role-conflicts$/, (api, body) => api.createRoleConflict(body as unknown as RoleConflictDraft)],
   ['PATCH', /^\/role-conflicts\/([^/]+)$/, (api, body, id) => api.updateRoleConflict(id, body)],
   ['DELETE', /^\/role-conflicts\/([^/]+)$/, (api, _body, id) => api.deleteRoleConflict(id)],
+  ['GET', /^\/access-reviews$/, api => api.listAccessReviews()],
+  ['POST', /^\/access-reviews$/, (api, body) => api.startAccessReview(body as unknown as AccessReviewDraft)],
+  ['GET', /^\/access-reviews\/([^/]+)\/items$/, (api, _body, id) => api.listAccessReviewItems(id)],
+  ['POST', /^\/access-reviews\/([^/]+)\/decisions$/, (api, body, id) => api.decideAccessReview(id, body['itemIds'], body['decision'], body['note'])],
+  ['POST', /^\/access-reviews\/([^/]+)\/close$/, (api, _body, id) => api.closeAccessReview(id)],
+  ['DELETE', /^\/access-reviews\/([^/]+)$/, (api, _body, id) => api.deleteAccessReview(id)],
   ['GET', /^\/activity$/, (api, _body, _id, query) => api.listActivity({
     from: query.get('from') ?? undefined,
     to: query.get('to') ?? undefined,

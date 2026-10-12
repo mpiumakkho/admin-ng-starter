@@ -5,10 +5,15 @@ import {
   permissionsOf, roleAssignmentState, roleConflict, SELF_EDITABLE_FIELDS,
 } from './access-rules';
 import { AdminApi, AdminApiError } from './admin-api';
-import { ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, REASON_ACTIONS, ROLE_TONES, STATUS_META } from './catalog';
-import { AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, EmailLink, SAMPLE_ROLE_CONFLICTS } from './mock-data';
 import {
-  Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, fullName, PasswordPolicy,
+  ALL_PERMISSIONS, DEFAULT_ASSIGNMENT_RULES, DEFAULT_SETTINGS, REASON_ACTIONS, REVIEW_MAX_DAYS, ROLE_TONES, STATUS_META,
+} from './catalog';
+import {
+  AdminData, BUILT_IN_ROLES, createMockData, createMockSessions, createSampleReviews, EmailLink, SAMPLE_ROLE_CONFLICTS, StoredAccessReview,
+  StoredReviewItem,
+} from './mock-data';
+import {
+  AccessReview, AccessReviewDecision, AccessReviewDraft, AccessReviewItem, AccessReviewOutcome, Activity, ActivityAction, ActivityChange, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, fullName, PasswordPolicy,
   Permission, ReasonAction, Role, RoleAssignment, RoleAssignmentBatch, RoleAssignmentChanges, RoleAssignmentDraft, RoleAssignmentRules,
   RoleConflict, RoleConflictDraft, RoleDraft, RoleGrant, TwoFactorConfirmation, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
@@ -33,6 +38,9 @@ const HISTORY_KEPT = 24;
 const DAY_MS = 24 * 60 * 60_000;
 /** The longest reason an assignment may give */
 const MAX_REASON_LENGTH = 500;
+/** The most people an access review may name to decide all of it, and the most decisions one request makes */
+const MAX_REVIEWERS = 20;
+const MAX_DECISIONS = 1000;
 /** Recovery codes: how many, and the letters and digits they are made of, without the ones easy to mix up */
 const RECOVERY_CODE_COUNT = 10;
 const RECOVERY_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
@@ -545,6 +553,202 @@ export class LocalAdminApi extends AdminApi {
       ...(changes['name'] !== undefined ? { name: (changes['name'] as string).trim() } : {}),
       ...(changes['description'] !== undefined ? { description: (changes['description'] as string).trim() } : {}),
       ...(roleIds !== undefined ? { roleIds: roleIds as string[] } : {}),
+    };
+  }
+
+  /* Access reviews */
+
+  async listAccessReviews(): Promise<AccessReview[]> {
+    const actor = this.actor();
+    return this.respond(this.reviews().filter(review => this.takesPart(actor, review)).map(review => this.reviewView(actor, review)));
+  }
+
+  async startAccessReview(input: AccessReviewDraft): Promise<AccessReview> {
+    const actor = this.actor('reviews.manage');
+    const draft = fields(input, ['name', 'roleId', 'branchId', 'dueAt', 'reviewerIds']);
+    const name = typeof draft['name'] === 'string' ? draft['name'].trim() : '';
+    check(!!name && name.length <= 100);
+    check(['roleId', 'branchId'].every(field => draft[field] === undefined || draft[field] === null || typeof draft[field] === 'string'));
+    const now = Date.now();
+    check(isInstant(draft['dueAt']));
+    const due = new Date(draft['dueAt'] as string).getTime();
+    // After now, and within a year
+    check(due > now && due <= now + REVIEW_MAX_DAYS * DAY_MS);
+    const reviewerIds = draft['reviewerIds'] ?? [];
+    check(Array.isArray(reviewerIds) && reviewerIds.length <= MAX_REVIEWERS && reviewerIds.every(id => typeof id === 'string')
+      && new Set(reviewerIds).size === reviewerIds.length);
+    const roleId = (draft['roleId'] ?? null) as string | null;
+    const branchId = (draft['branchId'] ?? null) as string | null;
+    if ((roleId !== null && !this.data.roles.some(role => role.id === roleId))
+      || (reviewerIds as string[]).some(id => !this.data.users.some(user => user.id === id))) {
+      throw new AdminApiError('not_found');
+    }
+    if (branchId !== null) {
+      this.findBranch(branchId);
+    }
+    const id = `ar-${crypto.randomUUID().slice(0, 8)}`;
+    const at = new Date(now).toISOString();
+    // Every role held now or later by the people in scope, as it is at this moment
+    const items = this.data.users.filter(user => branchId === null || user.branchId === branchId)
+      .flatMap(user => user.roles
+        .filter(item => (roleId === null || item.roleId === roleId) && roleAssignmentState(item, now) !== 'expired')
+        .map<StoredReviewItem>(item => ({
+          id: `${id}-${item.id}`, assignmentId: item.id, userId: user.id, userName: fullName(user), email: user.email, roleId: item.roleId,
+          roleName: this.data.roles.find(role => role.id === item.roleId)?.name ?? '', branchId: item.branchId, startsAt: item.startsAt,
+          endsAt: item.endsAt, decision: null, note: '', decidedById: null, decidedByName: '', decidedAt: null, outcome: null,
+        })))
+      .sort((a, b) => a.userName.localeCompare(b.userName) || a.roleName.localeCompare(b.roleName));
+    const review: StoredAccessReview = {
+      id, name, roleId, branchId, reviewerIds: reviewerIds as string[], dueAt: new Date(due).toISOString(), status: 'open',
+      createdById: actor.id, createdAt: at, closedAt: null, closedById: null, items,
+    };
+    this.data.accessReviews = [review, ...this.reviews()];
+    this.log(actor.id, 'access_review.started', name, id, [
+      ...(roleId ? [{ field: 'roleId', to: roleId }] : []),
+      ...(branchId ? [{ field: 'branchId', to: branchId }] : []),
+      { field: 'dueAt', to: review.dueAt },
+      ...(review.reviewerIds.length ? [{ field: 'reviewers', added: review.reviewerIds, removed: [] }] : []),
+      { field: 'assignments', to: String(items.length) },
+    ]);
+    // Everyone active who may decide some of it hears how much, and by when
+    for (const user of this.data.users.filter(person => person.status === 'active')) {
+      const count = items.filter(item => this.mayDecide(user, review, item)).length;
+      if (count) {
+        notify(user, `Access review: ${name}`, `${count} role assignments to decide by ${review.dueAt.slice(0, 10)}`);
+      }
+    }
+    return this.respond(this.reviewView(actor, review));
+  }
+
+  async listAccessReviewItems(reviewId: string): Promise<AccessReviewItem[]> {
+    const actor = this.actor();
+    const review = this.findReview(reviewId);
+    if (!this.takesPart(actor, review)) {
+      throw new AdminApiError('not_found');
+    }
+    const all = this.permissions(actor).has('reviews.manage') || review.reviewerIds.includes(actor.id);
+    const grants = this.grants(actor);
+    const open = review.status === 'open';
+    // Otherwise what they may decide, or, once closed, what they decided
+    return this.respond(review.items
+      .map(item => ({ ...item, canDecide: open && this.mayDecide(actor, review, item, grants) }))
+      .filter(item => all || (open ? item.canDecide : item.decidedById === actor.id)));
+  }
+
+  async decideAccessReview(reviewId: string, itemIds: string[], decision: AccessReviewDecision, note?: string): Promise<AccessReviewItem[]> {
+    const actor = this.actor();
+    check(Array.isArray(itemIds) && itemIds.length > 0 && itemIds.length <= MAX_DECISIONS && itemIds.every(id => typeof id === 'string'));
+    check(decision === 'keep' || decision === 'remove');
+    check(note === undefined || (typeof note === 'string' && note.length <= MAX_REASON_LENGTH));
+    const review = this.findReview(reviewId);
+    if (!this.takesPart(actor, review)) {
+      throw new AdminApiError('not_found');
+    }
+    if (review.status === 'closed') {
+      throw new AdminApiError('review_closed');
+    }
+    const items = [...new Set(itemIds)].map(id => {
+      const item = review.items.find(entry => entry.id === id);
+      if (!item) {
+        throw new AdminApiError('not_found');
+      }
+      return item;
+    });
+    if (items.some(item => item.userId === actor.id)) {
+      throw new AdminApiError('self_change');
+    }
+    if (items.some(item => !this.mayDecide(actor, review, item))) {
+      throw new AdminApiError('forbidden');
+    }
+    // Taking a role away asks for a reason where the settings say so, as removing it does
+    const why = decision === 'remove' ? this.requireReason('removeRole', note) : (note ?? '').trim();
+    const at = new Date().toISOString();
+    const decided = new Map(items.map(item => [item.id, {
+      ...item, decision, note: why, decidedById: actor.id, decidedByName: fullName(actor), decidedAt: at,
+    }]));
+    this.data.accessReviews = this.reviews().map(entry => entry.id === reviewId
+      ? { ...entry, items: entry.items.map(item => decided.get(item.id) ?? item) } : entry);
+    this.log(actor.id, 'access_review.decided', review.name, review.id, [
+      { field: 'decision', to: decision }, { field: 'assignments', to: String(decided.size) },
+    ], why);
+    return this.respond([...decided.values()].map(item => ({ ...item, canDecide: true })));
+  }
+
+  async closeAccessReview(reviewId: string): Promise<AccessReview> {
+    const actor = this.actor('reviews.manage');
+    if (this.findReview(reviewId).status === 'closed') {
+      throw new AdminApiError('review_closed');
+    }
+    // It takes roles away
+    this.assertReauthenticated();
+    closeReview(this.data, reviewId, actor.id, this.client);
+    return this.respond(this.reviewView(actor, this.findReview(reviewId)));
+  }
+
+  async deleteAccessReview(reviewId: string): Promise<void> {
+    const actor = this.actor('reviews.manage');
+    const review = this.findReview(reviewId);
+    // A closed one is the record
+    if (review.status === 'closed') {
+      throw new AdminApiError('review_closed');
+    }
+    this.data.accessReviews = this.reviews().filter(item => item.id !== reviewId);
+    this.log(actor.id, 'access_review.deleted', review.name);
+    return this.respond(undefined);
+  }
+
+  private reviews(): StoredAccessReview[] {
+    return this.data.accessReviews ?? [];
+  }
+
+  private findReview(id: string): StoredAccessReview {
+    const review = this.reviews().find(item => item.id === id);
+    if (!review) {
+      throw new AdminApiError('not_found');
+    }
+    return review;
+  }
+
+  /**
+   * Whether someone sees a review: every one with reviews.manage; otherwise one that names them, an open one they may
+   * decide some of, or a closed one they decided some of
+   */
+  private takesPart(actor: User, review: StoredAccessReview): boolean {
+    if (this.permissions(actor).has('reviews.manage') || review.reviewerIds.includes(actor.id)) {
+      return true;
+    }
+    if (review.status === 'closed') {
+      return review.items.some(item => item.decidedById === actor.id);
+    }
+    const grants = this.grants(actor);
+    return review.items.some(item => this.mayDecide(actor, review, item, grants));
+  }
+
+  /**
+   * Whether someone may decide about a role under review, open or not: the review names them, or they look after the
+   * person (users.edit over them, rules 1, 3 and 4) and have every permission of the role in its scope; never their own
+   */
+  private mayDecide(actor: User, review: StoredAccessReview, item: StoredReviewItem, grants = this.grants(actor)): boolean {
+    if (item.userId === actor.id) {
+      return false;
+    }
+    if (review.reviewerIds.includes(actor.id)) {
+      return true;
+    }
+    const user = this.data.users.find(person => person.id === item.userId);
+    return !!user && allows(grants, 'users.edit', user.branchId ?? null) && canManageUser(grants, user, this.data.roles)
+      && canGiveRole(grants, this.data.roles.find(role => role.id === item.roleId), item.branchId);
+  }
+
+  /** A review as the person asking sees it: with how many it covers, how many are decided, and how many wait for them */
+  private reviewView(actor: User, review: StoredAccessReview): AccessReview {
+    const { items, ...rest } = review;
+    const grants = this.grants(actor);
+    return {
+      ...rest,
+      itemCount: items.length,
+      decidedCount: items.filter(item => item.decision).length,
+      waitingCount: review.status === 'open' ? items.filter(item => !item.decision && this.mayDecide(actor, review, item, grants)).length : 0,
     };
   }
 
@@ -1347,8 +1551,10 @@ export class LocalAdminApi extends AdminApi {
           const builtIn = BUILT_IN_ROLES.find(item => item.id === role.id);
           return builtIn ? { ...role, name: builtIn.name, description: builtIn.description, permissions: [...builtIn.permissions] } : role;
         });
+        data.accessReviews ??= createSampleReviews(data.users, data.roles);
         settleAssignments(data, kept);
         settleInactive(data);
+        settleReviews(data);
         return data;
       }
     } catch {
@@ -1514,6 +1720,57 @@ function settleInactive(data: AdminData) {
     ]), ...data.activity];
     notify(user, 'Your account was suspended', `not used for ${days} days`);
   }
+}
+
+/** What the server's job does with access reviews: closes each one whose due date has passed, as of that moment */
+function settleReviews(data: AdminData) {
+  const now = new Date().toISOString();
+  const due = (data.accessReviews ?? []).filter(review => review.status === 'open' && review.dueAt <= now);
+  due.forEach(review => closeReview(data, review.id, null, undefined, review.dueAt));
+  if (due.length) {
+    data.activity.sort((a, b) => b.at.localeCompare(a.at));
+  }
+}
+
+/**
+ * Closes an access review (API.md, "Access reviews"): takes away each role decided 'remove', unless it has already ended
+ * or gone, or nobody else would be left to run the system, and notes what became of each. The server's own closing, at
+ * the due date, has no actor.
+ */
+function closeReview(data: AdminData, reviewId: string, actorId: string | null, client?: { ip: string; browser: string; os: string }, at = new Date().toISOString()) {
+  const review = data.accessReviews!.find(item => item.id === reviewId)!;
+  const now = new Date(at).getTime();
+  const removals: Activity[] = [];
+  const items = review.items.map(item => {
+    const outcome = ((): AccessReviewOutcome => {
+      if (item.decision !== 'remove') {
+        return item.decision === 'keep' ? 'kept' : 'not_reviewed';
+      }
+      const user = data.users.find(person => person.id === item.userId);
+      const assignment = user?.roles.find(role => role.id === item.assignmentId);
+      if (!user || !assignment || roleAssignmentState(assignment, now) === 'expired') {
+        return 'gone';
+      }
+      const users = data.users.map(person => person.id === user.id ? { ...person, roles: person.roles.filter(role => role.id !== assignment.id) } : person);
+      if (!administratorRemains(users, data.roles, ALL_PERMISSIONS, now) && administratorRemains(data.users, data.roles, ALL_PERMISSIONS, now)) {
+        return 'last_administrator';
+      }
+      data.users = users;
+      data.expiryLogged = (data.expiryLogged ?? []).filter(id => id !== assignment.id);
+      removals.push(logEntry(null, 'role_assignment.removed', fullName(user), user.id, [
+        { field: 'roleId', from: assignment.roleId }, { field: 'accessReview', to: review.name },
+      ], undefined, at, item.note));
+      return 'removed';
+    })();
+    return { ...item, outcome };
+  });
+  const count = (outcome: AccessReviewOutcome) => String(items.filter(item => item.outcome === outcome).length);
+  const closed = logEntry(actorId, 'access_review.closed', review.name, review.id, [
+    { field: 'kept', to: count('kept') }, { field: 'removed', to: count('removed') }, { field: 'notReviewed', to: count('not_reviewed') },
+  ], actorId ? client : undefined, at);
+  data.accessReviews = data.accessReviews!.map(item => item.id === reviewId
+    ? { ...review, items, status: 'closed' as const, closedAt: at, closedById: actorId } : item);
+  data.activity = [closed, ...removals.reverse(), ...data.activity];
 }
 
 /** An email about someone's account; there is no mail server here, so it goes to the browser console */

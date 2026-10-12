@@ -1,5 +1,5 @@
 import {
-  Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
+  AccessReview, AccessReviewDecision, AccessReviewDraft, AccessReviewItem, Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, PasswordPolicy, Role, RoleAssignmentBatch,
   RoleAssignmentChanges, RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorConfirmation, TwoFactorSetup, User, UserChanges, UserDraft,
   UserSession, UserStatus,
 } from './models';
@@ -60,7 +60,9 @@ export type AdminApiErrorCode =
   /** A rule says nobody may hold this role with one the person holds at an overlapping time */
   | 'role_conflict'
   /** A risky change, and the person last signed in or confirmed their password too long ago: confirm it, then try again */
-  | 'reauth_required';
+  | 'reauth_required'
+  /** The access review is closed: it no longer changes */
+  | 'review_closed';
 
 export class AdminApiError extends Error {
   constructor(readonly code: AdminApiErrorCode) {
@@ -150,6 +152,20 @@ export abstract class AdminApi {
   abstract createRoleConflict(draft: RoleConflictDraft): Promise<RoleConflict>;
   abstract updateRoleConflict(id: string, changes: Partial<RoleConflictDraft>): Promise<RoleConflict>;
   abstract deleteRoleConflict(id: string): Promise<void>;
+
+  /* Access reviews */
+
+  /** Every review with reviews.manage; otherwise the ones the signed-in user takes part in */
+  abstract listAccessReviews(): Promise<AccessReview[]>;
+  abstract startAccessReview(draft: AccessReviewDraft): Promise<AccessReview>;
+  /** All of a review's assignments, or the ones the signed-in user may decide */
+  abstract listAccessReviewItems(reviewId: string): Promise<AccessReviewItem[]>;
+  /** Keep or remove each of these, all or none; nothing changes until the review closes */
+  abstract decideAccessReview(reviewId: string, itemIds: string[], decision: AccessReviewDecision, note?: string): Promise<AccessReviewItem[]>;
+  /** Closes it now, taking away the roles decided 'remove'; a risky change (reauth_required) */
+  abstract closeAccessReview(reviewId: string): Promise<AccessReview>;
+  /** An open one only */
+  abstract deleteAccessReview(reviewId: string): Promise<void>;
 
   /* Activity */
 

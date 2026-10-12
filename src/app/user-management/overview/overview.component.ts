@@ -19,6 +19,7 @@ import type { ChartData, ChartOptions } from 'chart.js';
 
 import { ActivityDialog } from '../activity/activity-dialog.component';
 import {
+  UiAlert,
   UiButton,
   UiCard,
   UiCardActions,
@@ -79,6 +80,7 @@ const ENDING_SOON_DAYS = 7;
     TranslatePipe,
     UiChart,
     UiPageHeader,
+    UiAlert,
     UiButton,
     UiCard,
     UiCardActions,

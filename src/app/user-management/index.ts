@@ -8,7 +8,7 @@ export type { UserManagementMenuGroup, UserManagementMenuLink, UserManagementMen
 export { provideUserManagement } from './provide-user-management';
 export type { UserManagementOptions } from './provide-user-management';
 export { Session } from './access/session';
-export { canViewUser, requirePermission, settingUpTwoFactor, signedIn, signedOut } from './access/guards';
+export { canSeeAccessReviews, canViewUser, requirePermission, settingUpTwoFactor, signedIn, signedOut } from './access/guards';
 export { TWO_FACTOR_SETUP_PATH } from './access/session';
 export { ReauthDialog } from './access/reauth-dialog.component';
 export { TwoFactorCodeField, twoFactorCodeControl } from './access/two-factor-code-field.component';

@@ -139,6 +139,21 @@ $menu-motion: .3s $menu-easing;
   }
 }
 
+// How many things wait for the signed-in user on a page, such as roles to decide in an access review
+.menu-count {
+  flex-shrink: 0;
+  min-width: 1.25rem;
+  padding: .0625rem .375rem;
+  border-radius: 999px;
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+  font-size: .6875rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Section headings */
 .menu > .nav-category > .nav-link {
   min-height: 0;
@@ -218,7 +233,10 @@ $menu-motion: .3s $menu-easing;
 
   .nav-link {
     position: relative;
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
     margin: 1px 0;
     margin-inline-start: .625rem;
     padding: .4375rem .75rem;
@@ -288,6 +306,7 @@ $menu-motion: .3s $menu-easing;
 
         .menu-title,
         .menu-arrow,
+        .menu-count,
         .sub-menu-wrap {
           display: none;
         }

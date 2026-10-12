@@ -46,6 +46,18 @@ export function requirePermission(...permissions: Permission[]): CanActivateFn {
   };
 }
 
+/** Access reviews: for people who run them (reviews.manage), and for those who take part in one */
+export const canSeeAccessReviews: CanActivateFn = (_route, state) => {
+  const session = inject(Session);
+  if (!session.signedIn()) {
+    return toSignIn(state);
+  }
+  if (session.twoFactorSetupRequired()) {
+    return toTwoFactorSetup();
+  }
+  return session.can('reviews.manage') || inject(AdminStore).accessReviews().length > 0 || noAccess(state);
+};
+
 /** A user's profile: anyone can see their own; other people's need users.view, for the whole organization or a branch */
 export const canViewUser: CanActivateFn = (route, state) => {
   const session = inject(Session);

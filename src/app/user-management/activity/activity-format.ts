@@ -2,8 +2,10 @@ import { inject, Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 
 import { AdminStore } from '../data/admin-store';
-import { ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, REASON_ACTIONS, SIGN_IN_FAILURES, STATUS_META } from '../data/catalog';
-import { Activity, ActivityChange, fullName, ReasonAction, UserStatus } from '../data/models';
+import {
+  ACTIVITY_META, FIELD_LABELS, PERMISSION_LABELS, REASON_ACTIONS, REVIEW_DECISIONS, SIGN_IN_FAILURES, STATUS_META,
+} from '../data/catalog';
+import { AccessReviewDecision, Activity, ActivityChange, fullName, ReasonAction, UserStatus } from '../data/models';
 import { idleTimeoutLabel, inactiveLabel, localDate, passwordHistoryLabel, reauthLabel, retentionLabel } from '../shared/formatting';
 
 /** Where an entry's target can be opened, if it still exists */
@@ -49,6 +51,9 @@ export class ActivityFormat {
     if (!entry.targetId || entry.action === 'auth.sign_in') {
       return null;
     }
+    if (entry.action.startsWith('access_review.')) {
+      return this.store.accessReviews().some(review => review.id === entry.targetId) ? { link: ['/access-reviews', entry.targetId] } : null;
+    }
     if (entry.action.startsWith('role_conflict.')) {
       return this.store.roleConflicts().some(rule => rule.id === entry.targetId) ? { link: ['/roles/conflicts'] } : null;
     }
@@ -82,7 +87,10 @@ export class ActivityFormat {
         return this.translate.instant(raw === 'true' ? 'On' : 'Off');
       case 'startsAt':
       case 'endsAt':
+      case 'dueAt':
         return localDate(this.translate, raw);
+      case 'decision':
+        return REVIEW_DECISIONS[raw as AccessReviewDecision] ? this.translate.instant(REVIEW_DECISIONS[raw as AccessReviewDecision].label) : raw;
       case 'maxDays':
         return raw === 'null' ? this.translate.instant('No limit') : this.translate.instant('dayCount', { count: Number(raw) });
       case 'reasonRequired':
@@ -126,6 +134,10 @@ export class ActivityFormat {
     if (field === 'reasonsRequired') {
       const label = REASON_ACTIONS[key as ReasonAction];
       return label ? this.translate.instant(label) : key;
+    }
+    if (field === 'reviewers') {
+      const user = this.store.usersById().get(key);
+      return user ? fullName(user) : this.translate.instant('Deleted user');
     }
     return field === 'twoFactorRoleIds' || field === 'roles' ? this.store.rolesById().get(key)?.name ?? key : this.permission(key);
   }

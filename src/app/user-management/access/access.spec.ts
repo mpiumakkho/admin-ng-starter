@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, convertToParamMap, provideRouter, RedirectCommand, RouterStateSnapshot, UrlTree } from '@angular/router';
 
-import { activeRoleIds, administratorRemains } from '../data/access-rules';
+import { activeRoleIds, administratorRemains, roleAssignmentState } from '../data/access-rules';
 import { ALL_PERMISSIONS } from '../data/catalog';
 import { AdminApi, AdminApiError } from '../data/admin-api';
 import { AdminStore } from '../data/admin-store';
@@ -9,13 +9,16 @@ import { LocalAdminApi } from '../data/local-admin-api';
 import { AdminData, createMockData, DEMO_ACCOUNTS } from '../data/mock-data';
 import { totp } from '../data/totp';
 import { UserDraft } from '../data/models';
-import { canEditUser, canViewUser, requirePermission, signedIn, signedOut } from './guards';
+import { canEditUser, canSeeAccessReviews, canViewUser, requirePermission, signedIn, signedOut } from './guards';
 import { UiAccessibleViewService, UiToastService } from '../ui';
 import { Session } from './session';
 
 const email = (roleId: string) => DEMO_ACCOUNTS.find(account => account.roleId === roleId)!.email;
 const sample = createMockData(0);
 const anyone = (status: string) => sample.users.find(user => user.status === status)!;
+
+/** For the tests that sign in again and again, each request with the sample's short pause */
+const LONG = 15_000;
 
 const draft = (roleId: string): UserDraft => ({
   firstName: 'Ada', lastName: 'Lovelace', email: `ada.${roleId}@example.com`, phone: '', department: 'Design', roles: [{ roleId, endsAt: null }],
@@ -322,7 +325,7 @@ describe('Session and permissions', () => {
       await store.disableTwoFactor(fresh[0]);
       expect(session.user()?.twoFactor).toBe(false);
       expect(await store.recoveryCodesLeft()).toBe(0);
-    });
+    }, LONG);
 
     it('can be turned off for someone who lost their phone, by an administrator', async () => {
       await signInAs('support');
@@ -816,6 +819,124 @@ describe('Session and permissions', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+
+  describe('access reviews', () => {
+    const STORAGE = 'admin-data-v7';
+    const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60_000).toISOString();
+    const idOf = (address: string) => sample.users.find(user => user.email === address)!.id;
+    const branchManager = () => DEMO_ACCOUNTS.find(account => account.roleName === 'Branch manager')!.email;
+
+    it('covers the roles held now or later, and lets the people who look after each person decide', async () => {
+      await signInAs('admin');
+      const viewers = store.users().filter(user => user.roles.some(item => item.roleId === 'viewer' && roleAssignmentState(item) !== 'expired'));
+      const review = await store.startAccessReview({ name: ' Viewers ', roleId: 'viewer', dueAt: inDays(7) });
+
+      expect(review).toMatchObject({ name: 'Viewers', status: 'open', itemCount: viewers.length, decidedCount: 0, waitingCount: viewers.length });
+      expect(store.accessReviews()[0].id).toBe(review.id);
+      expect(store.activity()[0]).toMatchObject({
+        action: 'access_review.started', actorId: session.userId(), targetId: review.id,
+        changes: [{ field: 'roleId', to: 'viewer' }, { field: 'dueAt', to: review.dueAt }, { field: 'assignments', to: String(viewers.length) }],
+      });
+      const items = await store.accessReviewItems(review.id);
+      expect(items.every(item => item.roleId === 'viewer' && item.roleName === 'Viewer' && item.canDecide && item.decision === null)).toBe(true);
+
+      const [kept, removed] = items;
+      await store.decideAccessReview(review.id, [kept.id], 'keep');
+      const [decided] = await store.decideAccessReview(review.id, [removed.id], 'remove', ' Left the team ');
+      expect(decided).toMatchObject({ decision: 'remove', note: 'Left the team', decidedById: session.userId() });
+      expect(store.accessReviews()[0]).toMatchObject({ decidedCount: 2, waitingCount: viewers.length - 2 });
+      expect(store.activity()[0]).toMatchObject({ action: 'access_review.decided', reason: 'Left the team', changes: [{ field: 'decision', to: 'remove' }, { field: 'assignments', to: '1' }] });
+      // Nothing is taken away before it closes
+      expect(store.usersById().get(removed.userId)!.roles.some(item => item.id === removed.assignmentId)).toBe(true);
+
+      await expect(store.startAccessReview({ name: 'Too far', dueAt: inDays(400) })).rejects.toEqual(new AdminApiError('invalid_request'));
+      await expect(store.startAccessReview({ name: 'Ghost', roleId: 'nope', dueAt: inDays(7) })).rejects.toEqual(new AdminApiError('not_found'));
+    });
+
+    it('takes away the roles decided Remove when someone closes it, and is then the record', async () => {
+      const manager = email('manager');
+      await signInAs('admin');
+      const review = await store.startAccessReview({ name: 'Support', roleId: 'support', dueAt: inDays(7), reviewerIds: [idOf(manager)] });
+      await session.signOut();
+
+      // Named, a manager decides all of it, and the settings may ask why
+      await session.signIn(manager, 'any-password', false);
+      expect(guard(() => canSeeAccessReviews({} as ActivatedRouteSnapshot, state('/access-reviews')))).toBe(true);
+      const items = await store.accessReviewItems(review.id);
+      expect(items.length).toBeGreaterThan(2);
+      await store.decideAccessReview(review.id, [items[0].id], 'remove', 'Moved to sales');
+      await store.decideAccessReview(review.id, [items[1].id], 'keep');
+      await expect(store.closeAccessReview(review.id)).rejects.toEqual(new AdminApiError('forbidden'));
+      await session.signOut();
+
+      await signInAs('admin');
+      const closed = await store.closeAccessReview(review.id);
+      expect(closed).toMatchObject({ status: 'closed', closedById: session.userId(), waitingCount: 0 });
+      const outcomes = new Map((await store.accessReviewItems(review.id)).map(item => [item.id, item.outcome]));
+      expect(outcomes.get(items[0].id)).toBe('removed');
+      expect(outcomes.get(items[1].id)).toBe('kept');
+      expect(outcomes.get(items[2].id)).toBe('not_reviewed');
+      expect(store.usersById().get(items[0].userId)!.roles.some(item => item.id === items[0].assignmentId)).toBe(false);
+      expect(store.activity()[0]).toMatchObject({
+        action: 'access_review.closed', actorId: session.userId(),
+        changes: [{ field: 'kept', to: '1' }, { field: 'removed', to: '1' }, { field: 'notReviewed', to: String(items.length - 2) }],
+      });
+      expect(store.activity()[1]).toMatchObject({
+        action: 'role_assignment.removed', actorId: null, targetId: items[0].userId, reason: 'Moved to sales',
+        changes: [{ field: 'roleId', from: 'support' }, { field: 'accessReview', to: 'Support' }],
+      });
+
+      await expect(store.decideAccessReview(review.id, [items[2].id], 'keep')).rejects.toEqual(new AdminApiError('review_closed'));
+      await expect(store.deleteAccessReview(review.id)).rejects.toEqual(new AdminApiError('review_closed'));
+    }, LONG);
+
+    it('closes by itself at its due date, keeping the last one who can run the system', async () => {
+      const manager = email('manager');
+      await signInAs('admin');
+      const review = await store.startAccessReview({ name: 'Administrators', roleId: 'admin', dueAt: inDays(1), reviewerIds: [idOf(manager)] });
+      await session.signOut();
+      await session.signIn(manager, 'any-password', false);
+      const items = await store.accessReviewItems(review.id);
+      await store.decideAccessReview(review.id, items.map(item => item.id), 'remove');
+
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        vi.setSystemTime(Date.now() + 2 * 24 * 60 * 60_000);
+        // Any request reads the data, as the server's job runs
+        await new LocalAdminApi().getSession();
+      } finally {
+        vi.useRealTimers();
+      }
+      const saved = JSON.parse(localStorage.getItem(STORAGE)!) as AdminData;
+      const closed = saved.accessReviews!.find(item => item.id === review.id)!;
+      expect(closed).toMatchObject({ status: 'closed', closedById: null, closedAt: review.dueAt });
+      expect(closed.items.filter(item => item.outcome === 'last_administrator')).toHaveLength(1);
+      expect(administratorRemains(saved.users, saved.roles, ALL_PERMISSIONS)).toBe(true);
+      expect(saved.activity.find(entry => entry.action === 'access_review.closed' && entry.targetId === review.id)).toMatchObject({ actorId: null });
+    }, LONG);
+
+    it('shows a branch administrator the people of their branch to decide, and someone without a part nothing', async () => {
+      await session.signIn(branchManager(), 'any-password', false);
+      const review = store.accessReviews().find(item => item.id === 'ar-quarter')!;
+      expect(review.waitingCount).toBeGreaterThan(0);
+      expect(store.accessReviews().some(item => item.id === 'ar-support')).toBe(false);
+      const people = store.usersById();
+      const items = await store.accessReviewItems(review.id);
+      expect(items.length).toBeGreaterThan(0);
+      expect(items.every(item => item.canDecide && people.get(item.userId)?.branchId === 'b-cnx' && item.userId !== session.userId())).toBe(true);
+      // Their own role is in it, but nobody decides about their own roles
+      const saved = JSON.parse(localStorage.getItem(STORAGE)!) as AdminData;
+      const own = saved.accessReviews!.find(item => item.id === review.id)!.items.find(item => item.userId === session.userId())!;
+      await expect(store.decideAccessReview(review.id, [own.id], 'keep')).rejects.toEqual(new AdminApiError('self_change'));
+      await session.signOut();
+
+      await signInAs('viewer');
+      expect(store.accessReviews()).toEqual([]);
+      expect(store.accessReviewsWaiting()).toBe(0);
+      await expect(store.accessReviewItems('ar-quarter')).rejects.toEqual(new AdminApiError('not_found'));
+      expect(guard(() => canSeeAccessReviews({} as ActivatedRouteSnapshot, state('/access-reviews')))).toBeInstanceOf(RedirectCommand);
     });
   });
 

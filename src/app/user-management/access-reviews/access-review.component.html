@@ -1,0 +1,170 @@
+@if (review(); as review) {
+  <ui-page-header [title]="review.name" [subtitle]="scope()" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate"
+    [breadcrumbs]="[{ label: 'User management' | translate }, { label: 'Access reviews' | translate, link: '/access-reviews' }]">
+    @if (items().length) {
+      <app-export-menu [source]="exportTable" />
+    }
+    @if (canManage() && isOpen()) {
+      <button uiButton type="button" [disabled]="busy()" (click)="closeNow()"><ng-icon [svg]="icons.page" /> {{ 'Close review' | translate }}</button>
+      <button uiButton variant="secondary" iconOnly type="button" [uiMenuTrigger]="moreMenu" [attr.aria-label]="'More actions' | translate">
+        <ng-icon [svg]="icons.more" />
+      </button>
+      <ng-template #moreMenu>
+        <ui-menu>
+          <button uiMenuItem tone="danger" [icon]="icons.delete" (triggered)="remove()">{{ 'Delete review' | translate }}</button>
+        </ui-menu>
+      </ng-template>
+    }
+  </ui-page-header>
+
+  <div class="review-summary">
+    <ui-stat-card [label]="'Role assignments' | translate" [value]="counts().all" />
+    @if (isOpen()) {
+      <ui-stat-card [label]="'Keep' | translate" [value]="counts().keep" />
+      <ui-stat-card [label]="'Remove' | translate" [value]="counts().remove" />
+      <ui-stat-card [label]="'Not decided' | translate" [value]="counts().undecided" />
+    } @else {
+      <ui-stat-card [label]="'Kept' | translate" [value]="counts().kept + counts().last_administrator" />
+      <ui-stat-card [label]="'Removed' | translate" [value]="counts().removed" />
+      <ui-stat-card [label]="'Not reviewed' | translate" [value]="counts().not_reviewed" />
+    }
+  </div>
+
+  <ui-alert class="review-note" [tone]="isOpen() ? 'info' : 'neutral'">
+    @if (isOpen()) {
+      {{ 'reviewOpenNote' | translate: { date: (review.dueAt | localDate: 'datetime') } }}
+    } @else if (review.closedById) {
+      {{ 'reviewClosedBy' | translate: { date: (review.closedAt | localDate: 'datetime'), name: closedBy() } }}
+    } @else {
+      {{ 'reviewClosedOnDue' | translate: { date: (review.closedAt | localDate: 'datetime') } }}
+    }
+    <span class="review-meta">
+      {{ 'reviewStartedBy' | translate: { name: startedBy() || ('Deleted user' | translate), date: (review.createdAt | localDate) } }}
+      @if (reviewerNames()) {
+        · {{ 'reviewNamed' | translate: { names: reviewerNames() } }}
+      }
+    </span>
+  </ui-alert>
+
+  <ui-card flush fit>
+    <div class="toolbar">
+      <ui-search-input class="toolbar-search" size="sm" [value]="table.query()" (valueChange)="table.search($event)" [placeholder]="'Search name, email or role' | translate" [clearLabel]="'Clear search' | translate" />
+      <ui-filter-chips class="toolbar-chips" scroll [options]="filterOptions()" [value]="filter()" (valueChange)="setFilter($event)" [ariaLabel]="'Show' | translate" />
+    </div>
+
+    @if (table.selectedIds().size) {
+      <ui-bulk-bar [label]="'selectedCount' | translate: { count: table.selectedIds().size }" [clearLabel]="'Clear' | translate" (cleared)="table.clearSelection()">
+        <button uiButton size="sm" variant="secondary" type="button" [disabled]="busy()" (click)="decide(table.selectedRows(), 'keep')"><ng-icon [svg]="icons.keep" /> {{ 'Keep' | translate }}</button>
+        <button uiButton size="sm" variant="danger-soft" type="button" [disabled]="busy()" (click)="decide(table.selectedRows(), 'remove')"><ng-icon [svg]="icons.remove" /> {{ 'Remove' | translate }}</button>
+      </ui-bulk-bar>
+    }
+
+    @if (failure(); as message) {
+      <ui-empty-state [icon]="icons.empty" [title]="'Could not load this review' | translate" [description]="message | translate" />
+    } @else if (loading()) {
+      <p class="loading">{{ 'Loading…' | translate }}</p>
+    } @else if (table.total()) {
+      <div class="ui-table-scroll" [uiTableMinRows]="10" [uiTableScrollReset]="table">
+        <table uiTable dense class="review-table">
+          <thead>
+            <tr>
+              @if (canSelect()) {
+                <th class="ui-cell-shrink">
+                  <ui-checkbox [checked]="table.allOnPageSelected()" [indeterminate]="table.someOnPageSelected()" [disabled]="!table.pageHasSelectable()" (changed)="table.togglePage()" [ariaLabel]="'Select all on this page' | translate" />
+                </th>
+              }
+              <th><ui-sort-header [table]="table" key="person">{{ 'User' | translate }}</ui-sort-header></th>
+              <th><ui-sort-header [table]="table" key="role">{{ 'Role' | translate }}</ui-sort-header></th>
+              <th class="hide-md"><ui-sort-header [table]="table" key="since">{{ 'Held since' | translate }}</ui-sort-header></th>
+              <th class="hide-lg">{{ 'Last active' | translate }}</th>
+              <th><ui-sort-header [table]="table" key="decision">{{ 'Decision' | translate }}</ui-sort-header></th>
+              @if (!isOpen()) {
+                <th>{{ 'Outcome' | translate }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of table.pageRows(); track item.id) {
+              <tr [class.ui-row-selected]="table.isSelected(item)">
+                @if (canSelect()) {
+                  <td class="ui-cell-shrink cell-check">
+                    <ui-checkbox [checked]="table.isSelected(item)" [disabled]="!table.isSelectable(item)" (changed)="table.toggle(item)" [ariaLabel]="'selectReviewItem' | translate: { name: item.userName, role: item.roleName }" />
+                  </td>
+                }
+                <td class="cell-person">
+                  @if (person(item); as user) {
+                    <a class="person-link" [routerLink]="['/users', user.id]" [queryParams]="{ tab: 'roles' }">
+                      <ui-person [name]="item.userName" [detail]="item.email" [src]="user.avatar" size="xs" />
+                    </a>
+                  } @else {
+                    <ui-person [name]="item.userName" [detail]="item.email" size="xs" />
+                  }
+                  @if (item.userId === session.userId()) {
+                    <span class="you">{{ 'You' | translate }}</span>
+                  }
+                </td>
+                <td class="cell-role">
+                  @if (store.rolesById().has(item.roleId)) {
+                    <app-role-badge [roleId]="item.roleId" />
+                  } @else {
+                    <ui-badge tone="neutral">{{ item.roleName }}</ui-badge>
+                  }
+                  <span class="cell-detail">
+                    {{ item.branchId ? ('branchOnly' | translate: { branch: branchName(item.branchId) }) : ('Whole organization' | translate) }}
+                    @if (item.endsAt) {
+                      · {{ 'untilDate' | translate: { date: (item.endsAt | localDate) } }}
+                    }
+                  </span>
+                </td>
+                <td class="hide-md muted">{{ item.startsAt | localDate }}</td>
+                <td class="hide-lg muted">{{ person(item) ? (person(item)!.lastActiveAt | timeAgo: ('Never' | translate)) : '—' }}</td>
+                <td class="cell-decision">
+                  @if (item.canDecide) {
+                    <div class="decision-buttons" role="group" [attr.aria-label]="'decisionFor' | translate: { name: item.userName, role: item.roleName }">
+                      <button uiButton size="sm" type="button" [variant]="item.decision === 'keep' ? 'primary' : 'secondary'" [attr.aria-pressed]="item.decision === 'keep'"
+                        [disabled]="busy()" (click)="item.decision !== 'keep' && decide([item], 'keep')">
+                        <ng-icon [svg]="icons.keep" /> {{ 'Keep' | translate }}
+                      </button>
+                      <button uiButton size="sm" type="button" [variant]="item.decision === 'remove' ? 'danger' : 'secondary'" [attr.aria-pressed]="item.decision === 'remove'"
+                        [disabled]="busy()" (click)="decide([item], 'remove')">
+                        <ng-icon [svg]="icons.remove" /> {{ 'Remove' | translate }}
+                      </button>
+                    </div>
+                  } @else if (item.decision) {
+                    <ui-badge [tone]="decisions[item.decision].tone">{{ decisions[item.decision].label | translate }}</ui-badge>
+                  } @else {
+                    <span class="muted">{{ 'Not decided' | translate }}</span>
+                  }
+                  @if (item.decidedAt) {
+                    <span class="cell-detail">{{ decidedText(item) }}</span>
+                  }
+                  @if (item.note) {
+                    <span class="decision-note" [title]="item.note">{{ item.note }}</span>
+                  }
+                </td>
+                @if (!isOpen()) {
+                  <td class="cell-outcome">
+                    @if (item.outcome) {
+                      <ui-badge [tone]="outcomes[item.outcome].tone" dot>{{ outcomes[item.outcome].label | translate }}</ui-badge>
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <ui-page-size [table]="table" [sizes]="pageSizes" [label]="'rangeOf' | translate: table.range()" [heading]="'Rows per page' | translate" />
+        <ui-pagination [ariaLabel]="'Pagination' | translate" [page]="table.currentPage()" (pageChange)="table.page.set($event)" [pageCount]="table.pageCount()" [firstLabel]="'First page' | translate" [previousLabel]="'Previous page' | translate" [nextLabel]="'Next page' | translate" [lastLabel]="'Last page' | translate" />
+      </div>
+    } @else {
+      <ui-empty-state [icon]="icons.empty" [title]="(items().length ? 'Nothing matches' : 'Nobody held these roles') | translate"
+        [description]="(items().length ? 'Try another search or show everything.' : 'There was nothing to review when it started.') | translate" />
+    }
+  </ui-card>
+} @else {
+  <ui-empty-state [icon]="icons.page" [title]="'This review no longer exists' | translate" [description]="'Someone may have deleted it.' | translate">
+    <a uiButton variant="secondary" routerLink="/access-reviews">{{ 'Back to access reviews' | translate }}</a>
+  </ui-empty-state>
+}

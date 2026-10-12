@@ -9,6 +9,8 @@ export interface MenuLink {
   permission?: Permission;
   /** And only while this setting is on */
   setting?: 'branchesEnabled';
+  /** Also shown, with a count of what waits there, to people who take part in what the page lists */
+  tasks?: 'accessReviews';
 }
 
 export interface MenuItem {

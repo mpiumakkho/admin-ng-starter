@@ -17,6 +17,10 @@
             <button type="button" class="nav-link" (click)="toggle(item.label)" [attr.aria-expanded]="isOpen(item.label)" [attr.aria-controls]="'menu-group-' + $index">
               <ng-icon [svg]="item.icon" class="menu-icon" />
               <span class="menu-title">{{ item.label | translate }}</span>
+              @if (!isOpen(item.label) && groupWaiting(item); as count) {
+                <span class="menu-count" aria-hidden="true">{{ count }}</span>
+                <span class="ui-sr-only">{{ 'waitingForYou' | translate: { count } }}</span>
+              }
               <ng-icon [svg]="chevron" class="menu-arrow" />
             </button>
             <!-- Opens by animating its height in CSS; closed, its links are out of reach (inert) -->
@@ -24,7 +28,15 @@
               <div class="sub-menu-clip">
                 <ul class="sub-menu">
                   @for (child of item.children; track child.link) {
-                    <li class="nav-item"><a class="nav-link" [routerLink]="child.link" routerLinkActive="active">{{ child.label | translate }}</a></li>
+                    <li class="nav-item">
+                      <a class="nav-link" [routerLink]="child.link" routerLinkActive="active">
+                        {{ child.label | translate }}
+                        @if (waiting(child); as count) {
+                          <span class="menu-count" aria-hidden="true">{{ count }}</span>
+                          <span class="ui-sr-only">{{ 'waitingForYou' | translate: { count } }}</span>
+                        }
+                      </a>
+                    </li>
                   }
                 </ul>
               </div>

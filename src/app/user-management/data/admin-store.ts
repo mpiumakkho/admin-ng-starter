@@ -4,7 +4,7 @@ import { activeRoleIds, roleAssignmentState, roleConflictViolations } from './ac
 import { AdminApi, AdminApiError } from './admin-api';
 import { DEFAULT_SETTINGS } from './catalog';
 import {
-  Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, Role, RoleAssignmentBatch, RoleAssignmentChanges,
+  AccessReview, AccessReviewDecision, AccessReviewDraft, AccessReviewItem, Activity, ActivityRange, AdminSettings, Branch, BranchChanges, BranchDraft, Role, RoleAssignmentBatch, RoleAssignmentChanges,
   RoleAssignmentDraft, RoleConflict, RoleConflictDraft, RoleDraft, TwoFactorConfirmation, TwoFactorSetup, User, UserChanges, UserDraft, UserSession, UserStatus,
 } from './models';
 
@@ -28,6 +28,8 @@ export class AdminStore {
   readonly branches = signal<Branch[]>([]);
   readonly activity = signal<Activity[]>([]);
   readonly settings = signal<AdminSettings>(DEFAULT_SETTINGS);
+  /** Every access review with reviews.manage; otherwise the ones the signed-in user takes part in */
+  readonly accessReviews = signal<AccessReview[]>([]);
   readonly loaded = signal(false);
   /** Set when the server answers that the session has ended; Session then sends the user to sign in */
   readonly sessionEnded = signal(false);
@@ -64,6 +66,8 @@ export class AdminStore {
   readonly branchesEnabled = computed(() => this.settings().branchesEnabled);
   /** The ones people can join or get a role in */
   readonly openBranches = computed(() => this.branches().filter(branch => branch.active));
+  /** How many roles under review wait for the signed-in user's decision, in every open review: the menu's count */
+  readonly accessReviewsWaiting = computed(() => this.accessReviews().reduce((count, review) => count + review.waitingCount, 0));
 
   /**
    * Now, as far as role assignments go: it moves on when one starts or ends, so whatever depends on who holds which
@@ -122,7 +126,7 @@ export class AdminStore {
   }
 
   async load(): Promise<void> {
-    let loaded: [User[], Role[], Activity[], AdminSettings, Branch[], RoleConflict[]];
+    let loaded: [User[], Role[], Activity[], AdminSettings, Branch[], RoleConflict[], AccessReview[]];
     try {
       loaded = await this.fetchAll();
     } catch (error) {
@@ -138,7 +142,7 @@ export class AdminStore {
       this.loaded.set(true);
       return;
     }
-    const [users, roles, activity, settings, branches, roleConflicts] = loaded;
+    const [users, roles, activity, settings, branches, roleConflicts, accessReviews] = loaded;
     this.twoFactorSetupRequired.set(false);
     this.users.set(users);
     this.roles.set(roles);
@@ -146,6 +150,7 @@ export class AdminStore {
     this.branches.set(branches);
     this.activity.set(activity);
     this.settings.set(settings);
+    this.accessReviews.set(accessReviews);
     this.sessionEnded.set(false);
     this.changesWaiting.set(false);
     this.loaded.set(true);
@@ -169,13 +174,14 @@ export class AdminStore {
   /** Loads everything again, quietly; a session that ended elsewhere is noticed here */
   async refresh(): Promise<void> {
     try {
-      const [users, roles, activity, settings, branches, roleConflicts] = await this.fetchAll();
+      const [users, roles, activity, settings, branches, roleConflicts, accessReviews] = await this.fetchAll();
       this.users.set(users);
       this.roles.set(roles);
       this.roleConflicts.set(roleConflicts);
       this.branches.set(branches);
       this.activity.set(activity);
       this.settings.set(settings);
+      this.accessReviews.set(accessReviews);
       this.revision.update(revision => revision + 1);
     } catch {
       // Offline for a moment: the next change tries again
@@ -185,7 +191,7 @@ export class AdminStore {
   private fetchAll() {
     return this.call(() => Promise.all([
       this.api.listUsers(), this.api.listRoles(), this.api.listActivity(), this.api.getSettings(), this.api.listBranches(),
-      this.api.listRoleConflicts(),
+      this.api.listRoleConflicts(), this.api.listAccessReviews(),
     ]));
   }
 
@@ -208,7 +214,9 @@ export class AdminStore {
     }
     try {
       const latest = await this.fetchAll();
-      const shown = [this.users(), this.roles(), this.activity(), this.settings(), this.branches(), this.roleConflicts()];
+      const shown = [
+        this.users(), this.roles(), this.activity(), this.settings(), this.branches(), this.roleConflicts(), this.accessReviews(),
+      ];
       if (JSON.stringify(latest) !== JSON.stringify(shown)) {
         this.changesWaiting.set(true);
       }
@@ -228,6 +236,7 @@ export class AdminStore {
     this.branches.set([]);
     this.activity.set([]);
     this.settings.set(DEFAULT_SETTINGS);
+    this.accessReviews.set([]);
     this.loaded.set(false);
     this.sessionEnded.set(false);
     this.changesWaiting.set(false);
@@ -410,6 +419,44 @@ export class AdminStore {
     this.roles.update(roles => roles.filter(role => role.id !== id));
     // The server took it off the conflicting-roles rules, and dropped those left with one role
     this.roleConflicts.set(await this.call(() => this.api.listRoleConflicts()));
+    await this.refreshActivity();
+  }
+
+  /* Access reviews */
+
+  async startAccessReview(draft: AccessReviewDraft): Promise<AccessReview> {
+    const review = await this.call(() => this.api.startAccessReview(draft));
+    this.accessReviews.update(reviews => [review, ...reviews]);
+    await this.refreshActivity();
+    return review;
+  }
+
+  /** A review's roles, as the signed-in user may see them; pages load them themselves, again on each revision */
+  accessReviewItems(reviewId: string): Promise<AccessReviewItem[]> {
+    return this.call(() => this.api.listAccessReviewItems(reviewId));
+  }
+
+  /** Keeps or removes each of these roles when the review closes; answers them as decided */
+  async decideAccessReview(reviewId: string, itemIds: string[], decision: AccessReviewDecision, note?: string): Promise<AccessReviewItem[]> {
+    const decided = await this.call(() => this.api.decideAccessReview(reviewId, itemIds, decision, note));
+    // Its counts changed
+    this.accessReviews.set(await this.call(() => this.api.listAccessReviews()));
+    await this.refreshActivity().catch(() => undefined);
+    return decided;
+  }
+
+  /** Closes it now: the roles decided 'remove' are taken away */
+  async closeAccessReview(reviewId: string): Promise<AccessReview> {
+    const review = await this.call(() => this.api.closeAccessReview(reviewId));
+    this.accessReviews.update(reviews => reviews.map(item => item.id === reviewId ? review : item));
+    this.users.set(await this.call(() => this.api.listUsers()));
+    await this.refreshActivity();
+    return review;
+  }
+
+  async deleteAccessReview(reviewId: string): Promise<void> {
+    await this.call(() => this.api.deleteAccessReview(reviewId));
+    this.accessReviews.update(reviews => reviews.filter(item => item.id !== reviewId));
     await this.refreshActivity();
   }
 

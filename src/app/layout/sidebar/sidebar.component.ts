@@ -32,7 +32,7 @@ export class SidebarComponent {
       ...section,
       items: section.items
         .filter(item => this.allowed(item.permission))
-        .map(item => item.children ? { ...item, children: item.children.filter(child => this.allowed(child.permission, child.setting)) } : item)
+        .map(item => item.children ? { ...item, children: item.children.filter(child => this.shows(child)) } : item)
         .filter(item => !item.children || item.children.length),
     }))
     .filter(section => section.items.length));
@@ -83,8 +83,24 @@ export class SidebarComponent {
     });
   }
 
-  private allowed(permission: MenuItem['permission'], setting?: MenuLink['setting']) {
-    return (!permission || this.session.canSomewhere(permission)) && (!setting || this.store.settings()[setting]);
+  /** How many things wait for the signed-in user on a page, such as roles to decide in an access review */
+  protected waiting(link: MenuLink): number {
+    return link.tasks === 'accessReviews' ? this.store.accessReviewsWaiting() : 0;
+  }
+
+  /** The same for a whole group, shown on it while it is closed */
+  protected groupWaiting(item: MenuItem): number {
+    return (item.children ?? []).reduce((count, child) => count + this.waiting(child), 0);
+  }
+
+  private allowed(permission: MenuItem['permission']) {
+    return !permission || this.session.canSomewhere(permission);
+  }
+
+  /** A page of a group: allowed, or one the signed-in user takes part in, while its setting is on */
+  private shows(link: MenuLink) {
+    const involved = link.tasks === 'accessReviews' && this.store.accessReviews().length > 0;
+    return (this.allowed(link.permission) || involved) && (!link.setting || this.store.settings()[link.setting]);
   }
 
   /** Opens the group that holds this address, so the current page is in view */

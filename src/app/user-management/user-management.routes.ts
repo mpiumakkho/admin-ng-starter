@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { requirePermission, settingUpTwoFactor } from './access/guards';
+import { canSeeAccessReviews, requirePermission, settingUpTwoFactor } from './access/guards';
 import { NoAccessComponent } from './access/no-access.component';
 
 /**
@@ -15,6 +15,14 @@ export const USER_MANAGEMENT_ROUTES: Routes = [
   {
     path: 'roles/conflicts', canActivate: [requirePermission('roles.view')],
     loadComponent: () => import('./roles/role-conflicts.component').then(m => m.RoleConflictsComponent),
+  },
+  {
+    path: 'access-reviews', canActivate: [canSeeAccessReviews],
+    loadComponent: () => import('./access-reviews/access-reviews.component').then(m => m.AccessReviewsComponent),
+  },
+  {
+    path: 'access-reviews/:id', canActivate: [canSeeAccessReviews],
+    loadComponent: () => import('./access-reviews/access-review.component').then(m => m.AccessReviewComponent),
   },
   { path: 'branches', canActivate: [requirePermission('branches.view')], loadComponent: () => import('./branches/branches.component').then(m => m.BranchesComponent) },
   { path: 'activity', canActivate: [requirePermission('activity.view')], loadComponent: () => import('./activity/activity.component').then(m => m.ActivityComponent) },

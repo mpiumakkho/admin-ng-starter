@@ -3,9 +3,13 @@ import {
   lucideBadgePlus,
   lucideBan,
   lucideCalendarClock,
+  lucideClipboardCheck,
+  lucideClipboardList,
+  lucideClipboardX,
   lucideKeyRound,
   lucideKeySquare,
   lucideLifeBuoy,
+  lucideListChecks,
   lucideLock,
   lucideLogIn,
   lucideLogOut,
@@ -30,7 +34,10 @@ import {
 } from '@ng-icons/lucide';
 
 import { UiTone } from '../ui';
-import { ActivityAction, AdminSettings, Permission, ReasonAction, RoleAssignmentRules, UserStatus } from './models';
+import {
+  AccessReviewDecision, AccessReviewOutcome, AccessReviewStatus, ActivityAction, AdminSettings, Permission, ReasonAction, RoleAssignmentRules,
+  UserStatus,
+} from './models';
 
 // Labels in this file are translation keys
 
@@ -84,6 +91,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'branches.manage', label: 'Add and change branches' },
     ],
   },
+  {
+    key: 'reviews',
+    label: 'Access reviews',
+    permissions: [
+      { key: 'reviews.manage', label: 'Run access reviews' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap(group => group.permissions.map(permission => permission.key));
@@ -108,12 +122,13 @@ export const TONE_NAMES: Record<UiTone, string> = {
   neutral: 'Gray',
 };
 
-export type ActivityKind = 'users' | 'roles' | 'branches' | 'settings' | 'sessions';
+export type ActivityKind = 'users' | 'roles' | 'branches' | 'reviews' | 'settings' | 'sessions';
 
 export const ACTIVITY_KINDS: Record<ActivityKind, string> = {
   users: 'Users',
   roles: 'Roles',
   branches: 'Branches',
+  reviews: 'Access reviews',
   settings: 'Settings',
   sessions: 'Sign-ins',
 };
@@ -167,6 +182,18 @@ export const ACTIVITY_META: Record<ActivityAction, { icon: string; tone: UiTone;
   'auth.recovery_codes_created': {
     icon: lucideKeySquare, tone: 'info', label: 'action.auth.recovery_codes_created', message: 'activity.auth.recovery_codes_created', kind: 'sessions',
   },
+  'access_review.started': {
+    icon: lucideClipboardList, tone: 'primary', label: 'action.access_review.started', message: 'activity.access_review.started', kind: 'reviews',
+  },
+  'access_review.decided': {
+    icon: lucideListChecks, tone: 'info', label: 'action.access_review.decided', message: 'activity.access_review.decided', kind: 'reviews',
+  },
+  'access_review.closed': {
+    icon: lucideClipboardCheck, tone: 'success', label: 'action.access_review.closed', message: 'activity.access_review.closed', kind: 'reviews',
+  },
+  'access_review.deleted': {
+    icon: lucideClipboardX, tone: 'danger', label: 'action.access_review.deleted', message: 'activity.access_review.deleted', kind: 'reviews',
+  },
 };
 
 /** Names of the user and role fields an activity can change */
@@ -209,6 +236,14 @@ export const FIELD_LABELS: Record<string, string> = {
   suspendInactiveDays: 'Suspend accounts not used for',
   inactiveDays: 'Not used for',
   lockMinutes: 'Locked for',
+  accessReview: 'Access review',
+  dueAt: 'Closes',
+  reviewers: 'Reviewers',
+  assignments: 'Role assignments',
+  decision: 'Decision',
+  kept: 'Kept',
+  removed: 'Removed',
+  notReviewed: 'Not reviewed',
 };
 
 /** The changes the settings can require a reason for, as the settings page and the log name them */
@@ -228,6 +263,31 @@ export const SIGN_IN_FAILURES: Record<string, string> = {
   suspended: 'Account suspended',
   invited: 'Invitation not accepted yet',
 };
+
+/** An access review, as its badge shows it */
+export const REVIEW_STATUS: Record<AccessReviewStatus, { label: string; tone: UiTone }> = {
+  open: { label: 'Open', tone: 'info' },
+  closed: { label: 'Closed', tone: 'neutral' },
+};
+
+/** A decision on a role under review */
+export const REVIEW_DECISIONS: Record<AccessReviewDecision, { label: string; tone: UiTone }> = {
+  keep: { label: 'Keep', tone: 'success' },
+  remove: { label: 'Remove', tone: 'danger' },
+};
+
+/** What closing a review did with each role (API.md, "Access reviews") */
+export const REVIEW_OUTCOMES: Record<AccessReviewOutcome, { label: string; tone: UiTone }> = {
+  kept: { label: 'Kept', tone: 'success' },
+  removed: { label: 'Removed', tone: 'danger' },
+  not_reviewed: { label: 'Not reviewed', tone: 'warning' },
+  gone: { label: 'Already gone', tone: 'neutral' },
+  last_administrator: { label: 'Kept: last administrator', tone: 'warning' },
+};
+
+/** How long a new access review stays open unless changed, and the longest it may, in days */
+export const REVIEW_DAYS = 14;
+export const REVIEW_MAX_DAYS = 365;
 
 /** How a new role may be given: for good or for a time, with or without a reason */
 export const DEFAULT_ASSIGNMENT_RULES: RoleAssignmentRules = { maxDays: null, reasonRequired: false };

@@ -15,7 +15,8 @@ export type Permission =
   | 'settings.view'
   | 'settings.manage'
   | 'branches.view'
-  | 'branches.manage';
+  | 'branches.manage'
+  | 'reviews.manage';
 
 export interface User {
   id: string;
@@ -219,6 +220,81 @@ export interface PasswordPolicy {
   history: number;
 }
 
+/**
+ * A round of checking that people still need the roles they hold, as Microsoft Entra's access reviews and the audits of
+ * ISO 27001 ask (API.md, "Access reviews"). The people who look after each person decide by dueAt; closing it takes away
+ * the roles decided 'remove'.
+ */
+export interface AccessReview {
+  id: string;
+  name: string;
+  /** The role it covers; null for every role */
+  roleId: string | null;
+  /** The branch whose people it covers (User.branchId); null for everyone */
+  branchId: string | null;
+  /** People named to decide all of it, besides the people's administrators */
+  reviewerIds: string[];
+  /** When the server closes it by itself */
+  dueAt: string;
+  status: AccessReviewStatus;
+  /** null: the person who started it has been deleted */
+  createdById: string | null;
+  createdAt: string;
+  closedAt: string | null;
+  /** null while open, or when the server closed it at dueAt */
+  closedById: string | null;
+  /** How many role assignments it covers, and how many have a decision */
+  itemCount: number;
+  decidedCount: number;
+  /** How many the signed-in user may decide that wait for a decision; 0 once closed */
+  waitingCount: number;
+}
+
+export type AccessReviewStatus = 'open' | 'closed';
+
+/** A new review: of one role or every role, of one branch's people or everyone */
+export interface AccessReviewDraft {
+  name: string;
+  roleId?: string | null;
+  branchId?: string | null;
+  dueAt: string;
+  reviewerIds?: string[];
+}
+
+export type AccessReviewDecision = 'keep' | 'remove';
+
+/** What closing the review did with an assignment (API.md, "Access reviews") */
+export type AccessReviewOutcome = 'kept' | 'removed' | 'not_reviewed' | 'gone' | 'last_administrator';
+
+/**
+ * One role assignment under review. The person, the role and the dates are kept as they were when the review started,
+ * as text, so the report reads the same after they change or are deleted.
+ */
+export interface AccessReviewItem {
+  id: string;
+  assignmentId: string;
+  userId: string;
+  userName: string;
+  email: string;
+  roleId: string;
+  roleName: string;
+  /** The assignment's scope: null for the whole organization */
+  branchId: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  decision: AccessReviewDecision | null;
+  /** Why, as the person who decided gave it; empty when none */
+  note: string;
+  decidedById: string | null;
+  /** Kept as text; empty while undecided */
+  decidedByName: string;
+  decidedAt: string | null;
+  /** Set when the review closes */
+  outcome: AccessReviewOutcome | null;
+  /** The signed-in user may decide it now: the review is open, the role is not theirs, and it is theirs to decide */
+  canDecide: boolean;
+}
+
 /** A part of the activity log, from one moment up to (not including) another; either end may be left open */
 export interface ActivityRange {
   from?: string;
@@ -255,7 +331,11 @@ export type ActivityAction =
   | 'auth.recovery_code_used'
   | 'auth.recovery_codes_created'
   | 'auth.sign_in_failed'
-  | 'auth.account_locked';
+  | 'auth.account_locked'
+  | 'access_review.started'
+  | 'access_review.decided'
+  | 'access_review.closed'
+  | 'access_review.deleted';
 
 /** One field an action changed. Values are stored raw (a role id, a status) and formatted for display. */
 export interface ActivityChange {
