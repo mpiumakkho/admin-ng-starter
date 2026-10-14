@@ -81,7 +81,7 @@ Email is the only channel for now; LINE or another channel can be added alongsid
 
 ### The language of emails
 
-Every email is in the language of the person it goes to: their `User.language`, `th` (Thai) or `en` (English), or, while that is `null`, the settings' `defaultLanguage`. The app keeps `language` to the language the person last used it in: after signing in, and whenever they switch, it sends `PATCH /users/:id` with `{ language }` if the two differ (`Session`). The form for a new user can set it as well, so the invitation comes in that language. Dates and times in emails are in the server's time zone (`access-control.mail.time-zone`, `Asia/Bangkok` by default), with the Buddhist year in Thai (2569 for 2026).
+Every email is in the language of the person it goes to: their `User.language`, `th` (Thai) or `en` (English), or, while that is `null`, the settings' `defaultLanguage`. The app keeps `language` to the language the person last used it in: after signing in, and whenever they switch, it sends `PATCH /users/:id` with `{ language }` if the two differ (`Session`). The form for a new user can set it as well, so the invitation comes in that language. Dates and times in emails are in the organization's time zone the server is set to (`access-control.time-zone`, `Asia/Bangkok` by default; the server's nightly jobs run by it too), with the Buddhist year in Thai (2569 for 2026).
 
 ## Password rules
 
