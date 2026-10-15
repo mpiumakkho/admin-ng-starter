@@ -1,5 +1,5 @@
 import { CdkMenu, CdkMenuItem, CdkMenuItemCheckbox, CdkMenuItemRadio, CdkMenuTrigger } from '@angular/cdk/menu';
-import { ChangeDetectionStrategy, Component, Directive, input, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Directive, ElementRef, inject, input, ViewEncapsulation } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { lucideCheck } from '@ng-icons/lucide';
 
@@ -72,12 +72,22 @@ export class UiMenuTrigger {}
         font-size: 1rem;
       }
 
-      &:hover,
-      &:focus,
-      &.cdk-focused {
+      // The item the keyboard is on, or the one under the pointer, which pointing focuses (UiMenuItemPointer): one
+      // shows at a time, and an arrow key moves it off the item under the pointer. Opening the menu with a click
+      // focuses the first item without showing it
+      &:focus-visible,
+      &:hover:focus {
         background: var(--ui-hover);
         color: var(--ui-heading);
+      }
+
+      &:focus {
         outline: none;
+      }
+
+      // A link among the items is an item like the others, never underlined as links in text are
+      &:hover {
+        text-decoration: none;
       }
 
       &:disabled {
@@ -93,9 +103,8 @@ export class UiMenuTrigger {}
         color: inherit;
       }
 
-      &:hover,
-      &:focus,
-      &.cdk-focused {
+      &:focus-visible,
+      &:hover:focus {
         background: var(--ui-danger-soft);
         color: var(--ui-danger-text);
       }
@@ -141,6 +150,26 @@ export class UiMenuTrigger {}
 })
 export class UiMenu {}
 
+/**
+ * Moves focus to the item under the pointer, as menus in the operating system do: one item shows at a time, and the
+ * arrow keys go on from the item pointed at. On every move, not only on entering, so after an arrow key took focus
+ * elsewhere, moving the pointer brings it back
+ */
+@Directive({
+  host: { '(mousemove)': 'activate()' },
+})
+export class UiMenuItemPointer {
+  private readonly item = inject(CdkMenuItem);
+  private readonly menu = inject(CdkMenu, { optional: true });
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
+  protected activate() {
+    if (!this.item.disabled && this.element.ownerDocument.activeElement !== this.element) {
+      this.menu?.setActiveMenuItem(this.item);
+    }
+  }
+}
+
 @Component({
   selector: 'button[uiMenuItem], a[uiMenuItem]',
   imports: [NgIcon],
@@ -152,7 +181,7 @@ export class UiMenu {}
   `,
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  hostDirectives: [{ directive: CdkMenuItem, outputs: ['cdkMenuItemTriggered: triggered'] }],
+  hostDirectives: [{ directive: CdkMenuItem, outputs: ['cdkMenuItemTriggered: triggered'] }, UiMenuItemPointer],
   host: { class: 'ui-menu-item', '[class.ui-menu-item-danger]': 'tone() === "danger"' },
 })
 export class UiMenuItem {
@@ -171,7 +200,9 @@ export class UiMenuItem {
   `,
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  hostDirectives: [{ directive: CdkMenuItemRadio, inputs: ['cdkMenuItemChecked: checked'], outputs: ['cdkMenuItemTriggered: triggered'] }],
+  hostDirectives: [
+    { directive: CdkMenuItemRadio, inputs: ['cdkMenuItemChecked: checked'], outputs: ['cdkMenuItemTriggered: triggered'] }, UiMenuItemPointer,
+  ],
   host: { class: 'ui-menu-item' },
 })
 export class UiMenuItemRadio {
@@ -191,7 +222,9 @@ export class UiMenuItemRadio {
   `,
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  hostDirectives: [{ directive: CdkMenuItemCheckbox, inputs: ['cdkMenuItemChecked: checked'], outputs: ['cdkMenuItemTriggered: triggered'] }],
+  hostDirectives: [
+    { directive: CdkMenuItemCheckbox, inputs: ['cdkMenuItemChecked: checked'], outputs: ['cdkMenuItemTriggered: triggered'] }, UiMenuItemPointer,
+  ],
   host: { class: 'ui-menu-item' },
 })
 export class UiMenuItemCheckbox {
