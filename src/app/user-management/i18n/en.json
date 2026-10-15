@@ -765,5 +765,20 @@
     "roleScope":                    "Role {{role}}",
     "reviewClosesOn":               "closes {{date}}",
     "reviewClosedOn":               "closed {{date}}",
-    "reviewClosedOnBy":             "closed {{date}} by {{name}}"
+    "reviewClosedOnBy":             "closed {{date}} by {{name}}",
+    "Section":                      "Section",
+    "Show changes":                 "Show changes",
+    "Undo":                         "Undo",
+    "Undo changes here":            "Undo changes here",
+    "Discard all":                  "Discard all",
+    "Discard all changes?":         "Discard all changes?",
+    "Changes not saved yet":        "Changes not saved yet",
+    "They are saved together. Undo any you do not want.": "They are saved together. Undo any you do not want.",
+    "pendingCount":                 "{{count}} changes not saved",
+    "sectionInvalid":               "{{count}} changes not saved, a field to correct",
+    "sectionChanged":               "{{section}} ({{count}} not saved)",
+    "undoChange":                   "Undo {{field}}",
+    "discardElsewhere":             "This also discards the changes in {{sections}}, which are not open.",
+    "unsavedIn":                    "The changes in {{sections}} are not saved yet.",
+    "listAnd":                      "{{items}} and {{last}}"
 }

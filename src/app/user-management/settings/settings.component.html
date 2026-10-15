@@ -1,135 +1,205 @@
 <ui-page-header [title]="'Settings' | translate" [subtitle]="'How new accounts and sign-ins work.' | translate" [icon]="icons.page" [breadcrumbLabel]="'Breadcrumb' | translate" [breadcrumbs]="[{ label: 'User management' | translate }]" />
 
-<form [formGroup]="form" (ngSubmit)="save()" novalidate>
-  <ui-card fill>
-    @if (!canManage()) {
-      <ui-alert class="settings-note" tone="info">{{ 'Your role can view the settings but not change them.' | translate }}</ui-alert>
-    }
-
-    <!-- Two columns of sections on a wide page, so all of it shows at once; one column when narrow -->
-    <div class="settings-grid">
-      <section class="settings-section">
-        <div class="section-intro">
-          <h2>{{ 'New users' | translate }}</h2>
-          <p>{{ 'What people start with when an admin adds or invites them.' | translate }}</p>
-        </div>
-        <div class="field-row">
-          <ui-form-field class="field-fit" [label]="'Default role' | translate" for="defaultRoleId" required [errors]="errorMessages()" [hint]="'Picked in advance on the Add user form.' | translate">
-            <select uiInput id="defaultRoleId" formControlName="defaultRoleId" class="role-select">
-              @for (role of store.roles(); track role.id) {
-                <option [value]="role.id">{{ role.name }}</option>
-              }
-            </select>
-          </ui-form-field>
-          <ui-form-field class="field-fit" [label]="'Invitations expire after' | translate" [hint]="'Expired invitations show on the overview, ready to send again.' | translate">
-            <ui-segmented [options]="expiryOptions()" formControlName="inviteExpiryDays" [ariaLabel]="'Invitations expire after' | translate" />
-          </ui-form-field>
-        </div>
-        <ui-form-field [label]="'Allowed email domains' | translate" for="allowedDomains" [errors]="errorMessages()" [hint]="'Separate domains with commas. Leave empty to allow any email.' | translate">
-          <input uiInput class="domains-input" id="allowedDomains" formControlName="allowedDomains" placeholder="example.com, example.co.th" autocomplete="off" />
-        </ui-form-field>
-        <ui-form-field class="field-fit" [label]="'Email language' | translate" for="defaultLanguage" [hint]="'For people who have not used the app yet, such as someone just invited. Everyone else gets emails in the language they last used.' | translate">
-          <select uiInput id="defaultLanguage" formControlName="defaultLanguage" class="select-input">
-            @for (language of languages; track language.code) {
-              <option [value]="language.code" [attr.lang]="language.code">{{ language.name }}</option>
-            }
-          </select>
-        </ui-form-field>
-        <ui-switch class="branches-switch" formControlName="branchesEnabled" [description]="'People belong to a branch, and roles can be given for one branch only.' | translate">
-          {{ 'Use branches' | translate }}
-        </ui-switch>
-      </section>
-
-      <section class="settings-section">
-        <div class="section-intro">
-          <h2>{{ 'Sign-in' | translate }}</h2>
-          <p>{{ 'Keeps accounts safe on shared or unattended computers.' | translate }}</p>
-        </div>
-        <ui-form-field [label]="'Sign out when idle' | translate" for="sessionTimeoutMinutes" [hint]="'Signs people out after this long without a click, key press or scroll.' | translate">
-          <select uiInput id="sessionTimeoutMinutes" formControlName="sessionTimeoutMinutes" class="select-input">
-            @for (option of timeoutOptions(); track option.value) {
-              <option [ngValue]="option.value">{{ option.label }}</option>
-            }
-          </select>
-        </ui-form-field>
-        <ui-form-field [label]="'Ask for the password again after' | translate" for="reauthMinutes" [hint]="'reauthHint' | translate">
-          <select uiInput id="reauthMinutes" formControlName="reauthMinutes" class="select-input">
-            @for (option of reauthOptions(); track option.value) {
-              <option [ngValue]="option.value">{{ option.label }}</option>
-            }
-          </select>
-        </ui-form-field>
-        <ui-form-field [label]="'Suspend accounts not used for' | translate" for="suspendInactiveDays" [hint]="'inactiveHint' | translate">
-          <select uiInput id="suspendInactiveDays" formControlName="suspendInactiveDays" class="select-input">
-            @for (option of inactiveOptions(); track option.value) {
-              <option [ngValue]="option.value">{{ option.label }}</option>
-            }
-          </select>
-        </ui-form-field>
-        <ui-form-field [label]="'Two-step sign-in required for' | translate" [hint]="'People with these roles must turn on two-step sign-in before they can do anything else.' | translate">
-          <div class="role-checks" role="group" [attr.aria-label]="'Two-step sign-in required for' | translate">
-            @for (role of store.roles(); track role.id) {
-              <ui-checkbox [checked]="form.controls.twoFactorRoleIds.value.includes(role.id)" [disabled]="!canManage()"
-                (changed)="toggleTwoFactorRole(role.id, $event)">{{ role.name }}</ui-checkbox>
-            }
-          </div>
-        </ui-form-field>
-        @if (holdsBackSelf()) {
-          <ui-alert tone="warning">{{ 'twoFactorSelfWarning' | translate }}</ui-alert>
-        }
-      </section>
-
-      <section class="settings-section">
-        <div class="section-intro">
-          <h2>{{ 'Passwords' | translate }}</h2>
-          <p>{{ 'Rules for new passwords. They apply the next time someone sets one.' | translate }}</p>
-        </div>
-        <div class="field-row">
-          <ui-form-field class="field-short" [label]="'Shortest password' | translate" for="passwordMinLength">
-            <select uiInput id="passwordMinLength" formControlName="passwordMinLength">
-              @for (option of passwordLengthOptions(); track option.value) {
-                <option [ngValue]="option.value">{{ option.label }}</option>
-              }
-            </select>
-          </ui-form-field>
-          <ui-form-field class="field-long" [label]="'Recent passwords not allowed again' | translate" for="passwordHistory" [hint]="'Stops people from going back to a password they used recently.' | translate">
-            <select uiInput id="passwordHistory" formControlName="passwordHistory">
-              @for (option of historyOptions(); track option.value) {
-                <option [ngValue]="option.value">{{ option.label }}</option>
-              }
-            </select>
-          </ui-form-field>
-        </div>
-      </section>
-
-      <section class="settings-section">
-        <div class="section-intro">
-          <h2>{{ 'Activity log' | translate }}</h2>
-          <p>{{ 'How long each change stays in the log, and which changes must say why.' | translate }}</p>
-        </div>
-        <ui-form-field [label]="'Keep activity for' | translate" for="activityRetentionDays" [hint]="'Older entries are deleted every night. Export them first if you need them.' | translate">
-          <select uiInput id="activityRetentionDays" formControlName="activityRetentionDays" class="select-input">
-            @for (option of retentionOptions(); track option.value) {
-              <option [ngValue]="option.value">{{ option.label }}</option>
-            }
-          </select>
-        </ui-form-field>
-        <ui-form-field [label]="'Ask for a reason when' | translate" [hint]="'The person making the change has to say why, and the log keeps it.' | translate">
-          <div class="reason-checks" role="group" [attr.aria-label]="'Ask for a reason when' | translate">
-            @for (action of reasonActions; track action.key) {
-              <ui-checkbox [checked]="form.controls.reasonsRequired.value.includes(action.key)" [disabled]="!canManage()"
-                (changed)="toggleReason(action.key, $event)">{{ action.label | translate }}</ui-checkbox>
-            }
-          </div>
-        </ui-form-field>
-      </section>
-    </div>
-
-    @if (canManage()) {
-      <div uiCardFooter>
-        <button uiButton variant="secondary" type="button" [disabled]="!form.dirty" (click)="discard()">{{ 'Discard' | translate }}</button>
-        <button uiButton type="submit" [disabled]="!form.dirty" [loading]="saving()"><ng-icon [svg]="icons.save" /> {{ 'Save changes' | translate }}</button>
-      </div>
-    }
+<div class="settings-layout">
+  <!-- Wide screens: the groups in a card beside the open one, as the roles on their page; a mark on each with changes not saved -->
+  <ui-card class="section-panel" flush [title]="'Sections' | translate">
+    <nav class="section-list" [attr.aria-label]="'Sections' | translate">
+      @for (item of sections; track item.key) {
+        <button type="button" class="section-item" [class.active]="item === selected()" [attr.aria-current]="item === selected() ? 'true' : null" (click)="open(item)">
+          <ng-icon class="section-icon" [svg]="item.icon" />
+          <span class="section-text">
+            <span class="section-name">{{ item.label | translate }}</span>
+            <span class="section-description" [title]="item.description | translate">{{ item.description | translate }}</span>
+          </span>
+          @if (changeCounts().get(item.key); as count) {
+            <ui-badge [tone]="invalidSections().has(item.key) ? 'danger' : 'warning'">
+              <span aria-hidden="true">{{ count }}</span>
+              <span class="ui-sr-only">{{ (invalidSections().has(item.key) ? 'sectionInvalid' : 'pendingCount') | translate: { count } }}</span>
+            </ui-badge>
+          }
+        </button>
+      }
+    </nav>
   </ui-card>
-</form>
+
+  <!-- Narrow screens: a dropdown right above the open group -->
+  <ui-form-field class="section-picker" [label]="'Section' | translate" for="sectionPicker">
+    <select uiInput id="sectionPicker" (change)="pick($any($event.target))">
+      <!-- Each option marks itself selected: a value on the select is set before the options exist -->
+      @for (item of sections; track item.key) {
+        <option [value]="item.key" [selected]="item === selected()">{{ sectionOption(item) }}</option>
+      }
+    </select>
+  </ui-form-field>
+
+  <form class="editor" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <ui-card fill [title]="selected().label | translate" [description]="selected().description | translate">
+      <div uiCardActions>
+        @if (canManage() && changeCounts().get(selected().key)) {
+          <button uiButton variant="ghost" size="sm" type="button" (click)="undoSection(selected())"><ng-icon [svg]="icons.undo" /> {{ 'Undo changes here' | translate }}</button>
+        }
+      </div>
+
+      @if (!canManage()) {
+        <ui-alert class="editor-note" tone="info">{{ 'Your role can view the settings but not change them.' | translate }}</ui-alert>
+      } @else if (holdsBackSelfOnSave() && selected().key !== 'sign-in') {
+        <ui-alert class="editor-note" tone="warning">{{ 'twoFactorSelfWarning' | translate }}</ui-alert>
+      }
+
+      <!-- Each group fades in where the last one was (ui-enter-fade) -->
+      @switch (selected().key) {
+        @case ('new-users') {
+          <div class="section-fields" animate.enter="ui-enter-fade">
+            <ui-form-field [label]="'Default role' | translate" for="defaultRoleId" required [errors]="errorMessages()" [hint]="'Picked in advance on the Add user form.' | translate">
+              <select uiInput id="defaultRoleId" formControlName="defaultRoleId" class="select-input">
+                @for (role of store.roles(); track role.id) {
+                  <option [value]="role.id">{{ role.name }}</option>
+                }
+              </select>
+            </ui-form-field>
+            <ui-form-field [label]="'Invitations expire after' | translate" [hint]="'Expired invitations show on the overview, ready to send again.' | translate">
+              <ui-segmented [options]="expiryOptions()" formControlName="inviteExpiryDays" [ariaLabel]="'Invitations expire after' | translate" />
+            </ui-form-field>
+            <ui-form-field [label]="'Allowed email domains' | translate" for="allowedDomains" [errors]="errorMessages()" [hint]="'Separate domains with commas. Leave empty to allow any email.' | translate">
+              <input uiInput id="allowedDomains" formControlName="allowedDomains" placeholder="example.com, example.co.th" autocomplete="off" />
+            </ui-form-field>
+            <ui-form-field [label]="'Email language' | translate" for="defaultLanguage" [hint]="'For people who have not used the app yet, such as someone just invited. Everyone else gets emails in the language they last used.' | translate">
+              <select uiInput id="defaultLanguage" formControlName="defaultLanguage" class="select-input">
+                @for (language of languages; track language.code) {
+                  <option [value]="language.code" [attr.lang]="language.code">{{ language.name }}</option>
+                }
+              </select>
+            </ui-form-field>
+            <ui-switch formControlName="branchesEnabled" [description]="'People belong to a branch, and roles can be given for one branch only.' | translate">
+              {{ 'Use branches' | translate }}
+            </ui-switch>
+          </div>
+        }
+        @case ('sign-in') {
+          <div class="section-fields" animate.enter="ui-enter-fade">
+            <ui-form-field [label]="'Sign out when idle' | translate" for="sessionTimeoutMinutes" [hint]="'Signs people out after this long without a click, key press or scroll.' | translate">
+              <select uiInput id="sessionTimeoutMinutes" formControlName="sessionTimeoutMinutes" class="select-input">
+                @for (option of timeoutOptions(); track option.value) {
+                  <option [ngValue]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </ui-form-field>
+            <ui-form-field [label]="'Ask for the password again after' | translate" for="reauthMinutes" [hint]="'reauthHint' | translate">
+              <select uiInput id="reauthMinutes" formControlName="reauthMinutes" class="select-input">
+                @for (option of reauthOptions(); track option.value) {
+                  <option [ngValue]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </ui-form-field>
+            <ui-form-field [label]="'Suspend accounts not used for' | translate" for="suspendInactiveDays" [hint]="'inactiveHint' | translate">
+              <select uiInput id="suspendInactiveDays" formControlName="suspendInactiveDays" class="select-input">
+                @for (option of inactiveOptions(); track option.value) {
+                  <option [ngValue]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </ui-form-field>
+            <ui-form-field [label]="'Two-step sign-in required for' | translate" [hint]="'People with these roles must turn on two-step sign-in before they can do anything else.' | translate">
+              <div class="role-checks" role="group" [attr.aria-label]="'Two-step sign-in required for' | translate">
+                @for (role of store.roles(); track role.id) {
+                  <ui-checkbox [checked]="form.controls.twoFactorRoleIds.value.includes(role.id)" [disabled]="!canManage()"
+                    (changed)="toggleTwoFactorRole(role.id, $event)">{{ role.name }}</ui-checkbox>
+                }
+              </div>
+            </ui-form-field>
+            @if (holdsBackSelf()) {
+              <ui-alert tone="warning">{{ 'twoFactorSelfWarning' | translate }}</ui-alert>
+            }
+          </div>
+        }
+        @case ('passwords') {
+          <div class="section-fields" animate.enter="ui-enter-fade">
+            <ui-form-field [label]="'Shortest password' | translate" for="passwordMinLength">
+              <select uiInput id="passwordMinLength" formControlName="passwordMinLength" class="select-input">
+                @for (option of passwordLengthOptions(); track option.value) {
+                  <option [ngValue]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </ui-form-field>
+            <ui-form-field [label]="'Recent passwords not allowed again' | translate" for="passwordHistory" [hint]="'Stops people from going back to a password they used recently.' | translate">
+              <select uiInput id="passwordHistory" formControlName="passwordHistory" class="select-input">
+                @for (option of historyOptions(); track option.value) {
+                  <option [ngValue]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </ui-form-field>
+          </div>
+        }
+        @case ('activity-log') {
+          <div class="section-fields" animate.enter="ui-enter-fade">
+            <ui-form-field [label]="'Keep activity for' | translate" for="activityRetentionDays" [hint]="'Older entries are deleted every night. Export them first if you need them.' | translate">
+              <select uiInput id="activityRetentionDays" formControlName="activityRetentionDays" class="select-input">
+                @for (option of retentionOptions(); track option.value) {
+                  <option [ngValue]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </ui-form-field>
+            <ui-form-field [label]="'Ask for a reason when' | translate" [hint]="'The person making the change has to say why, and the log keeps it.' | translate">
+              <div class="reason-checks" role="group" [attr.aria-label]="'Ask for a reason when' | translate">
+                @for (action of reasonActions; track action.key) {
+                  <ui-checkbox [checked]="form.controls.reasonsRequired.value.includes(action.key)" [disabled]="!canManage()"
+                    (changed)="toggleReason(action.key, $event)">{{ action.label | translate }}</ui-checkbox>
+                }
+              </div>
+            </ui-form-field>
+          </div>
+        }
+      }
+
+      <!-- One Save and one Discard for every group: what is not saved yet, wherever it is, shows at the left -->
+      @if (canManage()) {
+        <div uiCardFooter class="editor-footer">
+          @if (changes().length) {
+            <div class="pending" role="status">
+              <span class="pending-dot" aria-hidden="true"></span>
+              <span class="pending-text">{{ 'pendingCount' | translate: { count: changes().length } }}</span>
+              <button uiButton variant="soft" size="sm" type="button" (click)="reviewing.set(true)">{{ 'Show changes' | translate }}</button>
+            </div>
+          }
+          <button uiButton variant="secondary" type="button" [disabled]="!changes().length" (click)="discard()">{{ 'Discard' | translate }}</button>
+          <button uiButton type="submit" [disabled]="!changes().length" [loading]="saving()"><ng-icon [svg]="icons.save" /> {{ 'Save changes' | translate }}</button>
+        </div>
+      }
+    </ui-card>
+  </form>
+</div>
+
+<!-- Every change not saved yet, by group, each one to undo on its own -->
+<ui-dialog [(open)]="reviewing" [title]="'Changes not saved yet' | translate" [description]="'They are saved together. Undo any you do not want.' | translate" [closeLabel]="'Close' | translate">
+  <!-- Only while open, so nothing in it doubles what the page shows -->
+  @if (reviewing()) {
+    <div class="review">
+      @for (group of changedSections(); track group.section.key) {
+        <section class="review-group">
+          <h3 class="review-title">
+            <button type="button" class="review-open" (click)="open(group.section)"><ng-icon [svg]="group.section.icon" /> {{ group.section.label | translate }}</button>
+          </h3>
+          <ul class="review-list">
+            @for (change of group.changes; track change.field) {
+              <li class="review-item">
+                <span class="review-text">
+                  <span class="review-field">{{ fieldLabel(change) }}</span>
+                  <span class="review-value">{{ describe(change) }}</span>
+                </span>
+                <button uiButton variant="ghost" size="sm" type="button" [attr.aria-label]="'undoChange' | translate: { field: fieldLabel(change) }" (click)="undo(change.field)">
+                  <ng-icon [svg]="icons.undo" /> {{ 'Undo' | translate }}
+                </button>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+      @if (holdsBackSelfOnSave()) {
+        <ui-alert tone="warning">{{ 'twoFactorSelfWarning' | translate }}</ui-alert>
+      }
+    </div>
+  }
+  <div uiDialogFooter>
+    <button uiButton variant="secondary" type="button" (click)="discard()">{{ 'Discard all' | translate }}</button>
+    <button uiButton type="button" [loading]="saving()" (click)="save()"><ng-icon [svg]="icons.save" /> {{ 'Save changes' | translate }}</button>
+  </div>
+</ui-dialog>

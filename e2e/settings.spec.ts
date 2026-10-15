@@ -30,7 +30,7 @@ function today() {
 test('a role that must use two-step sign-in: nothing else opens until it is on', async ({ page }) => {
   await start(page);
   await signInAs(page, 'Administrator');
-  await page.goto('/settings');
+  await page.goto('/settings?section=sign-in');
   const roles = page.getByRole('group', { name: 'Two-step sign-in required for' });
   // Ticking your own role while yours is off would hold you back too: the page says so before saving
   const warning = page.locator('ui-alert', { hasText: 'Your own role is ticked' });
@@ -66,7 +66,7 @@ test('a role that must use two-step sign-in: nothing else opens until it is on',
 test('password rules: a longer shortest password, and no going back to a recent one', async ({ page }) => {
   await start(page);
   await signInAs(page, 'Administrator');
-  await page.goto('/settings');
+  await page.goto('/settings?section=passwords');
   await page.locator('#passwordMinLength').selectOption({ label: '12 characters' });
   await page.locator('#passwordHistory').selectOption({ label: 'Not the last 3' });
   await saveSettings(page);
@@ -92,6 +92,58 @@ test('password rules: a longer shortest password, and no going back to a recent 
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   await changePassword(page, 'second-password-2', 'first-password-1');
   await expect(page.locator('ui-toaster')).toContainText('You used this password recently. Choose another one.');
+});
+
+test('changes in several groups of settings stay while another is open, and are saved together or undone one by one', async ({ page }) => {
+  await start(page);
+  await signInAs(page, 'Administrator');
+  await page.goto('/settings');
+  const sections = page.getByRole('navigation', { name: 'Sections' });
+  const pending = page.locator('.pending');
+  await page.locator('#defaultLanguage').selectOption('en');
+  await sections.getByRole('button', { name: 'Passwords' }).click();
+  await expect(page).toHaveURL('/settings?section=passwords');
+  await page.locator('#passwordMinLength').selectOption({ label: '12 characters' });
+
+  // Each group with a change says how many; the footer counts them all
+  await expect(sections.getByRole('button', { name: 'New users' })).toContainText('1 changes not saved');
+  await expect(sections.getByRole('button', { name: 'Passwords' })).toContainText('1 changes not saved');
+  await expect(sections.getByRole('button', { name: 'Sign-in' })).not.toContainText('not saved');
+  await expect(pending).toContainText('2 changes not saved');
+
+  // Back in the first group, its change is still there
+  await sections.getByRole('button', { name: 'New users' }).click();
+  await expect(page.locator('#defaultLanguage')).toHaveValue('en');
+
+  // The list of changes: undo one, save the other
+  await page.getByRole('button', { name: 'Show changes' }).click();
+  const review = page.getByRole('dialog', { name: 'Changes not saved yet' });
+  await expect(review.locator('.review-item')).toHaveCount(2);
+  await expect(review).toContainText('ไทย → English');
+  await expect(review).toContainText('8 characters → 12 characters');
+  await review.getByRole('button', { name: 'Undo Email language' }).click();
+  await expect(review.locator('.review-item')).toHaveCount(1);
+  await review.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Settings saved.');
+  await expect(page.locator('#defaultLanguage')).toHaveValue('th');
+  await expect(pending).toHaveCount(0);
+
+  // Discarding while a change is in a group out of sight asks first, then discards everything
+  await page.locator('#defaultLanguage').selectOption('en');
+  await sections.getByRole('button', { name: 'Sign-in' }).click();
+  await page.locator('#sessionTimeoutMinutes').selectOption({ label: '15 minutes' });
+  await page.getByRole('button', { name: 'Discard', exact: true }).click();
+  const confirm = page.locator('dialog[open]');
+  await expect(confirm).toContainText('This also discards the changes in New users, which are not open.');
+  await confirm.getByRole('button', { name: 'Discard all' }).click();
+  await expect(pending).toHaveCount(0);
+  await sections.getByRole('button', { name: 'New users' }).click();
+  await expect(page.locator('#defaultLanguage')).toHaveValue('th');
+
+  // Leaving with a change says in which group it is
+  await page.locator('#allowedDomains').fill('corp.example');
+  await page.locator('#sidebar').getByRole('link', { name: 'Users', exact: true }).click();
+  await expect(page.locator('dialog[open]')).toContainText('The changes in New users are not saved yet.');
 });
 
 test('gives several people a role at once, and takes it away again', async ({ page }) => {

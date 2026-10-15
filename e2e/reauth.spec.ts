@@ -6,13 +6,15 @@ test('a risky change asks for the password again once the sign-in is old, then g
   await page.clock.install();
   await start(page);
   await signInAs(page, 'Administrator');
-  await page.goto('/settings');
+  await page.goto('/settings?section=sign-in');
+  const sections = page.getByRole('navigation', { name: 'Sections' });
   const shortest = page.getByLabel('Shortest password');
   const again = page.getByLabel('Ask for the password again after');
   await expect(again.locator('option:checked')).toHaveText('10 minutes');
 
   // Back at the desk after a break: the sign-in no longer counts for changing the settings
   await page.clock.fastForward('11:00');
+  await sections.getByRole('button', { name: 'Passwords' }).click();
   await shortest.selectOption({ label: '12 characters' });
   await page.getByRole('button', { name: 'Save changes' }).click();
   const dialog = page.getByRole('dialog', { name: 'Confirm it\'s you' });
@@ -39,6 +41,7 @@ test('a risky change asks for the password again once the sign-in is old, then g
   // Never: the settings stop asking, even after a long break
   const save = page.getByRole('button', { name: 'Save changes' });
   await expect(save).toBeDisabled();
+  await sections.getByRole('button', { name: 'Sign-in' }).click();
   await again.selectOption({ label: 'Never' });
   await save.click();
   await expect(save).toBeDisabled();
@@ -46,6 +49,7 @@ test('a risky change asks for the password again once the sign-in is old, then g
   await page.clock.fastForward('02:00:00');
   // The notice of the last save has gone by now, so the next one is this save's
   await expect(page.locator('ui-toaster')).not.toContainText('Settings saved.');
+  await sections.getByRole('button', { name: 'Passwords' }).click();
   await shortest.selectOption({ label: '14 characters' });
   await save.click();
   await expect(page.locator('ui-toaster')).toContainText('Settings saved.');

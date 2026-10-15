@@ -765,5 +765,20 @@
     "roleScope":                    "บทบาท {{role}}",
     "reviewClosesOn":               "ปิดรอบ {{date}}",
     "reviewClosedOn":               "ปิดแล้ว {{date}}",
-    "reviewClosedOnBy":             "{{name}} ปิดเมื่อ {{date}}"
+    "reviewClosedOnBy":             "{{name}} ปิดเมื่อ {{date}}",
+    "Section":                      "หมวด",
+    "Show changes":                 "ดูรายการ",
+    "Undo":                         "ย้อนกลับ",
+    "Undo changes here":            "ย้อนการแก้ไขในหมวดนี้",
+    "Discard all":                  "ทิ้งทั้งหมด",
+    "Discard all changes?":         "ทิ้งการแก้ไขทั้งหมดใช่ไหม",
+    "Changes not saved yet":        "การแก้ไขที่ยังไม่บันทึก",
+    "They are saved together. Undo any you do not want.": "ทุกรายการจะบันทึกพร้อมกัน ย้อนรายการที่ไม่ต้องการได้",
+    "pendingCount":                 "ยังไม่บันทึก {{count}} รายการ",
+    "sectionInvalid":               "ยังไม่บันทึก {{count}} รายการ มีช่องที่ต้องแก้ไข",
+    "sectionChanged":               "{{section}} (ยังไม่บันทึก {{count}})",
+    "undoChange":                   "ย้อน{{field}}",
+    "discardElsewhere":             "การแก้ไขในหมวด {{sections}} ที่ไม่ได้เปิดอยู่จะถูกทิ้งไปด้วย",
+    "unsavedIn":                    "การแก้ไขในหมวด {{sections}} ยังไม่ได้บันทึก",
+    "listAnd":                      "{{items}} และ {{last}}"
 }

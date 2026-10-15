@@ -1,121 +1,266 @@
-.settings-note {
-  margin-bottom: 1rem;
-}
-
-// The card's width decides between one column of sections and two. On a page-fit page the form takes the
-// height below the header and the card fills it
-form {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  container-type: inline-size;
-}
-
-.settings-grid {
+// The groups on the left and the open one on the right, as the roles page
+.settings-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  column-gap: 2.5rem;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+
+  // One column: the dropdown takes the list's place, right above the open group
+  @media (max-width: 991px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 
-// Each section has its title above its fields
-.settings-section {
+// Where the page fills the window (page-fit), the open group reaches the bottom and scrolls inside, its buttons at the
+// bottom; the list of four stays as tall as it is
+@media (min-width: 992px) and (min-height: 600px) {
+  .settings-layout {
+    flex: 1 1 0;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+    margin-bottom: 0;
+  }
+
+  .editor {
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 991px) {
+  .section-panel {
+    display: none;
+  }
+}
+
+@media (min-width: 992px) {
+  .section-picker {
+    display: none;
+  }
+}
+
+/* List of groups */
+// Rows like the roles list's, edge to edge under the card title
+.section-list {
   display: flex;
   flex-direction: column;
-  gap: .875rem;
-  padding: 1rem 0;
   border-top: 1px solid var(--ui-border);
-
-  &:first-child {
-    padding-top: .25rem;
-    border-top: 0;
-  }
 }
 
-// Two sections side by side: the first row has no line above it
-@container (min-width: 900px) {
-  .settings-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .settings-section:nth-child(2) {
-    padding-top: .25rem;
-    border-top: 0;
-  }
-}
-
-.section-intro {
-  h2 {
-    margin: 0 0 .125rem;
-    color: var(--ui-heading);
-    font-size: .9375rem;
-    font-weight: 600;
-  }
-
-  p {
-    margin: 0;
-    color: var(--ui-muted);
-    font-size: .8125rem;
-    line-height: 1.5;
-  }
-}
-
-// Fields side by side, wrapping onto the next line when they do not fit
-.field-row {
+.section-item {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 1rem;
+  gap: .75rem;
+  width: 100%;
+  padding: .75rem 1.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--ui-border);
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color .15s ease;
+
+  &:hover {
+    background: var(--ui-hover);
+  }
+
+  // The card clips an outer ring at its rounded corners, so the focus ring is drawn inside the row
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--ui-primary);
+  }
+
+  &.active {
+    background: var(--ui-primary-soft);
+    box-shadow: inset 3px 0 0 var(--ui-primary);
+
+    .section-icon {
+      color: var(--ui-primary-text);
+    }
+  }
+
+  &.active:focus-visible {
+    box-shadow: inset 3px 0 0 var(--ui-primary), inset 0 0 0 2px var(--ui-primary);
+  }
+
+  // The card's own edge closes the list
+  &:last-child {
+    border-bottom: 0;
+    border-radius: 0 0 var(--ui-radius-lg) var(--ui-radius-lg);
+  }
+
+  ui-badge {
+    flex-shrink: 0;
+    margin-top: .0625rem;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-// Each control as wide as what it holds, not the whole column; hints wrap to the same width
-.field-short {
-  width: 11rem;
+.section-icon {
+  flex-shrink: 0;
+  margin-top: .125rem;
+  color: var(--ui-subtle);
+  font-size: 1rem;
 }
 
-// Room for a label such as "Recent passwords not allowed again" on one line
-.field-long {
-  width: 15rem;
-}
-
-.field-fit {
-  width: min-content;
-}
-
-// As wide as the longest role name, within limits; the field and its hint follow
-.role-select {
-  width: auto;
-  min-width: 11rem;
-  max-width: 16rem;
-}
-
-// As tall as the select beside it, so the hints under both start on the same line
-.field-fit ui-segmented {
-  min-height: 40px;
-  align-items: center;
-}
-
-.select-input {
-  max-width: 15rem;
-}
-
-.domains-input {
-  max-width: 22rem;
-}
-
-.role-checks {
+.section-text {
   display: flex;
-  flex-wrap: wrap;
-  gap: .5rem 1.25rem;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.section-name {
+  color: var(--ui-heading);
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+// One line each, so the list stays even; the whole description is in the row's tooltip and above the open group
+.section-description {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: .75rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The open group */
+// On a page-fit page the form takes the cell's height and the card fills it
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-note {
+  margin-bottom: 1.25rem;
+}
+
+// One field under another, no wider than they read well
+.section-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 36rem;
+}
+
+// Every list the same width, so they line up
+.select-input {
+  max-width: 20rem;
+}
+
+// In a grid, so the names line up in columns however long they are
+.role-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: .625rem 1rem;
 }
 
 // One change a line: the labels are sentences
 .reason-checks {
   display: flex;
   flex-direction: column;
-  gap: .5rem;
+  gap: .625rem;
 }
 
-.branches-switch {
-  max-width: 28rem;
+// What is not saved yet, at the left of the buttons
+.pending {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-inline-end: auto;
+  color: var(--ui-text);
+  font-size: .8125rem;
+}
+
+.pending-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ui-warning);
+}
+
+// Phones: the buttons fill their rows; what is not saved takes a row of its own above them
+@media (max-width: 575px) {
+  .editor-footer > * {
+    flex: 1 1 auto;
+  }
+
+  .pending {
+    flex-basis: 100%;
+    margin-inline-end: 0;
+  }
+}
+
+/* The list of changes */
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.review-title {
+  margin: 0 0 .375rem;
+  font-size: .8125rem;
+  font-weight: 600;
+}
+
+// The group's name opens it, under the dialog that closes
+.review-open {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ui-primary-text);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.review-list {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  list-style: none;
+}
+
+.review-item {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem .5rem .5rem .875rem;
+
+  & + & {
+    border-top: 1px solid var(--ui-border);
+  }
+}
+
+.review-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.review-field {
+  color: var(--ui-heading);
+  font-size: .8125rem;
+  font-weight: 500;
+}
+
+.review-value {
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  overflow-wrap: anywhere;
 }

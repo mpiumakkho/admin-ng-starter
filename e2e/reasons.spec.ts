@@ -32,7 +32,7 @@ test('suspending someone asks why, and the activity log keeps the reason', async
 test('the settings decide which changes need a reason', async ({ page }) => {
   await start(page);
   await signInAs(page, 'Administrator');
-  await page.goto('/settings');
+  await page.goto('/settings?section=activity-log');
   const reasons = page.getByRole('group', { name: 'Ask for a reason when' });
   await reasons.getByRole('checkbox', { name: 'Suspending or reactivating someone' }).uncheck();
   await reasons.getByRole('checkbox', { name: 'Taking a role away' }).check();

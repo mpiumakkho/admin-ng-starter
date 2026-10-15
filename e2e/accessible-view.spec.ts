@@ -100,7 +100,7 @@ test('the accessible view is remembered, and turned off from the account menu', 
 test('in the accessible view, messages stay above the page until dismissed', async ({ page }) => {
   await startAccessible(page);
   await signInAs(page, 'Administrator');
-  await page.goto('/settings');
+  await page.goto('/settings?section=sign-in');
   await page.locator('#sessionTimeoutMinutes').selectOption({ label: '15 minutes' });
   await page.getByRole('button', { name: 'Save changes' }).click();
 

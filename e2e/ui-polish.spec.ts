@@ -61,7 +61,7 @@ test('with less motion asked for, pages change without a fade', async ({ page })
 test('how long the app waits before signing out is said once, and in the account menu', async ({ page }) => {
   await start(page);
   await signInAs(page, 'Administrator');
-  await page.goto('/settings');
+  await page.goto('/settings?section=sign-in');
   await page.locator('#sessionTimeoutMinutes').selectOption({ label: '15 minutes' });
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.locator('ui-toaster')).toContainText('You are signed out after 15 minutes without activity.');

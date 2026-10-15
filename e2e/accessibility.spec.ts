@@ -13,7 +13,7 @@ const PAGES = [
   { path: '/roles/conflicts', ready: '.rules-table tbody tr' },
   { path: '/branches', ready: '.branches-table tbody tr' },
   { path: '/activity', ready: '.log tbody tr' },
-  { path: '/settings', ready: '#passwordMinLength' },
+  { path: '/settings', ready: '#defaultRoleId' },
   { path: '/ui-kit', ready: 'ui-page-header' },
   { path: '/error-pages/404', ready: '.error-code' },
   { path: '/error-pages/500', ready: '.error-code' },
@@ -75,7 +75,7 @@ for (const theme of ['light', 'dark'] as const) {
     test('the two-step sign-in setup page', async ({ page }) => {
       await start(page, '/login', theme);
       await signInAs(page, 'Administrator');
-      await page.goto('/settings');
+      await page.goto('/settings?section=sign-in');
       await page.getByRole('group', { name: 'Two-step sign-in required for' }).getByRole('checkbox', { name: 'Viewer' }).check();
       await page.getByRole('button', { name: 'Save changes' }).click();
       await expect(page.locator('ui-toaster')).toContainText('Settings saved.');
