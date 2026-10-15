@@ -96,7 +96,8 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
       border-radius: 50%;
       background: #ffffff;
       box-shadow: 0 1px 3px rgba(15, 23, 42, .25);
-      transition: transform .2s var(--ui-ease);
+      // Slides across with a gentle start and end, not a jump
+      transition: transform .2s var(--ui-ease-standard);
     }
 
     .ui-switch-input:checked + .ui-switch-track {

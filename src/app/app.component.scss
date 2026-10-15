@@ -33,7 +33,8 @@
   flex-direction: column;
   min-width: 0;
   min-height: calc(100vh - var(--app-navbar-height));
-  transition: margin-inline-start .2s ease;
+  // In step with the sidebar's width
+  transition: margin-inline-start var(--ui-duration) var(--ui-ease-standard);
 
   @media (min-width: 992px) {
     margin-inline-start: var(--app-sidebar-width);

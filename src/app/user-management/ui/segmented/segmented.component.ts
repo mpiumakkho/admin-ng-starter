@@ -1,4 +1,7 @@
-import { ChangeDetectionStrategy, Component, forwardRef, input, model, signal, ViewEncapsulation } from '@angular/core';
+import {
+  afterRenderEffect, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, forwardRef, inject, input, model, signal, untracked, viewChild,
+  viewChildren, ViewEncapsulation,
+} from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { NgIcon } from '@ng-icons/core';
 
@@ -11,14 +14,19 @@ import { UiOption } from '../core/types';
  *   <ui-segmented [options]="ranges" [(value)]="range" />
  *   <ui-segmented [options]="statuses" formControlName="status" />
  *   <ui-segmented [options]="tabs" [(value)]="tab" variant="underline" />
+ *
+ * The chosen option's background (pill) or line (underline) is one mark that slides to the option picked, so the
+ * choice moves rather than jumps. Until the mark is measured, and in forced colors, the option marks itself.
  */
 @Component({
   selector: 'ui-segmented',
   imports: [NgIcon],
   providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => UiSegmented), multi: true }],
   template: `
+    <span #indicator class="ui-seg-indicator" aria-hidden="true"></span>
     @for (option of options(); track option.value) {
       <button
+        #option
         type="button"
         class="ui-seg-option"
         [class.ui-seg-active]="option.value === value()"
@@ -40,12 +48,15 @@ import { UiOption } from '../core/types';
   `,
   styles: `
     .ui-segmented {
+      position: relative;
       display: inline-flex;
       max-width: 100%;
       font-family: var(--ui-font);
     }
 
     .ui-seg-option {
+      position: relative;
+      z-index: 1;
       display: inline-flex;
       align-items: center;
       gap: .375rem;
@@ -86,6 +97,32 @@ import { UiOption } from '../core/types';
       text-align: center;
     }
 
+    /* The mark under the chosen option: placed by script (UiSegmented.place), shown once placed; it slides only after
+       the first placing, so it does not fly in from the left when the page opens */
+    .ui-seg-indicator {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .ui-seg-sliding > .ui-seg-indicator {
+      opacity: 1;
+    }
+
+    .ui-seg-ready > .ui-seg-indicator {
+      transition: transform var(--ui-duration) var(--ui-ease-standard), width var(--ui-duration) var(--ui-ease-standard),
+        opacity var(--ui-duration-fast) ease;
+    }
+
+    @media (forced-colors: active) {
+      .ui-seg-indicator {
+        display: none;
+      }
+    }
+
     /* Pill: buttons inside a tinted track */
     .ui-segmented-pill {
       gap: 2px;
@@ -103,6 +140,25 @@ import { UiOption } from '../core/types';
         background: var(--ui-surface);
         box-shadow: var(--ui-shadow-sm);
         color: var(--ui-heading);
+      }
+
+      .ui-seg-indicator {
+        top: 3px;
+        bottom: 3px;
+        border-radius: .375rem;
+        background: var(--ui-surface);
+        box-shadow: var(--ui-shadow-sm);
+      }
+
+      // The mark is the chosen option's background now; its focus ring stays its own
+      @media (forced-colors: none) {
+        &.ui-seg-sliding .ui-seg-active {
+          background: transparent;
+
+          &:not(:focus-visible) {
+            box-shadow: none;
+          }
+        }
       }
 
       &.ui-segmented-sm .ui-seg-option {
@@ -144,6 +200,20 @@ import { UiOption } from '../core/types';
           color: var(--ui-primary-text);
         }
       }
+
+      .ui-seg-indicator {
+        top: auto;
+        bottom: 0;
+        height: 2px;
+        background: var(--ui-primary);
+      }
+
+      // The mark is the chosen tab's line now
+      @media (forced-colors: none) {
+        &.ui-seg-sliding .ui-seg-active {
+          border-bottom-color: transparent;
+        }
+      }
     }
   `,
   encapsulation: ViewEncapsulation.None,
@@ -152,6 +222,8 @@ import { UiOption } from '../core/types';
     role: 'group',
     '[attr.aria-label]': 'ariaLabel() || null',
     '[class]': '"ui-segmented ui-segmented-" + variant() + " ui-segmented-" + size()',
+    '[class.ui-seg-sliding]': 'placed()',
+    '[class.ui-seg-ready]': 'ready()',
   },
 })
 export class UiSegmented<T = string> implements ControlValueAccessor {
@@ -162,8 +234,31 @@ export class UiSegmented<T = string> implements ControlValueAccessor {
   readonly ariaLabel = input('');
 
   protected readonly disabled = signal(false);
+  /** The mark sits under the chosen option */
+  protected readonly placed = signal(false);
+  /** The mark has been placed once, so from now on it slides */
+  protected readonly ready = signal(false);
   private onChange: (value: T) => void = () => {};
   private onTouched: () => void = () => {};
+
+  private readonly indicator = viewChild.required<ElementRef<HTMLElement>>('indicator');
+  private readonly buttons = viewChildren<ElementRef<HTMLButtonElement>>('option');
+
+  constructor() {
+    // Labels change width with the language and once the fonts load, and a hidden group gets its size when shown
+    const resized = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => this.place());
+    inject(DestroyRef).onDestroy(() => resized?.disconnect());
+    afterRenderEffect(() => {
+      const buttons = this.buttons();
+      this.value();
+      this.options();
+      untracked(() => {
+        resized?.disconnect();
+        buttons.forEach(button => resized?.observe(button.nativeElement));
+        this.place();
+      });
+    });
+  }
 
   protected select(value: T) {
     this.value.set(value);
@@ -185,5 +280,23 @@ export class UiSegmented<T = string> implements ControlValueAccessor {
 
   setDisabledState(disabled: boolean): void {
     this.disabled.set(disabled);
+  }
+
+  /** Puts the mark under the chosen option, where the option is now */
+  private place() {
+    const index = this.options().findIndex(option => option.value === this.value());
+    const button = this.buttons()[index]?.nativeElement;
+    if (!button || !button.offsetWidth) {
+      this.placed.set(false);
+      return;
+    }
+    const indicator = this.indicator().nativeElement;
+    indicator.style.transform = `translateX(${button.offsetLeft}px)`;
+    indicator.style.width = `${button.offsetWidth}px`;
+    this.placed.set(true);
+    if (!this.ready()) {
+      // After this placing has been drawn, so the first one does not slide
+      requestAnimationFrame(() => this.ready.set(true));
+    }
   }
 }

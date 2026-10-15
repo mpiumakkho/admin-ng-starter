@@ -5,9 +5,9 @@ $menu-item-height: 38px;
 // Width of a label or a group's pages opening beside the icon-only menu
 $flyout-width: 200px;
 $icon-size: 1.125rem;
-// How a group opens: quick at first, settling gently, the same for the height, the pages and the chevron
-$menu-easing: cubic-bezier(.2, .8, .2, 1);
-$menu-motion: .3s $menu-easing;
+// How a group opens and closes: a gentle start and a gentle end (--ui-ease-standard), the same for the height, the
+// pages and the chevron, so the chevron turns in step with the pages instead of jumping most of the way at once
+$menu-motion: var(--ui-duration-slow) var(--ui-ease-standard);
 
 // The menu's colors come from the --ui variables, except the current page's own navy
 :host {
@@ -32,7 +32,8 @@ $menu-motion: .3s $menu-easing;
   min-height: calc(100vh - var(--app-navbar-height));
   border-inline-end: 1px solid var(--ui-border);
   background: var(--ui-surface);
-  transition: width .2s ease, background .2s ease;
+  // In step with the navbar's logo area and the page's margin (app.component.scss)
+  transition: width var(--ui-duration) var(--ui-ease-standard), background-color var(--ui-duration) ease;
 }
 
 .menu {
@@ -191,19 +192,21 @@ $menu-motion: .3s $menu-easing;
   grid-template-rows: 0fr;
   transition: grid-template-rows $menu-motion;
 
+  // Closing, the pages fade quickly, before the height has gone
   .sub-menu {
     opacity: 0;
-    transform: translateY(-6px);
-    transition: opacity .2s ease, transform $menu-motion;
+    transform: translateY(-4px);
+    transition: opacity var(--ui-duration-fast) var(--ui-ease-in), transform $menu-motion;
   }
 
+  // Opening, they fade in once the height has started to make room
   &.open {
     grid-template-rows: 1fr;
 
     .sub-menu {
       opacity: 1;
       transform: none;
-      transition-delay: .05s;
+      transition: opacity var(--ui-duration) ease .06s, transform $menu-motion;
     }
   }
 }
@@ -395,13 +398,14 @@ $menu-motion: .3s $menu-easing;
     transform: translateX(-100%);
     // Hidden once it has slid away, so its links are out of the tab order
     visibility: hidden;
-    transition: transform .25s var(--ui-ease), visibility 0s linear .25s;
+    // A long way to slide: it starts and ends gently
+    transition: transform var(--ui-duration-slow) var(--ui-ease-standard), visibility 0s linear var(--ui-duration-slow);
 
     &.active {
       transform: none;
       visibility: visible;
       box-shadow: var(--ui-shadow-lg);
-      transition: transform .25s var(--ui-ease);
+      transition: transform var(--ui-duration-slow) var(--ui-ease-standard);
     }
   }
 
@@ -410,7 +414,7 @@ $menu-motion: .3s $menu-easing;
     inset: var(--app-navbar-height) 0 0;
     z-index: 1028;
     background: rgba(15, 23, 42, .4);
-    animation: backdrop-in .25s ease;
+    animation: backdrop-in var(--ui-duration-slow) ease;
   }
 }
 

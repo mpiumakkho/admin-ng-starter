@@ -31,7 +31,8 @@
   border-inline-end: 1px solid var(--ui-border);
   border-bottom: 1px solid var(--ui-border);
   background: var(--ui-surface);
-  transition: width .2s ease, background .2s ease;
+  // In step with the sidebar's width
+  transition: width var(--ui-duration) var(--ui-ease-standard), background-color var(--ui-duration) ease;
 
   // Below 992px the bar is one strip: menu button and logo on the left, see-through like the rest
   @media (max-width: 991px) {

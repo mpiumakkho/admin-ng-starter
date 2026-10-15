@@ -60,11 +60,12 @@
     <ui-segmented class="tabs" variant="underline" [options]="tabs()" [(value)]="tab" [ariaLabel]="'Sections' | translate" />
   </ui-card>
 
-  <!-- On a desktop the tab takes the rest of the window and its cards reach the bottom, as on the pages with tables -->
+  <!-- On a desktop the tab takes the rest of the window and its cards reach the bottom, as on the pages with tables.
+       Each tab fades in where the last one was (ui-enter-fade) -->
   <div class="tab-panel">
   @switch (tab()) {
     @case ('details') {
-      <ui-card fill [title]="'Details' | translate">
+      <ui-card fill [title]="'Details' | translate" animate.enter="ui-enter-fade">
         <ui-detail-list class="details" [columns]="2">
           <ui-detail-item [label]="'Full name' | translate">{{ name() }}</ui-detail-item>
           <ui-detail-item [label]="'Email' | translate">{{ user.email }}</ui-detail-item>
@@ -86,7 +87,7 @@
       </ui-card>
     }
     @case ('roles') {
-      <div class="roles-tab">
+      <div class="roles-tab" animate.enter="ui-enter-fade">
         <ui-card fill [title]="'Roles' | translate" [description]="'What they hold, from when and until when.' | translate">
           @if (canChangeRoles()) {
             <button uiButton uiCardActions variant="secondary" size="sm" type="button" (click)="giveRole()"><ng-icon [svg]="icons.giveRole" /> {{ 'Give role' | translate }}</button>
@@ -175,7 +176,7 @@
       }
     }
     @case ('activity') {
-      <ui-card fill [title]="'Activity' | translate" [description]="'Changes made by or to this user' | translate">
+      <ui-card fill animate.enter="ui-enter-fade" [title]="'Activity' | translate" [description]="'Changes made by or to this user' | translate">
         <a uiButton uiCardActions variant="ghost" size="sm" routerLink="/activity" [queryParams]="{ user: user.id }">{{ 'View in activity log' | translate }} <ng-icon [svg]="icons.arrow" /></a>
         @if (activity().length) {
           <ui-timeline>
@@ -194,7 +195,7 @@
       </ui-card>
     }
     @case ('security') {
-      <div class="security">
+      <div class="security" animate.enter="ui-enter-fade">
         <div class="security-cards">
         <ui-card [title]="'Two-step sign-in' | translate" [description]="'A code from an authenticator app as well as the password.' | translate">
           <div class="security-row">

@@ -49,7 +49,7 @@ export class UiToastService {
   imports: [NgIcon],
   template: `
     @for (item of service.toasts(); track item.id) {
-      <div class="ui-toast" [class]="'ui-toast ui-toast-' + item.tone" role="status">
+      <div class="ui-toast" [class]="'ui-toast ui-toast-' + item.tone" role="status" animate.leave="ui-toast-leave">
         <ng-icon [svg]="icons[item.tone]" class="ui-toast-icon" />
         <span class="ui-toast-message">{{ item.message }}</span>
         <button type="button" class="ui-toast-close" [attr.aria-label]="dismissLabel()" (click)="service.dismiss(item.id)">
@@ -85,6 +85,11 @@ export class UiToastService {
       font: 500 .8125rem/1.4 var(--ui-font);
       pointer-events: auto;
       animation: ui-toast-in .25s var(--ui-ease);
+    }
+
+    // Going, it fades and sinks back a little, quicker than it came
+    .ui-toast-leave {
+      animation: ui-toast-out var(--ui-duration-fast) var(--ui-ease-in) forwards;
     }
 
     .ui-toast-icon {
@@ -162,6 +167,13 @@ export class UiToastService {
       from {
         opacity: 0;
         transform: translateY(8px);
+      }
+    }
+
+    @keyframes ui-toast-out {
+      to {
+        opacity: 0;
+        transform: translateY(4px) scale(.98);
       }
     }
   `,
