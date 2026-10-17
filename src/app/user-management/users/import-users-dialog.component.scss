@@ -58,7 +58,7 @@ ui-alert {
 
 // The rows scroll inside the dialog, under a header that stays put
 .preview {
-  max-height: min(320px, 45vh);
+  max-height: min(320px, calc(var(--ui-100vh) * .45));
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius);
 }

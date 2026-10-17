@@ -63,6 +63,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit
 | `/forgot-password` | "Forgot password?": asks for an email and has a reset link sent to it, answering the same whether or not the email belongs to someone |
 | `/activate`, `/reset-password` | Where the links in emails lead: set a first password from an invitation, or a new one from a reset link, then sign in with it. With the sample data the emails are written to the browser console |
 | `/ui-kit` | The component gallery: every piece in `user-management/ui` with a usage snippet. It is not in the sidebar; open it from the account menu |
+| `/clinic` | ตัวอย่างหน้างานตรวจรักษาของโรงพยาบาลสัตว์ (สัตวแพทย์) ออกแบบตาม `seph1-vet-erp-rc` แต่ใช้สีและ token ของแอปนี้ (`--ui-*`) เปิดเต็มหน้าจอจากเมนูบัญชี มี 6 แท็บ ได้แก่ คิว นัดหมาย การตรวจรักษา คำสั่งตรวจ ผลตรวจ และจ่ายยา ข้อมูลเป็นข้อมูลตัวอย่างในเบราว์เซอร์ อยู่จนปิดแอปหรือกดรีเซ็ตในเมนูผู้ใช้ โค้ดอยู่ใน `src/app/clinic` |
 
 ## Project layout
 
@@ -125,6 +126,19 @@ In both views focus is a 2px ring that the navbar, a table's header row or the s
 **Exception: 2.2.3.** Signing out after a set time idle, and links in emails that stop working after a while, are time limits kept for security, which 2.2.3 does not allow. The app meets AAA except 2.2.3 for these two. Choosing "Never" under "Sign out when idle" in the settings removes the first.
 
 Tools check what they can: `e2e/accessible-view.spec.ts` runs axe's AAA rules and a 44-pixel target check on every page, and covers the behaviour above. Criteria that only a person can judge, such as plain wording (3.1.5) and help next to the fields (3.3.5), rest on review.
+
+### ขนาดการแสดงผล (Aa)
+
+สำหรับผู้ที่อ่านตัวอักษรเล็กได้ลำบาก ปุ่มขนาดการแสดงผลอยู่ที่ header ถัดจากปุ่มธีม (ทั้งหน้า admin และหน้างานตรวจรักษา) กดแต่ละครั้งจะขยาย UI ทั้งหมดขึ้นทีละระดับ 100% → 110% → 125% แล้วกลับเป็น 100% ทั้งตัวอักษร ไอคอน และระยะห่างจะใหญ่ขึ้นพร้อมกันเหมือนการซูมของเบราว์เซอร์ ระบบจำค่าที่เลือกไว้ในเครื่องนั้น และ `src/index.html` ใส่ค่าให้ก่อนแอปเริ่มทำงาน จึงไม่มีจังหวะที่หน้าจอแสดงเป็น 100% ก่อน
+
+- ไอคอนบอกว่ากดแล้วจะเกิดอะไร: A↑ (`lucideAArrowUp`) คือขยายขึ้น และ A↓ (`lucideAArrowDown`) ที่ 125% คือกลับเป็นปกติ เมื่อชี้เมาส์หรือ focus ด้วยคีย์บอร์ด `ui-tooltip` จะบอกขนาดตอนนี้และขนาดถัดไป และอัปเดตทันทีที่กด ส่วน screen reader จะได้ยินขนาดใหม่ผ่าน `LiveAnnouncer`
+- ปุ่มต้องอยู่ใต้เมาส์ให้กดซ้ำได้ ถ้าไอคอนในแถบขยายตามทันที ปุ่มจะเลื่อนหนีเมาส์ 25–55px และการกดครั้งถัดไป (หรือการดับเบิลคลิก) จะไปโดนปุ่มข้างๆ แทน เมื่อกดด้วยเมาส์ `UiScaleService.step({ hold: true })` จึงตั้ง `--ui-zoom-hold` ให้ `.navbar-actions` คงขนาดเดิมไว้ ส่วนอื่นของหน้าเปลี่ยนขนาดทันที พอเมาส์ออกจากปุ่ม (`release()`) กลุ่มไอคอนก็ขยายตาม ถ้ากดด้วยคีย์บอร์ดจะเปลี่ยนทั้งหมดทันที
+- ด้วยเหตุนี้ สิ่งที่เปลี่ยนรูปร่างกลุ่มไอคอน (ซ่อนชื่อผู้ใช้ที่ต่ำกว่า 1200px และซ่อนเส้นคั่นที่ต่ำกว่า 576px) จึงใช้ media query ตามความกว้างหน้าต่าง ไม่ใช่ container query ขนาดการแสดงผลจะได้ไม่เปลี่ยนกลุ่มไอคอนระหว่างที่กดอยู่
+
+- `UiScaleService` ตั้ง `--ui-zoom` บน `<html>` แล้ว `ui.scss` ใช้ค่านี้ zoom ที่ `app-root` และเนื้อหาในแต่ละ pane ของ CDK overlay (เมนู) ตัว pane เองไม่ถูก zoom ตำแหน่งที่ CDK คำนวณจึงยังตรงกับปุ่ม
+- zoom ทำให้ `100vh` และ `100vw` ใหญ่เกินหน้าต่างไปด้วย ส่วนที่ต้องเต็มหน้าต่างหรือเว้นจากขอบจอจึงใช้ `var(--ui-100vh)`, `var(--ui-100dvh)` และ `var(--ui-100vw)` แทน ถ้าเพิ่มหน้าใหม่ให้ใช้ตัวแปรเหล่านี้
+- media query ยังเห็นความกว้างจริงของหน้าต่าง หน้างานตรวจรักษาจึงจัด layout ตามความกว้างของตัวเองด้วย container query (`@container clinic`) ส่วนหน้า admin ยังใช้ media query ซึ่งที่ 125% บนจอ 1280px จะได้ layout ของจอ 1280px ในพื้นที่จริง 1024px ตารางจะเลื่อนด้านข้างแทน
+- `e2e/clinic.spec.ts` ตรวจว่ากดซ้ำจากจุดเดิมได้ tooltip บอกขนาดถูกต้อง Escape ปิด tooltip ได้ ที่ 125% หน้าจอยังพอดีหน้าต่าง เมนูยังเปิดตรงใต้ปุ่ม และผ่าน axe
 
 ## Font
 

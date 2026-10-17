@@ -1,0 +1,346 @@
+@let p = patient();
+@let n = note();
+
+<!-- L1 · who the pet is, always in view -->
+<cl-patient-banner />
+
+<div class="encounter-layout">
+  <!-- The note, step by step -->
+  <nav class="step-rail" [attr.aria-label]="'ขั้นตอนการบันทึก' | tx">
+    @for (label of steps; track label; let i = $index) {
+      <button type="button" class="step-btn" [class.active]="i === step()" [attr.aria-current]="i === step() ? 'step' : null" (click)="step.set(i)">
+        <span class="step-no">{{ i + 1 }}</span>
+        <span class="step-text">
+          <span class="step-label">{{ label | tx }}</span>
+          <span class="secondary">{{ (i < step() ? 'Complete' : i === step() ? 'In progress' : 'Not started') | tx }}</span>
+        </span>
+      </button>
+    }
+  </nav>
+
+  <section class="clinical" [attr.aria-labelledby]="'encounter-step-title'">
+    <div class="clinical-head">
+      <div>
+        <h1 id="encounter-step-title">{{ steps[step()] | tx }}</h1>
+        <div class="secondary">
+          {{ 'Encounter E-260924-05 ·' | tx }} {{ where().location | tx }} · {{ p.vet | tx }} {{ '· ขั้นตอน' | tx }} {{ where().stage | tx }} ({{ where().minutes }} {{ 'น.)' | tx }}
+          @if (n.savedAt) {
+            {{ '· บันทึกล่าสุด' | tx }} {{ n.savedAt | tx }}
+          }
+        </div>
+      </div>
+      <div class="actions">
+        @if (!signed() && !closed()) {
+          <button uiButton variant="secondary" size="sm" type="button" (click)="openTemplates()">
+            <ng-icon [svg]="icons.template" aria-hidden="true" />{{ 'Templates' | tx }}
+            @if (suggested() && !n.templates.length) {
+              <span class="dot-badge" [attr.title]="'มีเทมเพลตที่แนะนำสำหรับ visit นี้' | tx"></span>
+            }
+          </button>
+        }
+        <button uiButton variant="secondary" size="sm" type="button" (click)="summaryOpen.set(true)"><ng-icon [svg]="icons.ai" aria-hidden="true" />{{ 'AI summary' | tx }}</button>
+        <button uiButton variant="secondary" size="sm" type="button" [disabled]="signed()" (click)="actions.signNote(p)"
+          [attr.title]="signed() ? ('ลงนามแล้ว · {0} {1}' | tx: { '0': ((n.signedBy ?? '') | tx), '1': n.signedAt ?? '' }) : ('ล็อก S/O/A/P' | tx)">
+          <ng-icon [svg]="icons.sign" aria-hidden="true" />{{ (signed() ? 'ลงนาม SOAP แล้ว' : 'ลงนาม SOAP') | tx }}
+        </button>
+        <button uiButton variant="secondary" size="sm" type="button" [disabled]="closed() || !signed()" (click)="actions.closeEncounter(p)"
+          [attr.title]="(closed() ? 'ปิด encounter แล้ว' : signed() ? 'ล็อกเวชระเบียนทั้ง visit' : 'ต้องลงนาม SOAP ก่อน') | tx">
+          <ng-icon [svg]="icons.lock" aria-hidden="true" />{{ (closed() ? 'ปิด encounter แล้ว' : 'ปิด encounter') | tx }}
+        </button>
+      </div>
+    </div>
+
+    @if (closed()) {
+      <div class="readonly-banner"><ng-icon [svg]="icons.lock" aria-hidden="true" />{{ 'ปิด encounter แล้ว ·' | tx }} {{ (n.closedBy ?? '') | tx }} {{ n.closedAt }} {{ '— เวชระเบียนของ visit นี้ล็อกทั้งชุด' | tx }}</div>
+    } @else if (signed() && !canEdit()) {
+      <div class="readonly-banner"><ng-icon [svg]="icons.lock" aria-hidden="true" />{{ 'ลงนาม SOAP แล้ว ·' | tx }} {{ (n.signedBy ?? '') | tx }} {{ n.signedAt }} {{ '— S/O/A/P ถูกล็อก การแก้ไขภายหลังต้องทำเป็น addendum' | tx }}</div>
+    }
+
+    <div class="form-panel">
+      <!-- Fields bound to the note: typing writes into it, leaving the field saves it -->
+      <ng-template #area let-key="key" let-label="label" let-full="full">
+        <div class="field" [class.full]="full">
+          <label [for]="'enc-' + key">{{ label | tx }}</label>
+          <textarea class="ui-input" [id]="'enc-' + key" rows="3" [value]="value(key)" (input)="write(key, $any($event.target).value)" (blur)="commit()"></textarea>
+        </div>
+      </ng-template>
+      <ng-template #line let-key="key" let-label="label">
+        <div class="field short">
+          <label [for]="'enc-' + key">{{ label | tx }}</label>
+          <input class="ui-input" [id]="'enc-' + key" [value]="value(key)" (input)="write(key, $any($event.target).value)" (blur)="commit()" />
+        </div>
+      </ng-template>
+      <ng-template #choice let-key="key" let-label="label" let-choices="choices">
+        <div class="field short">
+          <label [for]="'enc-' + key">{{ label | tx }}</label>
+          <select class="ui-input" [id]="'enc-' + key" (change)="choose(key, $any($event.target).value)">
+            @if (!choices.includes(value(key))) {
+              <option [value]="value(key)" selected>{{ value(key) ? (value(key) | tx) : ('— เลือก —' | tx) }}</option>
+            }
+            @for (option of choices; track option) {
+              <option [value]="option" [selected]="option === value(key)">{{ option | tx }}</option>
+            }
+          </select>
+        </div>
+      </ng-template>
+
+      <!-- A new fieldset for each step, so it fades in where the last one was -->
+      @for (current of [step()]; track current) {
+      <fieldset class="plain" [disabled]="!canEdit()" animate.enter="ui-enter-fade">
+        @switch (current) {
+          @case (0) {
+            <div class="form-12">
+              <ng-container *ngTemplateOutlet="area; context: { key: 'reason', label: 'Reason for visit' }" />
+              <ng-container *ngTemplateOutlet="area; context: { key: 'ownerObs', label: 'Owner observation' }" />
+              <ng-container *ngTemplateOutlet="choice; context: { key: 'appetite', label: 'Appetite', choices: options.appetite }" />
+              <ng-container *ngTemplateOutlet="choice; context: { key: 'energy', label: 'Energy', choices: options.energy }" />
+              <div class="field short">
+                <label for="enc-triage">{{ 'Triage' | tx }}</label>
+                <select class="ui-input" id="enc-triage" (change)="actions.setTriage(p, $any($event.target).value)">
+                  @for (level of triage; track level.value) {
+                    <option [value]="level.value" [selected]="level.value === p.triage">{{ level.value | tx }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          }
+          @case (1) {
+            <div class="form-12">
+              <ng-container *ngTemplateOutlet="line; context: { key: 'weight', label: 'Weight (kg)' }" />
+              <ng-container *ngTemplateOutlet="line; context: { key: 'temp', label: 'Temperature (°C)' }" />
+              <ng-container *ngTemplateOutlet="line; context: { key: 'hr', label: 'Heart rate' }" />
+              <ng-container *ngTemplateOutlet="line; context: { key: 'rr', label: 'Respiratory rate' }" />
+              <ng-container *ngTemplateOutlet="line; context: { key: 'mm', label: 'Mucous membrane / CRT' }" />
+              <ng-container *ngTemplateOutlet="choice; context: { key: 'bcs', label: 'Body condition score', choices: options.bcs }" />
+              <div class="field full">
+                <label for="enc-pain">{{ 'Pain score (0–10)' | tx }}: <b>{{ n.pain }}</b></label>
+                <input id="enc-pain" class="pain-range" type="range" min="0" max="10" [value]="n.pain" (input)="write('pain', $any($event.target).value)" (change)="commit()" />
+              </div>
+            </div>
+          }
+          @case (2) {
+            <div class="form-tabs" role="group" [attr.aria-label]="'SOAP' | tx">
+              @for (tab of ['Subjective', 'Objective']; track tab; let i = $index) {
+                <button type="button" [class.active]="i === soapTab()" [attr.aria-pressed]="i === soapTab()" (click)="soapTab.set(i)">{{ tab | tx }}</button>
+              }
+            </div>
+            @if (soapTab() === 0) {
+              <div class="form-12">
+                <ng-container *ngTemplateOutlet="area; context: { key: 'chief', label: 'Chief complaint' }" />
+                <ng-container *ngTemplateOutlet="area; context: { key: 'hpi', label: 'History of present illness' }" />
+                <ng-container *ngTemplateOutlet="choice; context: { key: 'duration', label: 'Duration', choices: options.duration }" />
+                <ng-container *ngTemplateOutlet="choice; context: { key: 'progression', label: 'Progression', choices: options.progression }" />
+                <div class="field full" role="group" [attr.aria-label]="'Review of systems' | tx">
+                  <span class="field-label">{{ 'Review of systems' | tx }}</span>
+                  <div class="check-grid">
+                    @for (system of options.ros; track system) {
+                      <label class="check"><input type="checkbox" [checked]="n.ros.includes(system)" (change)="toggleRos(system, $any($event.target).checked)" />{{ system | tx }}</label>
+                    }
+                  </div>
+                </div>
+              </div>
+            } @else {
+              <div class="form-12">
+                <ng-container *ngTemplateOutlet="area; context: { key: 'general', label: 'General appearance', full: true }" />
+                <ng-container *ngTemplateOutlet="area; context: { key: 'msk', label: 'Musculoskeletal' }" />
+                <ng-container *ngTemplateOutlet="area; context: { key: 'cardio', label: 'Cardiopulmonary' }" />
+                <ng-container *ngTemplateOutlet="area; context: { key: 'remark', label: 'หมายเหตุ', full: true }" />
+              </div>
+            }
+          }
+          @case (3) {
+            <div class="form-12">
+              <div class="field full">
+                <span class="field-label">{{ 'Problem list' | tx }}</span>
+                <div class="kv-list">
+                  @for (problem of p.problems; track problem[0]) {
+                    <div class="row-card">
+                      <span class="grow"><b>{{ problem[0] | tx }}</b><div class="secondary">{{ problem[1] | tx }}</div></span>
+                      <span class="chip" [class]="'chip ' + problem[2]">{{ (problem[2] === 'ok' ? 'Resolved' : 'Active') | tx }}</span>
+                    </div>
+                  } @empty {
+                    <p class="muted">{{ 'ยังไม่มี problem' | tx }}</p>
+                  }
+                </div>
+              </div>
+              <ng-container *ngTemplateOutlet="area; context: { key: 'ddx', label: 'Differential diagnosis' }" />
+              <ng-container *ngTemplateOutlet="area; context: { key: 'dx', label: 'Working diagnosis' }" />
+              <ng-container *ngTemplateOutlet="area; context: { key: 'plan', label: 'Treatment plan', full: true }" />
+            </div>
+          }
+          @case (4) {
+            <div class="kv-list" role="group" [attr.aria-label]="'Orders' | tx">
+              @for (order of encounterOrders; track order.name) {
+                @let state = orderState(order.name);
+                <label class="row-card pick" [class.on]="picked().has(order.name)">
+                  <input type="checkbox" [checked]="picked().has(order.name)" (change)="toggleOrder(order.name)" />
+                  <span class="grow"><b>{{ order.name | tx }}</b><div class="secondary">{{ order.note | tx }}</div></span>
+                  @if (state) {
+                    <span class="chip" [class]="'chip ' + (state === 'Draft' ? 'quiet' : state === 'Completed' ? 'ok' : 'info')">{{ state | tx }}</span>
+                  }
+                </label>
+              }
+            </div>
+            <div class="step-actions">
+              <button uiButton size="sm" type="button" [disabled]="!picked().size" (click)="sendOrders()">{{ 'ส่ง order ที่เลือก' | tx }}</button>
+              <button uiButton variant="secondary" size="sm" type="button" (click)="ui.openSheet('newOrder')">{{ 'เพิ่ม order อื่น' | tx }}<ng-icon [svg]="icons.chevron" aria-hidden="true" /></button>
+              <button uiButton variant="secondary" size="sm" type="button" (click)="ui.openSheet('results')">{{ 'ดูผลตรวจล่าสุด' | tx }}<ng-icon [svg]="icons.chevron" aria-hidden="true" /></button>
+              <button uiButton variant="secondary" size="sm" type="button" (click)="ui.openSheet('estimate')">{{ 'Estimate' | tx }}<ng-icon [svg]="icons.chevron" aria-hidden="true" /></button>
+            </div>
+          }
+          @case (5) {
+            @for (alert of drugAlerts(); track $index) {
+              <div class="safety" [class.warn]="meta[alert.type].cls === 'warn'">
+                <b><ng-icon [svg]="alertIcons[alert.type]" aria-hidden="true" />{{ alert.label | tx }}</b>
+                @if (alert.detail) {
+                  <div class="secondary">{{ alert.detail | tx }}</div>
+                }
+              </div>
+            }
+            <div class="kv-list">
+              @for (rx of prescriptions(); track rx.id) {
+                @let draft = rx.verbal && !rx.cosignedBy;
+                <div class="row-card" [class.blocked]="draft">
+                  <span class="grow">
+                    <b>{{ rx.drug }}</b>
+                    <div class="secondary">{{ rx.dose | tx }} · {{ rx.freq | tx }} · {{ rx.days | tx }} · {{ rx.qty | tx }} · {{ rx.code }} · {{ (draft ? 'รับไว้โดย' : 'สั่งโดย') | tx }} {{ rx.by | tx }}</div>
+                  </span>
+                  @if (draft) {
+                    <button uiButton size="sm" type="button" (click)="actions.cosign(rx)">{{ 'ลงนามกำกับ' | tx }}</button>
+                  } @else {
+                    <span class="chip" [class]="'chip ' + (rx.col === 'Ready' ? 'ok' : 'info')">{{ rx.state | tx }}</span>
+                    <button uiButton variant="secondary" size="sm" type="button" (click)="ui.openSheet('prescription', { id: rx.id })">{{ 'ดูใบสั่งยา' | tx }}</button>
+                  }
+                </div>
+              }
+              @for (med of olderMeds(); track med[0]) {
+                <div class="row-card">
+                  <span class="grow"><b>{{ med[0] | tx }}</b><div class="secondary">{{ med[1] | tx }}</div></span>
+                  <span class="chip quiet">{{ 'ยาเดิม' | tx }}</span>
+                </div>
+              }
+              @if (!prescriptions().length && !olderMeds().length) {
+                <p class="muted">{{ 'ยังไม่มียาใน visit นี้' | tx }}</p>
+              }
+            </div>
+            <div class="step-actions">
+              <button uiButton size="sm" type="button" (click)="actions.prescribe(p)"><ng-icon [svg]="icons.plus" aria-hidden="true" />{{ 'สั่งยาใหม่' | tx }}</button>
+              <button uiButton variant="secondary" size="sm" type="button" (click)="openDispense()">{{ 'Dispense board' | tx }}<ng-icon [svg]="icons.chevron" aria-hidden="true" /></button>
+            </div>
+            <p class="secondary">{{ 'ต้องตรวจ CDS ก่อนสั่งยาทุกครั้ง · ยาที่ถูกบล็อกต้องให้สัตวแพทย์ override พร้อมเหตุผล (≥10 ตัวอักษร) · คำสั่งวาจาไม่มีผลจนกว่าสัตวแพทย์จะลงนามกำกับ' | tx }}</p>
+          }
+          @default {
+            <div class="form-12">
+              <ng-container *ngTemplateOutlet="area; context: { key: 'summary', label: 'Diagnosis summary', full: true }" />
+              <ng-container *ngTemplateOutlet="area; context: { key: 'home', label: 'Home instructions', full: true }" />
+              <ng-container *ngTemplateOutlet="choice; context: { key: 'followup', label: 'Follow-up', choices: options.followup }" />
+              <div class="field short">
+                <label for="enc-channel">{{ 'ช่องทางส่งเอกสาร' | tx }}</label>
+                <select class="ui-input" id="enc-channel"><option>{{ store.owner(p).prefer | tx }} {{ '+ เอกสารพิมพ์' | tx }}</option></select>
+              </div>
+            </div>
+            <div class="step-actions">
+              <button uiButton variant="secondary" size="sm" type="button" (click)="share()">{{ 'แชร์พร้อมไฟล์แนบ' | tx }}<ng-icon [svg]="icons.chevron" aria-hidden="true" /></button>
+            </div>
+          }
+        }
+      </fieldset>
+      }
+    </div>
+  </section>
+</div>
+
+<!-- What the visit has to hand over, and the step's own buttons -->
+<div class="handoff">
+  <div class="handoff-title"><b>{{ 'Encounter handoff' | tx }}</b><div class="secondary">{{ 'เสร็จแล้ว' | tx }} {{ handoffDone() }}/{{ handoffSteps.length }}</div></div>
+  <ol class="handoff-flow" [attr.aria-label]="'Encounter handoff' | tx">
+    @for (h of handoffSteps; track h.key; let i = $index) {
+      @let state = p.handoff[h.key];
+      <li class="hand-node" [class.done]="state.state === 'done'" [class.active]="state.state === 'active'">
+        <span class="hand-circle">
+          @if (state.state === 'done') {
+            <ng-icon [svg]="icons.check" aria-hidden="true" /><span class="visually-hidden">{{ 'เสร็จแล้ว' | tx }}</span>
+          } @else {
+            {{ i + 1 }}
+          }
+        </span>
+        <span class="hand-text"><b>{{ h.label | tx }}</b><br />{{ state.note | tx }}</span>
+      </li>
+    }
+  </ol>
+  <button uiButton variant="secondary" size="sm" type="button" [disabled]="!canEdit()" (click)="save()">{{ 'Save' | tx }}</button>
+  <button uiButton size="sm" type="button" [disabled]="!canEdit() && !last()" (click)="next()">
+    {{ (last() ? 'ส่งต่อ Dispense' : 'Complete step') | tx }}<ng-icon [svg]="icons.next" aria-hidden="true" />
+  </button>
+</div>
+
+<!-- Templates: S/O/A/P, plan and discharge text for common visits; the one that fits the visit is suggested -->
+<ui-dialog [(open)]="templatesOpen" [title]="'เลือกเทมเพลตบันทึก · {0}' | tx: { '0': p.pet }" size="lg" [closeLabel]="'ปิด' | tx">
+  @if (templatesOpen()) {
+    <div class="tpl-layout">
+      <div class="tpl-list" role="listbox" [attr.aria-label]="'เทมเพลต' | tx">
+        @for (tpl of templates; track tpl.id) {
+          <button type="button" role="option" class="tpl-item" [class.on]="tpl.id === template().id" [attr.aria-selected]="tpl.id === template().id" (click)="templateId.set(tpl.id)">
+            <ng-icon [svg]="icons.template" aria-hidden="true" />
+            <span class="tpl-text"><b>{{ tpl.name | tx }}</b><small>{{ tpl.desc | tx }}</small></span>
+            @if (tpl === suggested()) {
+              <span class="chip info"><ng-icon [svg]="icons.ai" aria-hidden="true" />{{ 'แนะนำ' | tx }}</span>
+            }
+          </button>
+        }
+      </div>
+      <div class="tpl-preview">
+        <p class="secondary">{{ 'ช่องที่เทมเพลตนี้จะเติม — ข้อความ "…" คือจุดที่ต้องกรอกเอง' | tx }}</p>
+        @for (field of templateFields(template()); track field[0]) {
+          <div class="compare-sec"><b>{{ field[0] | tx }}</b><span class="pre">{{ field[1] }}</span></div>
+        }
+      </div>
+    </div>
+  }
+  <div uiDialogFooter>
+    <span class="secondary dialog-note">{{ 'ใช้แล้ว:' | tx }} {{ n.templates.length ? n.templates.join(', ') : '—' }}</span>
+    <button uiButton variant="secondary" type="button" (click)="applyTemplate('fill')">{{ 'เติมเฉพาะช่องที่ว่าง' | tx }}</button>
+    <button uiButton type="button" (click)="applyTemplate('replace')"><ng-icon [svg]="icons.check" aria-hidden="true" />{{ 'ใช้เทมเพลต' | tx }}</button>
+  </div>
+</ui-dialog>
+
+<!-- The AI summary: put together from the record and the note -->
+<ui-dialog [(open)]="summaryOpen" [title]="'AI summary · {0}' | tx: { '0': p.pet }" size="lg" [closeLabel]="'ปิด' | tx">
+  @if (summaryOpen()) {
+    @let s = summary();
+    <p class="ai-note"><ng-icon [svg]="icons.ai" aria-hidden="true" />{{ 'สรุปจากเวชระเบียนและบันทึกของ visit นี้ ไม่ได้เรียกโมเดล — ตรวจสอบก่อนใช้ทุกครั้ง' | tx }}</p>
+    <div class="sum-card">
+      <div class="sum-head"><b>{{ p.pet }} · {{ p.hn }}</b><span class="secondary">{{ p.species | tx }} · {{ p.breed }} · {{ p.age | tx }} · {{ p.weight }}</span></div>
+      <div class="sum-grid">
+        <div class="sum-block"><h4>{{ 'Clinical alerts' | tx }}</h4>
+          @if (s.alerts.length) { <ul>@for (x of s.alerts; track $index) {<li>{{ x | tx }}</li>}</ul> } @else { <p>—</p> }
+        </div>
+        <div class="sum-block"><h4>{{ 'Problem list' | tx }}</h4>
+          @if (s.problems.length) { <ul>@for (x of s.problems; track $index) {<li>{{ x | tx }}</li>}</ul> } @else { <p>—</p> }
+        </div>
+        <div class="sum-block"><h4>{{ 'Medications' | tx }}</h4>
+          @if (s.meds.length) { <ul>@for (x of s.meds; track $index) {<li>{{ x }}</li>}</ul> } @else { <p>—</p> }
+        </div>
+        <div class="sum-block"><h4>{{ 'ผลตรวจผิดปกติ' | tx }}</h4>
+          @if (s.abnormal.length) { <ul>@for (x of s.abnormal; track $index) {<li>{{ x | tx }}</li>}</ul> } @else { <p>—</p> }
+        </div>
+        <div class="sum-block"><h4>{{ 'Vaccines / reminders' | tx }}</h4>
+          @if (s.vaccines.length) { <ul>@for (x of s.vaccines; track $index) {<li>{{ x | tx }}</li>}</ul> } @else { <p>—</p> }
+        </div>
+        <div class="sum-block"><h4>{{ 'Visit history' | tx }}</h4>
+          @if (s.visits.length) { <ul>@for (x of s.visits; track $index) {<li>{{ x | tx }}</li>}</ul> } @else { <p>—</p> }
+        </div>
+      </div>
+    </div>
+    <div class="sum-card soap-draft">
+      <div class="sum-head"><b>{{ 'ร่าง SOAP' | tx }}</b></div>
+      @for (part of s.soap; track part[0]) {
+        <div class="compare-sec"><b>{{ part[0] }}</b><span class="pre">{{ part[1] ? (part[1] | tx) : '—' }}</span></div>
+      }
+    </div>
+  }
+  <div uiDialogFooter>
+    <button uiButton variant="secondary" type="button" (click)="copySummary()"><ng-icon [svg]="icons.copy" aria-hidden="true" />{{ 'คัดลอกสรุป' | tx }}</button>
+    <button uiButton type="button" [disabled]="signed() || closed()" (click)="acceptAssessment()">{{ 'เติมการประเมินลงบันทึก' | tx }}</button>
+  </div>
+</ui-dialog>

@@ -19,6 +19,9 @@
   z-index: 1030;
   display: flex;
   height: var(--app-navbar-height);
+  // The narrowest bar goes by its own width (@container navbar), which the display size's zoom narrows and a media
+  // query does not see: a 390-pixel phone at 125% has 312 pixels of room
+  container: navbar / inline-size;
 }
 
 /* Logo area, the same width as the sidebar */
@@ -65,7 +68,7 @@
   }
 
   // The narrowest phones keep the mark only
-  @media (max-width: 359px) {
+  @container navbar (max-width: 359px) {
     display: none;
   }
 }
@@ -78,7 +81,7 @@
     height: 28px;
   }
 
-  @media (max-width: 359px) {
+  @container navbar (max-width: 359px) {
     display: flex;
   }
 }
@@ -153,6 +156,9 @@
 
 /* Buttons on the right */
 .navbar-actions {
+  // While the pointer stays on the display size button, the controls keep the size they had (UiScaleService.step):
+  // the button stays under the pointer for the next press
+  zoom: var(--ui-zoom-hold, 1);
   display: flex;
   align-items: center;
   gap: .25rem;
@@ -183,6 +189,22 @@
   > .language-item {
     @media (max-width: 575px) {
       display: none;
+    }
+  }
+}
+
+// The narrowest bar: the icons closer together, so the photo and its account menu stay in reach
+@container navbar (max-width: 359px) {
+  .navbar-menu-wrapper {
+    gap: .5rem;
+    padding: 0 .5rem;
+  }
+
+  .navbar-actions {
+    gap: 0;
+
+    .icon-button {
+      width: 34px;
     }
   }
 }
@@ -454,7 +476,7 @@
 
 /* Menus. They open in an overlay outside the bar, so they use the --ui colors, which follow the theme. */
 .activity-menu.ui-menu {
-  width: min(340px, calc(100vw - 1.5rem));
+  width: min(340px, calc(var(--ui-100vw) - 1.5rem));
 
   // Off the screen edge when the phone screen pushes it sideways
   @media (max-width: 575px) {

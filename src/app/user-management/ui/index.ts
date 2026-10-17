@@ -6,6 +6,7 @@
 export * from './core/types';
 export * from './theme/theme.service';
 export * from './theme/accessible-view.service';
+export * from './theme/scale.service';
 
 // Actions and surfaces
 export * from './button/button.component';
@@ -15,6 +16,7 @@ export * from './dialog/confirm.service';
 export * from './menu/menu';
 export * from './toast/toast';
 export * from './page-header/page-header.component';
+export * from './tooltip/tooltip.component';
 
 // Data display
 export * from './badge/badge.component';

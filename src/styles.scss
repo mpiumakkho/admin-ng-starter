@@ -322,7 +322,7 @@ body.booting-signed-in {
 }
 
 .boot-logo { width: 7rem; height: 1.5rem; }
-.boot-search { width: min(26rem, 40vw); height: 2.25rem; }
+.boot-search { width: min(26rem, calc(var(--ui-100vw) * .4)); height: 2.25rem; }
 .boot-avatar { width: 2.25rem; height: 2.25rem; margin-inline-start: auto; border-radius: 50%; }
 .boot-title { width: 14rem; height: 1.5rem; }
 .boot-subtitle { width: 20rem; max-width: 100%; }
@@ -348,7 +348,7 @@ body.booting-signed-in {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: var(--ui-100vh);
   background: var(--ui-bg);
 
   .donut {

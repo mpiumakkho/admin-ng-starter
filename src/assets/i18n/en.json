@@ -38,6 +38,7 @@
     "This field is required.":      "This field is required.",
     "Total users":                  "Total users",
     "Component gallery":           "Component gallery",
+    "Clinical work":               "Clinical work",
     "Use at least 6 characters.":   "Use at least 6 characters.",
     "Welcome back":                 "Welcome back",
     "Hide password":                "Hide password",
@@ -93,5 +94,7 @@
     "Use another email":             "Use another email",
     "Send link":                     "Send link",
     "searchShortcut":              "Keyboard shortcut: {{keys}}",
-    "Type one of the recovery codes you saved when you turned on two-step sign-in.": "Type one of the recovery codes you saved when you turned on two-step sign-in."
+    "Type one of the recovery codes you saved when you turned on two-step sign-in.": "Type one of the recovery codes you saved when you turned on two-step sign-in.",
+    "Display size": "Display size",
+    "displaySizeNext": "Press to switch to {{size}}"
 }

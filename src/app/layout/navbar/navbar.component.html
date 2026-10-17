@@ -102,6 +102,16 @@
           <ng-icon [name]="theme.isDark() ? 'lucideSun' : 'lucideMoon'" />
         </button>
       </li>
+
+      <!-- The size of the whole UI, for those who find small text hard to read: a press steps up (A↑), from the largest
+           back to 100% (A↓). While the pointer stays on it the bar's controls keep their size, so it does not move away. -->
+      <li class="scale-item" (mouseleave)="uiScale.release()">
+        <ui-tooltip [text]="scaleNow()" [detail]="scaleHint()" align="end">
+          <button type="button" class="icon-button" [attr.aria-label]="scaleNow() + ' · ' + scaleHint()" (click)="stepScale($event)">
+            <ng-icon [name]="uiScale.atLargest() ? 'lucideAArrowDown' : 'lucideAArrowUp'" />
+          </button>
+        </ui-tooltip>
+      </li>
       <li class="navbar-divider" aria-hidden="true"></li>
 
       <!-- Both languages in view, one click to switch; on phones it moves into the account menu -->
@@ -148,6 +158,7 @@
               }
               <button uiMenuItemCheckbox [icon]="icons.accessible" [checked]="accessibleView.on()" (triggered)="accessibleView.toggle()">{{ 'Accessible view' | translate }}</button>
               <a uiMenuItem [icon]="icons.blocks" routerLink="/ui-kit">{{ 'Component gallery' | translate }}</a>
+              <a uiMenuItem [icon]="icons.clinic" routerLink="/clinic">{{ 'Clinical work' | translate }}</a>
               <hr uiMenuDivider />
               <button uiMenuItem tone="danger" [icon]="icons.signOut" (triggered)="signOut()">{{ 'Sign Out' | translate }}</button>
             </ui-menu>

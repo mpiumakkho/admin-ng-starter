@@ -79,6 +79,19 @@
   --ui-duration-fast: 150ms;
   --ui-duration: 250ms;
   --ui-duration-slow: 300ms;
+  // The size of the whole UI (UiScaleService sets --ui-zoom on <html>: 1, 1.1 or 1.25). Zoom enlarges 100vh and 100vw
+  // with everything else, past the window's edges; what fills the window or keeps clear of its edges uses these.
+  --ui-zoom: 1;
+  --ui-100vh: calc(100vh / var(--ui-zoom));
+  --ui-100dvh: calc(100dvh / var(--ui-zoom));
+  --ui-100vw: calc(100vw / var(--ui-zoom));
+}
+
+/* The UI's size: the app, and the menus the CDK opens over it in its overlay, outside app-root. The overlay's panes
+   themselves keep the window's own pixels, so the CDK still puts them where it means to; what is in them grows. */
+app-root,
+.cdk-overlay-pane > * {
+  zoom: var(--ui-zoom);
 }
 
 .theme-dark,
@@ -280,8 +293,10 @@ select.ui-input {
   scroll-padding-top: 2.5rem;
 }
 
-// Visually hidden but read by screen readers
-.ui-sr-only {
+// Visually hidden but read by screen readers. The CDK's LiveAnnouncer puts what it says in such an element at the end of
+// <body> (cdk-visually-hidden), whose own styles the app does not load: without these it adds a line below the page.
+.ui-sr-only,
+.cdk-visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;

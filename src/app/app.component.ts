@@ -26,6 +26,8 @@ import { SpinnerComponent } from './layout/spinner/spinner.component';
 
 const AUTH_PAGES = ['/login', '/forgot-password', '/activate', '/reset-password', '/setup-two-factor'];
 const ERROR_PAGES = ['/error-pages/404', '/error-pages/500'];
+/** Workspaces with their own shell bar and menu, which fill the window */
+const WORKSPACES = ['/clinic'];
 /** Read by index.html: someone was signed in when the app last ran */
 const SIGNED_IN_KEY = 'app-signed-in';
 
@@ -53,8 +55,9 @@ export class AppComponent {
 
   protected readonly isLoading = signal(false);
   protected readonly isErrorPage = computed(() => ERROR_PAGES.includes(this.path()));
-  // Sidebar, Navbar, Footer and Settings are removed for Error and Auth pages
-  protected readonly isFullPage = computed(() => this.isErrorPage() || AUTH_PAGES.includes(this.path()));
+  protected readonly isWorkspace = computed(() => WORKSPACES.some(path => this.path() === path || this.path().startsWith(path + '/')));
+  // Sidebar, Navbar, Footer and Settings are removed for Error and Auth pages, and for workspaces, which bring their own
+  protected readonly isFullPage = computed(() => this.isErrorPage() || AUTH_PAGES.includes(this.path()) || this.isWorkspace());
 
   constructor() {
     inject(LanguageService).init();

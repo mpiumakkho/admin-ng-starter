@@ -1,0 +1,97 @@
+<a class="skip-link" href="#clinic-main" (click)="skipToContent($event)">{{ 'ข้ามไปเนื้อหาหลัก' | tx }}</a>
+
+<!-- L0 · the bar along the top, built as the admin navbar is: the workspace's brand, its tabs, then search, notifications, theme,
+     language and the person -->
+<header class="navbar">
+  <div class="navbar-brand-wrapper">
+    <a class="brand" routerLink="/clinic/queue" [attr.aria-label]="'SLV · ' + ('งานตรวจรักษา' | tx)" [attr.title]="'งานตรวจรักษา' | tx">
+      <span class="logo" aria-hidden="true"><ng-icon [svg]="icons.paw" /></span>
+      <span class="brand-name">SLV</span>
+    </a>
+  </div>
+
+  <!-- The tabs of the clinical work, each with how many items wait in it; just the icon and the count when the names do not fit -->
+  <nav #nav class="nav" [class.compact]="compactTabs()" [attr.aria-label]="'เมนูหลัก' | tx">
+    @for (tab of tabs; track tab.key) {
+      <a [routerLink]="['/clinic', tab.key]" routerLinkActive="active" ariaCurrentWhenActive="page" [attr.title]="compactTabs() ? (tab.label | tx) : null">
+        <ng-icon [svg]="tab.icon" aria-hidden="true" />
+        <span class="tab-label">{{ tab.label | tx }}</span>
+        @if (store.counts()[tab.key]; as count) {
+          <span class="count">{{ count }}</span>
+        }
+      </a>
+    }
+  </nav>
+
+  <div class="navbar-menu-wrapper">
+    <ul class="navbar-actions">
+      <li><cl-global-search /></li>
+      <li><cl-notifications /></li>
+      <li>
+        <button type="button" class="icon-button" [attr.title]="themeLabel() | tx" [attr.aria-label]="themeLabel() | tx" (click)="theme.toggle()">
+          <ng-icon [svg]="theme.isDark() ? icons.sun : icons.moon" aria-hidden="true" />
+        </button>
+      </li>
+
+      <!-- The size of the whole UI, for those who find small text hard to read: a press steps up (A↑), from the largest
+           back to 100% (A↓). While the pointer stays on it the bar's controls keep their size, so it does not move away. -->
+      <li class="scale-item" (mouseleave)="uiScale.release()">
+        <ui-tooltip [text]="scaleNow()" [detail]="scaleHint()" align="end">
+          <button type="button" class="icon-button" [attr.aria-label]="scaleNow() + ' · ' + scaleHint()" (click)="stepScale($event)">
+            <ng-icon [svg]="uiScale.atLargest() ? icons.smaller : icons.larger" aria-hidden="true" />
+          </button>
+        </ui-tooltip>
+      </li>
+
+      <!-- The language: one button with the language in use on it; a press switches to the other -->
+      <li>
+        <button type="button" class="icon-button language-button" [attr.aria-label]="languageLabel()" [attr.title]="languageLabel()" (click)="switchLanguage()">
+          <span class="language-code">{{ language.current().toUpperCase() }}</span>
+        </button>
+      </li>
+      <li class="navbar-divider" aria-hidden="true"></li>
+
+      @if (session.user(); as me) {
+        <li>
+          <button type="button" class="user-button" [uiMenuTrigger]="accountMenu" [uiMenuPosition]="menuPosition" [attr.aria-label]="('เมนูผู้ใช้' | tx) + ' · ' + fullName(me)">
+            <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="sm" />
+            <span class="user-text" aria-hidden="true">
+              <span class="user-name">{{ fullName(me) }}</span>
+              <span class="user-role">{{ session.role()?.name }}@if (session.roles().length > 1) { +{{ session.roles().length - 1 }}}</span>
+            </span>
+          </button>
+          <ng-template #accountMenu>
+            <!-- A menu holds only items, so the card is read out as the menu's description instead -->
+            <ui-menu class="clinic-account-menu" [attr.aria-label]="('เมนูผู้ใช้' | tx) + ' · ' + fullName(me)" aria-describedby="clinic-account-card">
+              <div class="clinic-account-card" id="clinic-account-card" aria-hidden="true">
+                <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="md" />
+                <div class="clinic-account-text">
+                  <span class="clinic-account-name">{{ fullName(me) }}</span>
+                  <span class="clinic-account-email">{{ me.email }}</span>
+                  <app-role-badges class="clinic-account-role" [user]="me" [max]="3" />
+                </div>
+              </div>
+              <hr uiMenuDivider />
+              <a uiMenuItem [icon]="icons.back" routerLink="/">{{ 'กลับหน้าผู้ดูแลระบบ' | tx }}</a>
+              <button uiMenuItemCheckbox [icon]="icons.accessible" [checked]="accessibleView.on()" (triggered)="accessibleView.toggle()">{{ 'มุมมองเข้าถึงง่าย' | tx }}</button>
+              <button uiMenuItem [icon]="icons.reset" (triggered)="resetSample()">{{ 'รีเซ็ตข้อมูลตัวอย่าง' | tx }}</button>
+              <hr uiMenuDivider />
+              <button uiMenuItem tone="danger" [icon]="icons.signOut" (triggered)="signOut()">{{ 'ออกจากระบบ' | tx }}</button>
+            </ui-menu>
+          </ng-template>
+        </li>
+      }
+    </ul>
+  </div>
+</header>
+
+<!-- The tab | the context rail; a side sheet slides out over the tab, one at a time -->
+<main #main class="clinic-main" id="clinic-main" tabindex="-1">
+  <div class="views">
+    <router-outlet />
+  </div>
+  <cl-context-rail />
+  <cl-sheet-host />
+</main>
+
+<cl-dialog-host />

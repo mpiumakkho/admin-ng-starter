@@ -76,7 +76,7 @@ export class UiToastService {
       display: inline-flex;
       align-items: center;
       gap: .625rem;
-      max-width: min(480px, calc(100vw - 2rem));
+      max-width: min(480px, calc(var(--ui-100vw) - 2rem));
       padding: .625rem .5rem .625rem 1rem;
       border-radius: 999px;
       background: #0f172a;

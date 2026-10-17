@@ -29,7 +29,7 @@ $menu-motion: var(--ui-duration-slow) var(--ui-ease-standard);
 
 .sidebar {
   width: var(--app-sidebar-width);
-  min-height: calc(100vh - var(--app-navbar-height));
+  min-height: calc(var(--ui-100vh) - var(--app-navbar-height));
   border-inline-end: 1px solid var(--ui-border);
   background: var(--ui-surface);
   // In step with the navbar's logo area and the page's margin (app.component.scss)
@@ -393,7 +393,7 @@ $menu-motion: var(--ui-duration-slow) var(--ui-ease-standard);
     bottom: 0;
     left: 0;
     z-index: 1029;
-    max-width: calc(100vw - 3rem);
+    max-width: calc(var(--ui-100vw) - 3rem);
     overflow: auto;
     transform: translateX(-100%);
     // Hidden once it has slid away, so its links are out of the tab order

@@ -27,6 +27,12 @@
       if (accessible === '1') {
         document.body.classList.add('ui-aaa');
       }
+      // The size of the whole UI (UiScaleService), also before the first paint
+      var scale = null;
+      try { scale = localStorage.getItem('ui-scale'); } catch (e) { /* storage unavailable */ }
+      if (scale === '1.1' || scale === '1.25') {
+        document.documentElement.style.setProperty('--ui-zoom', scale);
+      }
       // Someone signed in last time, opening a page of the app: its frame stands in for the spinner while the
       // session and the data load (AppComponent keeps the flag)
       var signedIn = null;

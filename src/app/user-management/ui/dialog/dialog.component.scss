@@ -1,6 +1,6 @@
 .ui-dialog {
-  width: min(520px, calc(100vw - 2rem));
-  max-height: calc(100vh - 4rem);
+  width: min(520px, calc(var(--ui-100vw) - 2rem));
+  max-height: calc(var(--ui-100vh) - 4rem);
   margin: auto;
   padding: 0;
   overflow: visible;
@@ -25,17 +25,17 @@
 }
 
 .ui-dialog-sm {
-  width: min(400px, calc(100vw - 2rem));
+  width: min(400px, calc(var(--ui-100vw) - 2rem));
 }
 
 .ui-dialog-lg {
-  width: min(720px, calc(100vw - 2rem));
+  width: min(720px, calc(var(--ui-100vw) - 2rem));
 }
 
 .ui-dialog-panel {
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 4rem);
+  max-height: calc(var(--ui-100vh) - 4rem);
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-xl);
   background: var(--ui-surface);

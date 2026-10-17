@@ -1,0 +1,2716 @@
+// The clinical workspace, after the design in seph1-vet-erp-rc (styles/base.css, cards.css, app.css), in the app's own
+// colors: every color, radius and shadow is a --ui-* variable, so dark mode follows the app's theme. Everything is
+// under .clinic (the shell's host), so nothing reaches the admin pages. Grey canvas, white 10px cards, 8px gaps.
+
+.clinic {
+  --cl-gap: 8px;
+  --cl-r: var(--ui-radius-lg);
+  --cl-ctl-r: var(--ui-radius);
+  --cl-shell: 64px;
+  --cl-nav: 44px;
+  --cl-rail: 58px;
+  --sheet-w: 460px;
+
+  // Its layouts follow its own width, not the window's (@container clinic below): the display size (UiScaleService)
+  // zooms the app, which media queries do not see, so at 125% a 1280-pixel window lays out as the 1024 pixels it has
+  container: clinic / inline-size;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: var(--ui-100dvh);
+  // clip, not hidden: nothing, a sheet sliding in least of all, can scroll the whole workspace sideways
+  overflow: clip;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font: 400 14px/1.45 var(--ui-font);
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  .contents {
+    display: contents;
+  }
+
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--ui-heading);
+  }
+
+  ng-icon {
+    flex: none;
+  }
+
+  .secondary {
+    margin-top: 2px;
+    color: var(--ui-muted);
+    font-size: 12px;
+  }
+
+  .muted {
+    color: var(--ui-muted);
+  }
+
+  .text-danger {
+    color: var(--ui-danger-text);
+  }
+
+  .ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .grow {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pre {
+    white-space: pre-line;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ui-primary-text);
+    font-size: 12px;
+    font-weight: 650;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 19px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary-text);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  // Compact controls, as in the design: 32px tall instead of the app's 40px
+  .ui-input {
+    height: 32px;
+    padding: 4px 10px;
+    border-radius: var(--cl-ctl-r);
+    font-size: 13px;
+  }
+
+  select.ui-input {
+    padding-right: 2rem;
+  }
+
+  textarea.ui-input {
+    height: auto;
+    min-height: 60px;
+    padding: 6px 10px;
+    line-height: 1.5;
+  }
+
+  // Out of sight until focused; its shadow only then, so none shows at the top edge
+  .skip-link {
+    position: fixed;
+    top: -80px;
+    left: 8px;
+    z-index: 100;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--ui-surface);
+    color: var(--ui-primary-text);
+    font-weight: 700;
+    text-decoration: none;
+
+    &:focus {
+      top: 8px;
+      box-shadow: var(--ui-shadow-lg);
+    }
+  }
+}
+
+// Plain controls take the text around them; at no weight, so the app's buttons (uiButton) and fields keep their own
+:where(.clinic) :where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+}
+
+:where(.clinic) :where(button) {
+  cursor: pointer;
+}
+
+/* ---------- L0 · the bar along the top: the admin navbar's own look (layout/navbar/navbar.component.scss), with the
+   workspace's tabs where the admin navbar has its search ---------- */
+.clinic {
+  // As the admin navbar: white in light mode, its fields sunk into it; the page color in dark mode, its fields raised
+  --navbar-surface: var(--ui-surface);
+  --navbar-control: var(--ui-hover);
+}
+
+.theme-dark .clinic,
+[data-theme="dark"] .clinic {
+  --navbar-surface: var(--ui-bg);
+  --navbar-control: var(--ui-surface);
+}
+
+.clinic .navbar {
+  z-index: 40;
+  display: flex;
+  min-width: 0;
+  height: var(--cl-shell);
+}
+
+// The workspace's own brand, as in the design (SLV | งานตรวจรักษา), in the place of the admin logo; no wider than it is,
+// so the tabs beside it have the room
+.clinic .navbar-brand-wrapper {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 0 1.25rem 0 1.5rem;
+  border-inline-end: 1px solid var(--ui-border);
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+}
+
+.clinic .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--ui-heading);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:focus-visible {
+    border-radius: var(--ui-radius);
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+}
+
+// The paw on a tile of the brand color, as the app's own logo mark
+.clinic .logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+  font-size: 17px;
+}
+
+// The icons on the right; the search panel drops from here
+.clinic .navbar-menu-wrapper {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 0 1.5rem 0 .75rem;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--navbar-surface);
+  color: var(--ui-heading);
+}
+
+// Square icon buttons
+.clinic .icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: transparent;
+  color: inherit;
+  font-size: 1.125rem;
+  transition: background-color .15s ease, color .15s ease;
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background: var(--navbar-control);
+    color: var(--ui-heading);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+}
+
+// The language in use, plain as the icons beside it: no frame, about as tall as their strokes
+.clinic .language-code {
+  font: 600 .8125rem/1 var(--ui-font);
+  letter-spacing: .04em;
+}
+
+// Something new since the menu was last opened
+.clinic .count-indicator .count {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  box-sizing: content-box;
+  width: 8px;
+  min-width: 0;
+  height: 8px;
+  padding: 0;
+  border: 2px solid var(--navbar-surface);
+  border-radius: 50%;
+  background: var(--ui-danger);
+}
+
+.clinic .navbar-actions {
+  // While the pointer stays on the display size button, the controls keep the size they had (UiScaleService.step):
+  // the button stays under the pointer for the next press
+  zoom: var(--ui-zoom-hold, 1);
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  margin: 0;
+  margin-inline-start: auto;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    display: flex;
+    align-items: center;
+  }
+}
+
+.clinic .navbar-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 .5rem;
+  background: var(--ui-border);
+}
+
+// The person: photo, name and role; just the photo below 1200px
+.clinic .user-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  height: 38px;
+  padding: 0 .625rem 0 .25rem;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: transparent;
+  color: var(--ui-text);
+  font-weight: 500;
+  transition: background-color .15s ease;
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background: var(--navbar-control);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+}
+
+.clinic .user-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 180px;
+  line-height: 1.25;
+  text-align: start;
+}
+
+.clinic .user-name,
+.clinic .user-role {
+  max-width: 100%;
+  margin-block: -.25em;
+  padding-block: .25em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinic .user-name {
+  color: var(--ui-heading);
+  font-size: .8125rem;
+  font-weight: 600;
+}
+
+.clinic .user-role {
+  color: var(--ui-muted);
+  font-size: .6875rem;
+  font-weight: 500;
+}
+
+/* The patient search: an icon in the bar; its panel, as the admin navbar's menus, holds the field and the results */
+.clinic .search-panel {
+  position: absolute;
+  top: calc(100% + .375rem);
+  inset-inline-end: 1rem;
+  z-index: 95;
+  width: min(440px, calc(var(--ui-100vw) - 1.5rem));
+  padding: .375rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-lg);
+}
+
+// In and out as the menus are: a few pixels down into place, and quickly away
+.clinic-pop-in {
+  animation: clinic-pop-in .16s var(--ui-ease);
+}
+
+.clinic-pop-out {
+  animation: clinic-pop-out var(--ui-duration-fast) var(--ui-ease-in) forwards;
+}
+
+@keyframes clinic-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes clinic-pop-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.clinic .search-form {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.clinic .search-icon {
+  position: absolute;
+  inset-inline-start: .75rem;
+  color: var(--ui-subtle);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.clinic .search-input {
+  display: block;
+  width: 100%;
+  height: 40px;
+  padding: 0 3.25rem 0 2.25rem;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  color: var(--ui-heading);
+  font-size: .875rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+
+  &::placeholder {
+    color: var(--ui-subtle);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--ui-focus);
+    box-shadow: 0 0 0 1px var(--ui-focus);
+  }
+
+  &::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.clinic .search-shortcut {
+  position: absolute;
+  inset-inline-end: .5rem;
+  padding: .125rem .375rem;
+  border: 1px solid var(--ui-border);
+  border-radius: .3125rem;
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+  font-family: var(--ui-font);
+  font-size: .6875rem;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.clinic .search-list {
+  margin-top: .375rem;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.clinic .search-hint {
+  margin: 0;
+  padding: .625rem .625rem .375rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.clinic .search-result {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem .625rem;
+  border-radius: var(--ui-radius);
+  color: var(--ui-text);
+  cursor: pointer;
+
+  &:hover,
+  &.active {
+    background: var(--ui-hover);
+  }
+
+  // The one picked with the arrow keys, as clear as a focus ring
+  &.active {
+    box-shadow: inset 3px 0 0 var(--ui-focus);
+  }
+}
+
+.clinic .search-result-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--ui-primary-soft);
+  color: var(--ui-primary-text);
+  font-size: 1rem;
+}
+
+.clinic .search-result-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.clinic .search-result-name {
+  overflow: hidden;
+  color: var(--ui-heading);
+  font-size: .8125rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinic .search-result-detail {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: .75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinic .search-empty {
+  margin: 0;
+  padding: 1rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  text-align: center;
+}
+
+/* The menus open in the overlay, outside .clinic: the admin navbar's activity and account menus */
+.clinic-activity-menu.ui-menu {
+  width: min(340px, calc(var(--ui-100vw) - 1.5rem));
+}
+
+.clinic-activity-item.ui-menu-item {
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.clinic-notice-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--ui-primary-soft);
+  color: var(--ui-primary-text);
+
+  &.danger {
+    background: var(--ui-danger-soft);
+    color: var(--ui-danger-text);
+  }
+
+  &.warn {
+    background: var(--ui-warning-soft);
+    color: var(--ui-warning-text);
+  }
+
+  // The menu item colours its own icons; these keep their tone
+  ng-icon {
+    color: inherit !important;
+  }
+}
+
+.clinic-activity-text {
+  display: flex;
+  flex-direction: column;
+  gap: .125rem;
+  min-width: 0;
+  color: var(--ui-text);
+  font-size: .8125rem;
+  line-height: 1.45;
+}
+
+.clinic-activity-title {
+  color: var(--ui-heading);
+  font-weight: 500;
+}
+
+.clinic-activity-time {
+  color: var(--ui-subtle);
+  font-size: .75rem;
+}
+
+.clinic-activity-empty {
+  margin: 0;
+  padding: .5rem .75rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+.clinic-account-menu.ui-menu {
+  width: 260px;
+}
+
+.clinic-account-card {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem .625rem;
+  font-family: var(--ui-font);
+}
+
+.clinic-account-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.clinic-account-name {
+  color: var(--ui-heading);
+  font-weight: 600;
+}
+
+.clinic-account-email {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clinic-account-role {
+  align-self: flex-start;
+  margin-top: .375rem;
+}
+
+/* ---------- L0 · the tabs, in the bar between the brand and the icons: the chosen one in the brand color, a line under it ---------- */
+.clinic .nav {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: .125rem;
+  min-width: 0;
+  padding: 0 .75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--navbar-surface);
+  // The bar's lower edge, drawn so the line under the chosen tab can lie on it
+  box-shadow: inset 0 -1px 0 var(--ui-border);
+  scrollbar-width: none;
+
+  a {
+    position: relative;
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: .5rem;
+    padding: 0 .5rem;
+    color: var(--ui-muted);
+    font: 500 .875rem/1 var(--ui-font);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color var(--ui-duration-fast) ease;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: auto .375rem 0;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+      background: var(--ui-primary);
+      transform: scaleX(0);
+      transition: transform var(--ui-duration) var(--ui-ease-standard);
+    }
+
+    &:hover {
+      color: var(--ui-heading);
+    }
+
+    &.active {
+      color: var(--ui-primary-text);
+
+      &::after {
+        transform: none;
+      }
+
+      .count {
+        background: var(--ui-primary-soft);
+        color: var(--ui-primary-text);
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-focus);
+      outline-offset: -2px;
+      border-radius: var(--ui-radius);
+    }
+
+    ng-icon {
+      flex: none;
+      font-size: 1.0625rem;
+    }
+
+    // As the counts on the app's tabs
+    .count {
+      min-width: 1.25rem;
+      height: auto;
+      padding: .125rem .375rem;
+      border-radius: 999px;
+      background: var(--ui-hover);
+      color: var(--ui-muted);
+      font-size: .6875rem;
+      font-weight: 600;
+      text-align: center;
+    }
+  }
+
+  // When the names do not fit the bar (the shell measures): the icon and the count; the name stays for screen readers,
+  // and shows on hover
+  &.compact {
+    a {
+      padding: 0 .4375rem;
+    }
+
+    .tab-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+}
+
+/* ---------- the tab, the context rail and the sheet ---------- */
+.clinic .clinic-main {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--cl-rail);
+  min-height: 0;
+
+  &:focus {
+    outline: 0;
+  }
+}
+
+// clip, not hidden: a box with hidden overflow can still be scrolled by script or focus, and the page would shift
+.clinic .views {
+  position: relative;
+  min-width: 0;
+  overflow: clip;
+}
+
+.clinic .workspace {
+  position: absolute;
+  inset: var(--cl-gap);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cl-gap);
+  min-height: 0;
+}
+
+// Every block on the canvas is a card
+.clinic :is(.toolbar, .steps, .table-wrap, .patient-banner, .step-rail, .form-panel, .handoff, .column, .rail, .cosign-panel) {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-r);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+}
+
+.clinic .toolbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+
+  .title-block {
+    margin-right: auto;
+
+    h1 {
+      margin: 0 0 1px;
+      font-size: 17px;
+    }
+  }
+
+  .subtitle {
+    color: var(--ui-muted);
+    font-size: 11.5px;
+  }
+
+  .ui-input {
+    width: auto;
+  }
+
+  .search {
+    width: 220px;
+  }
+}
+
+/* ---------- L1 · statuses, chips and safety icons ---------- */
+.clinic .status {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .1875rem .625rem;
+  border-radius: 999px;
+  font: 600 .71875rem/1.2 var(--ui-font);
+  letter-spacing: .01em;
+  white-space: nowrap;
+
+  &.waiting {
+    background: var(--ui-neutral-soft);
+    color: var(--ui-neutral-text);
+  }
+
+  &.checked {
+    background: var(--ui-success-soft);
+    color: var(--ui-success-text);
+  }
+
+  &.room {
+    background: var(--ui-info-soft);
+    color: var(--ui-info-text);
+  }
+
+  &.treatment {
+    background: var(--ui-warning-soft);
+    color: var(--ui-warning-text);
+  }
+
+  &.late {
+    background: var(--ui-danger-soft);
+    color: var(--ui-danger-text);
+  }
+
+  &.done {
+    background: var(--ui-neutral-soft);
+    color: var(--ui-heading);
+  }
+}
+
+.clinic .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .1875rem .625rem;
+  border: 0;
+  border-radius: 999px;
+  font: 600 .71875rem/1.2 var(--ui-font);
+  letter-spacing: .01em;
+  white-space: nowrap;
+
+  &.danger {
+    background: var(--ui-danger-soft);
+    color: var(--ui-danger-text);
+  }
+
+  &.warn {
+    background: var(--ui-warning-soft);
+    color: var(--ui-warning-text);
+  }
+
+  &.ok {
+    background: var(--ui-success-soft);
+    color: var(--ui-success-text);
+  }
+
+  &.info {
+    background: var(--ui-info-soft);
+    color: var(--ui-info-text);
+  }
+
+  &.iso {
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary-text);
+  }
+
+  &.quiet {
+    background: var(--ui-neutral-soft);
+    color: var(--ui-neutral-text);
+  }
+
+  &.none {
+    box-shadow: inset 0 0 0 1px var(--ui-border);
+    background: transparent;
+    color: var(--ui-muted);
+  }
+}
+
+.clinic button.chip {
+  cursor: pointer;
+}
+
+.clinic .mini-alerts {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.clinic .mini {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: help;
+
+  &.danger {
+    border-color: color-mix(in srgb, var(--ui-danger) 30%, transparent);
+    background: var(--ui-danger-soft);
+    color: var(--ui-danger-text);
+  }
+
+  &.warn {
+    border-color: color-mix(in srgb, var(--ui-warning) 35%, transparent);
+    background: var(--ui-warning-soft);
+    color: var(--ui-warning-text);
+  }
+
+  &.iso {
+    border-color: color-mix(in srgb, var(--ui-primary) 25%, transparent);
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary-text);
+  }
+}
+
+.clinic .pet-fallback {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ui-radius);
+  background: var(--ui-primary-soft);
+  color: var(--ui-primary-text);
+  font-size: 17px;
+
+  &.pet-lg {
+    width: 42px;
+    height: 42px;
+    font-size: 22px;
+  }
+}
+
+/* ---------- the queue ---------- */
+.clinic .steps {
+  display: flex;
+  flex: none;
+  overflow: hidden;
+
+  button {
+    flex: 1;
+    padding: 4px 12px;
+    border: 0;
+    border-right: 1px solid var(--ui-border);
+    background: transparent;
+    color: var(--ui-muted);
+    font-size: 11.5px;
+    text-align: left;
+    transition: background-color var(--ui-duration-fast) ease;
+
+    &:last-child {
+      border-right: 0;
+    }
+
+    &:hover {
+      background: var(--ui-hover);
+    }
+
+    &.on {
+      background: var(--ui-primary-soft);
+      box-shadow: inset 0 -2px var(--ui-primary);
+
+      b {
+        color: var(--ui-primary-text);
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-focus);
+      outline-offset: -2px;
+    }
+  }
+
+  b {
+    display: block;
+    margin-bottom: 1px;
+    color: var(--ui-heading);
+    font-size: 12px;
+  }
+
+  .stuck {
+    color: var(--ui-danger-text);
+    font-weight: 700;
+  }
+}
+
+.clinic .table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    height: 40px;
+    padding: 0 12px;
+    border-bottom: 0;
+    box-shadow: inset 0 -1px 0 var(--ui-border);
+    background: var(--ui-surface-muted);
+    color: var(--ui-muted);
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  th:first-child,
+  td:first-child {
+    padding-inline-start: 1.25rem;
+  }
+
+  td {
+    height: 56px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--ui-border);
+    font-size: .8125rem;
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  tbody tr:not(.static) {
+    cursor: pointer;
+    transition: background-color var(--ui-duration-fast) ease;
+
+    &:hover {
+      background: var(--ui-surface-muted);
+    }
+
+    &.selected {
+      background: var(--ui-primary-soft);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-focus);
+      outline-offset: -2px;
+    }
+  }
+
+  .empty-row {
+    text-align: center;
+  }
+}
+
+.clinic .queue-table table {
+  min-width: 960px;
+
+  .col-no { width: 46px; }
+  .col-time { width: 96px; }
+  .col-stage { width: 172px; }
+  .col-patient { width: 19%; }
+  .col-owner { width: 13%; }
+  .col-vet { width: 12%; }
+  .col-safety { width: 88px; }
+}
+
+.clinic .patient-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.clinic .cell-text {
+  min-width: 0;
+}
+
+.clinic .primary-text {
+  display: block;
+  color: var(--ui-heading);
+  font-weight: 600;
+}
+
+// Five short bars for the visit's stages
+.clinic .ms {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 4px;
+
+  i {
+    flex: 1;
+    height: 5px;
+    border-radius: 2px;
+    background: var(--ui-border);
+
+    &.on { background: var(--ui-success); }
+    &.skip { background: repeating-linear-gradient(90deg, var(--ui-border-strong) 0 3px, transparent 3px 6px); }
+    &.cur { background: var(--ui-primary); }
+    &.cur.warn { background: var(--ui-warning); }
+    &.cur.late { background: var(--ui-danger); }
+  }
+}
+
+.clinic .ms-now {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+
+  &.warn { color: var(--ui-warning-text); }
+  &.late { color: var(--ui-danger-text); }
+}
+
+// Phones: cards instead of the table
+.clinic .queue-cards {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.clinic .q-card {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-r);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+  text-align: left;
+
+  &.selected {
+    border-color: var(--ui-primary);
+    background: var(--ui-primary-soft);
+  }
+
+  > span {
+    display: flex;
+  }
+}
+
+.clinic .q-card-top {
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+
+  .grow {
+    display: block;
+  }
+
+  .primary-text {
+    display: inline;
+  }
+
+  .secondary {
+    display: block;
+  }
+}
+
+.clinic .q-time {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.clinic .q-card-foot {
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.clinic .empty-row {
+  padding: 24px;
+  text-align: center;
+}
+
+/* ---------- boards ---------- */
+.clinic .board {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.clinic .board-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--cl-gap);
+
+  &.cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.clinic .column {
+  min-height: 0;
+  background: var(--ui-neutral-soft);
+
+  h3 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 34px;
+    margin: 0;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--ui-border);
+    font-size: 13px;
+  }
+}
+
+.clinic .col-empty,
+.clinic .column-empty {
+  margin: 6px;
+  padding: 14px 10px;
+  border: 1px dashed var(--ui-border-strong);
+  border-radius: 8px;
+  color: var(--ui-muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.clinic .task {
+  margin: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+  cursor: pointer;
+  transition: border-color var(--ui-duration-fast) ease, box-shadow var(--ui-duration-fast) ease;
+
+  &:hover {
+    border-color: var(--ui-primary);
+    box-shadow: var(--ui-shadow-sm);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 1px;
+  }
+}
+
+.clinic .task-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  margin-bottom: 4px;
+
+  h4 {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .chip {
+    flex: none;
+    min-height: 19px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+}
+
+// Safety icons sit at the end of the last line, so the card gets no extra row
+.clinic .task-meta {
+  position: relative;
+  color: var(--ui-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.clinic .task-alerts {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding-left: 6px;
+  background: var(--ui-surface);
+
+  &:empty {
+    display: none;
+  }
+}
+
+/* Appointments */
+.clinic .appt-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clinic .btn-group {
+  display: inline-flex;
+
+  .ui-btn {
+    border-radius: 0;
+  }
+
+  .ui-btn:first-child {
+    border-radius: var(--cl-ctl-r) 0 0 var(--cl-ctl-r);
+  }
+
+  .ui-btn:last-child {
+    border-radius: 0 var(--cl-ctl-r) var(--cl-ctl-r) 0;
+  }
+
+  .ui-btn + .ui-btn {
+    margin-left: -1px;
+  }
+}
+
+// The date in the language of the page (24 ก.ย. 2569); the browser's own date picker opens from it
+.clinic .date-field {
+  position: relative;
+  display: inline-flex;
+
+  .date-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--ui-input-border);
+    border-radius: var(--cl-ctl-r);
+    background: var(--ui-surface);
+    color: var(--ui-heading);
+    font-size: 13px;
+    white-space: nowrap;
+
+    &:hover {
+      border-color: var(--ui-border-strong);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-focus);
+      outline-offset: 1px;
+    }
+
+    ng-icon {
+      color: var(--ui-muted);
+    }
+  }
+
+  input {
+    position: absolute;
+    inset: auto 0 0;
+    width: 100%;
+    height: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.clinic .week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--cl-gap);
+}
+
+.clinic .day-col {
+  min-height: 260px;
+
+  &.today {
+    border-color: var(--ui-primary);
+    box-shadow: inset 0 3px var(--ui-primary);
+  }
+}
+
+.clinic .day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--ui-border);
+  background: transparent;
+  color: var(--ui-heading);
+  font-size: 12.5px;
+  font-weight: 700;
+
+  &:hover {
+    background: var(--ui-hover);
+  }
+}
+
+.clinic .appt-mini {
+  display: block;
+  width: calc(100% - 12px);
+  margin: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  font-size: 12.5px;
+  text-align: left;
+
+  &:hover {
+    border-color: var(--ui-primary);
+  }
+
+  &.done {
+    opacity: .6;
+  }
+
+  .secondary {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Orders: verbal orders to co-sign */
+.clinic .cosign-panel {
+  flex: none;
+  padding: 12px 16px;
+
+  .section-title {
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+
+    h2 {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-size: 14px;
+    }
+  }
+
+  .cosign-wrap {
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  table {
+    table-layout: auto;
+  }
+
+  td {
+    height: auto;
+    vertical-align: top;
+  }
+
+  td:last-child {
+    white-space: nowrap;
+
+    .link {
+      margin-left: 10px;
+    }
+  }
+}
+
+/* ---------- the encounter ---------- */
+.clinic .patient-banner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+}
+
+.clinic .pat-btn,
+.clinic .owner-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  transition: background-color var(--ui-duration-fast) ease, border-color var(--ui-duration-fast) ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--ui-primary) 30%, transparent);
+    background: var(--ui-primary-soft);
+  }
+
+  .caret {
+    color: var(--ui-muted);
+  }
+}
+
+.clinic .pat-btn {
+  min-width: 238px;
+}
+
+.clinic .pat-text {
+  display: block;
+  min-width: 0;
+
+  .secondary {
+    display: block;
+  }
+}
+
+.clinic .pat-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 2px;
+  color: var(--ui-heading);
+  font-size: 17px;
+  font-weight: 800;
+
+  .hn {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--ui-neutral-soft);
+    color: var(--ui-muted);
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+}
+
+.clinic .safety-strip {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+
+  .chip {
+    white-space: normal;
+  }
+}
+
+.clinic .owner-btn {
+  max-width: 360px;
+  padding: 6px 10px;
+  border-color: var(--ui-border);
+
+  .circle {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary-text);
+    font-size: 16px;
+  }
+}
+
+.clinic .owner-text {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+
+  .secondary {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.clinic .owner-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--ui-heading);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+// The step list: about 2 of 12 columns, never narrower than 176px or wider than 232px
+.clinic .encounter-layout {
+  display: grid;
+  flex: 1;
+  grid-template-columns: clamp(176px, 16%, 232px) minmax(0, 1fr);
+  gap: var(--cl-gap);
+  min-height: 0;
+}
+
+.clinic .step-rail {
+  padding: 4px 0;
+  overflow: hidden auto;
+}
+
+.clinic .step-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 4px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-text);
+  font-size: 13px;
+  text-align: left;
+  transition: background-color var(--ui-duration-fast) ease;
+
+  &:hover {
+    background: var(--ui-hover);
+  }
+
+  &.active {
+    background: var(--ui-primary-soft);
+    box-shadow: inset 3px 0 0 var(--ui-primary);
+    color: var(--ui-heading);
+    font-weight: 600;
+
+    .step-no {
+      border-color: var(--ui-primary);
+      background: var(--ui-primary);
+      color: var(--ui-on-primary);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: -2px;
+  }
+
+  .secondary {
+    display: block;
+    margin-top: 1px;
+    font-size: 11px;
+    font-weight: 400;
+  }
+}
+
+.clinic .step-no {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.clinic .step-text {
+  min-width: 0;
+}
+
+.clinic .step-label {
+  display: block;
+  line-height: 1.3;
+}
+
+.clinic .clinical {
+  min-width: 0;
+  overflow: auto;
+  padding: 2px 2px 8px;
+}
+
+.clinic .clinical-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  > :first-child {
+    flex: 1 1 280px;
+    min-width: 0;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 19px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-left: auto;
+  }
+}
+
+.clinic .dot-badge {
+  display: inline-block;
+  align-self: flex-start;
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: var(--ui-primary);
+}
+
+.clinic .readonly-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-neutral-soft);
+  color: var(--ui-neutral-text);
+  font-size: 12.5px;
+}
+
+.clinic .form-panel {
+  padding: 16px;
+  container-type: inline-size;
+}
+
+.clinic fieldset.plain {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  &:disabled :is(input, textarea, select) {
+    background: var(--ui-surface-muted);
+    color: var(--ui-muted);
+  }
+}
+
+.clinic .form-tabs {
+  display: flex;
+  gap: .5rem;
+  margin: -4px 0 12px;
+  box-shadow: inset 0 -1px 0 var(--ui-border);
+
+  button {
+    height: 40px;
+    padding: 0 .5rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--ui-muted);
+    font: 600 .8125rem/1 var(--ui-font);
+
+    &:hover {
+      color: var(--ui-heading);
+    }
+
+    &.active {
+      border-color: var(--ui-primary);
+      color: var(--ui-heading);
+    }
+  }
+}
+
+// Forms on 12 columns: a field takes half a row, a short one (select, number) a quarter; they answer to the panel's width
+.clinic .form-12 {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px 16px;
+
+  > * {
+    grid-column: span 6;
+    min-width: 0;
+  }
+
+  > .short {
+    grid-column: span 3;
+  }
+
+  > .full {
+    grid-column: 1 / -1;
+  }
+}
+
+@container (max-width: 559px) {
+  .clinic .form-12 > * {
+    grid-column: 1 / -1;
+  }
+
+  .clinic .form-12 > .short {
+    grid-column: span 6;
+  }
+}
+
+.clinic .field {
+  > label,
+  > .field-label {
+    display: block;
+    margin-bottom: .375rem;
+    color: var(--ui-text);
+    font-size: .8125rem;
+    font-weight: 500;
+  }
+
+  .ui-input {
+    width: 100%;
+  }
+}
+
+.clinic .field-error {
+  margin: 4px 0 0;
+  color: var(--ui-danger-text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.clinic .check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr));
+  gap: 8px;
+}
+
+.clinic .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-ctl-r);
+  background: var(--ui-surface-muted);
+  font-size: 13px;
+  cursor: pointer;
+
+  input {
+    margin: 0;
+    accent-color: var(--ui-primary);
+  }
+}
+
+.clinic .pain-range {
+  width: 100%;
+  accent-color: var(--ui-primary);
+}
+
+.clinic .step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* What the visit has to hand over */
+.clinic .handoff {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 12px;
+}
+
+.clinic .handoff-title {
+  flex: none;
+  width: 150px;
+  font-size: 12px;
+
+  b {
+    color: var(--ui-heading);
+  }
+}
+
+.clinic .handoff-flow {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clinic .hand-node {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11.5px;
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    margin: 0 8px;
+    background: var(--ui-border-strong);
+  }
+
+  &:last-child::after {
+    display: none;
+  }
+
+  &.active {
+    color: var(--ui-primary-text);
+    font-weight: 700;
+
+    .hand-circle {
+      border-color: var(--ui-primary);
+      background: var(--ui-primary);
+      color: var(--ui-on-primary);
+    }
+  }
+
+  &.done .hand-circle {
+    border-color: var(--ui-success);
+    background: var(--ui-success-soft);
+    color: var(--ui-success-text);
+  }
+}
+
+.clinic .hand-circle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+.clinic .hand-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- shared blocks of sheets and steps ---------- */
+.clinic .row-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+
+  &.blocked {
+    border-color: color-mix(in srgb, var(--ui-danger) 30%, transparent);
+    background: var(--ui-danger-soft);
+  }
+
+  &.pick {
+    cursor: pointer;
+
+    input {
+      margin: 0;
+      accent-color: var(--ui-primary);
+    }
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--ui-primary) 40%, transparent);
+    }
+
+    &.on {
+      border-color: var(--ui-primary);
+      background: var(--ui-primary-soft);
+    }
+  }
+
+  b {
+    color: var(--ui-heading);
+  }
+}
+
+.clinic .safety {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--ui-danger) 30%, transparent);
+  border-radius: 8px;
+  background: var(--ui-danger-soft);
+  font-size: 13px;
+
+  > b {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ui-danger-text);
+  }
+
+  &.warn {
+    border-color: color-mix(in srgb, var(--ui-warning) 35%, transparent);
+    background: var(--ui-warning-soft);
+
+    > b {
+      color: var(--ui-warning-text);
+    }
+  }
+
+  &.ok {
+    border-color: color-mix(in srgb, var(--ui-success) 30%, transparent);
+    background: var(--ui-success-soft);
+
+    > b {
+      color: var(--ui-success-text);
+    }
+  }
+
+  .secondary {
+    color: var(--ui-text);
+  }
+}
+
+.clinic .kv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clinic .timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-left: 6px;
+  padding-left: 12px;
+  border-left: 2px solid var(--ui-border);
+
+  .tl {
+    position: relative;
+    font-size: 13px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: 5px;
+      left: -17px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ui-primary);
+    }
+  }
+}
+
+.clinic .vstep {
+  margin: 0;
+  padding: 0 0 0 18px;
+  border-left: 2px solid var(--ui-border);
+  list-style: none;
+
+  li {
+    position: relative;
+    padding-bottom: 12px;
+    font-size: 13px;
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: -25px;
+      width: 10px;
+      height: 10px;
+      border: 2px solid var(--ui-border-strong);
+      border-radius: 50%;
+      background: var(--ui-surface);
+    }
+
+    &.done::before { border-color: var(--ui-success); background: var(--ui-success); }
+    &.skip::before { border-style: dashed; }
+    &.cur::before { border-color: var(--ui-primary); background: var(--ui-primary); box-shadow: 0 0 0 3px var(--ui-primary-soft); }
+    &.cur.warn::before { border-color: var(--ui-warning); background: var(--ui-warning); box-shadow: 0 0 0 3px var(--ui-warning-soft); }
+    &.cur.late::before { border-color: var(--ui-danger); background: var(--ui-danger); box-shadow: 0 0 0 3px var(--ui-danger-soft); }
+    &.todo,
+    &.skip { color: var(--ui-muted); }
+
+    .chip {
+      margin-left: 4px;
+    }
+  }
+}
+
+.clinic .data-grid {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  gap: 8px 10px;
+  margin: 0;
+  font-size: 13px;
+
+  dt {
+    color: var(--ui-muted);
+  }
+
+  dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.clinic .mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+
+  th {
+    height: 30px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface-muted);
+    color: var(--ui-muted);
+    font-size: 11.5px;
+    text-align: left;
+  }
+
+  td {
+    height: 34px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--ui-border);
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.clinic .summary-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+
+  &.total {
+    margin-top: 6px;
+    border-top: 2px solid var(--ui-heading);
+    color: var(--ui-heading);
+    font-size: 18px;
+    font-weight: 800;
+  }
+}
+
+/* ---------- L3 · the context rail and the side sheet ---------- */
+.clinic .rail {
+  z-index: 26;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: var(--cl-gap) var(--cl-gap) var(--cl-gap) 0;
+  padding: 6px 0;
+  overflow-y: auto;
+}
+
+.clinic .rail-btn {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ui-subtle);
+  font-size: 18px;
+  transition: background-color var(--ui-duration-fast) ease, color var(--ui-duration-fast) ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--ui-primary) 30%, transparent);
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary-text);
+  }
+
+  &.active {
+    border-color: var(--ui-primary);
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary-text);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 1px;
+  }
+
+  .badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    display: grid;
+    place-items: center;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--ui-primary);
+    color: var(--ui-on-primary);
+    font-size: 10px;
+    font-weight: 700;
+
+    &.danger {
+      background: var(--ui-danger);
+      color: #fff;
+    }
+  }
+}
+
+.clinic .rail-sep {
+  flex: none;
+  width: 26px;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--ui-border);
+}
+
+// All of the main area, the rail's column too: the rail itself stays above it, so no undimmed edge frames the rail
+.clinic .scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  background: rgb(15 23 42 / .14);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ui-duration) ease;
+
+  &.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+// Slides out from behind the rail; hidden once it has slid away, so it is out of the tab order
+.clinic .sheet {
+  position: absolute;
+  top: var(--cl-gap);
+  right: calc(var(--cl-rail) + var(--cl-gap));
+  bottom: var(--cl-gap);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--sheet-w), calc(var(--ui-100vw) * .6));
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-lg);
+  transform: translateX(calc(100% + var(--cl-rail) + 3 * var(--cl-gap)));
+  visibility: hidden;
+  transition: transform var(--ui-duration) var(--ui-ease-standard), visibility 0s linear var(--ui-duration);
+  will-change: transform;
+
+  // Painted out of sight a frame before it slides, so the slide only moves what is already drawn
+  &.drawn {
+    visibility: visible;
+    transition: none;
+  }
+
+  &.open {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--ui-duration-slow) var(--ui-ease-standard);
+  }
+
+  &:focus {
+    outline: 0;
+  }
+}
+
+.clinic .sheet-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--ui-border);
+
+  h2 {
+    margin: 0;
+    overflow: hidden;
+    font-size: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .spacer {
+    flex: 1;
+  }
+}
+
+.clinic .sheet-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--cl-ctl-r);
+  background: transparent;
+  color: var(--ui-subtle);
+  font-size: 17px;
+
+  &:hover {
+    background: var(--ui-hover);
+  }
+}
+
+.clinic .sheet-sub {
+  flex: none;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface-muted);
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.clinic .sheet-tabs {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  padding: 4px 8px 0;
+  border-bottom: 1px solid var(--ui-border);
+
+  button {
+    min-height: 40px;
+    padding: 8px .5rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--ui-muted);
+    font: 600 .8125rem/1.2 var(--ui-font);
+
+    &:hover {
+      color: var(--ui-heading);
+    }
+
+    &.active {
+      border-color: var(--ui-primary);
+      color: var(--ui-heading);
+    }
+  }
+}
+
+.clinic .sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px;
+  container-type: inline-size;
+
+  .ui-input {
+    width: 100%;
+  }
+}
+
+.clinic .sheet-foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+}
+
+.clinic .section {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ui-border);
+
+  &:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border: 0;
+  }
+}
+
+.clinic .section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .link {
+    margin-left: auto;
+  }
+}
+
+.clinic .sheet-text,
+.clinic .dialog-text {
+  margin: 0;
+  font-size: 13px;
+}
+
+.clinic .alert-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 8px;
+}
+
+.clinic .person {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+
+  .circle {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary-text);
+    font-size: 20px;
+  }
+}
+
+/* ---------- dialogs ---------- */
+.clinic .clinic-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .check {
+    background: transparent;
+  }
+}
+
+.clinic .dialog-note {
+  margin-right: auto;
+}
+
+/* ---------- smaller windows ---------- */
+// Laptops: boards keep their columns and scroll sideways
+@container clinic (max-width: 1180px) {
+  .clinic .board-grid {
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
+
+    &.cols-5 {
+      grid-template-columns: repeat(5, minmax(186px, 1fr));
+    }
+  }
+
+  .clinic .week-grid {
+    grid-template-columns: repeat(7, minmax(128px, 1fr));
+  }
+
+
+  .clinic .patient-banner {
+    flex-wrap: wrap;
+  }
+
+  .clinic .safety-strip {
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .clinic .owner-btn {
+    margin-left: auto;
+  }
+}
+
+// Tablets: the steps above the note, and the hand-off on two lines
+@container clinic (max-width: 900px) {
+  .clinic .encounter-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .clinic .step-rail {
+    display: flex;
+    padding: 0;
+    overflow-x: auto;
+  }
+
+  .clinic .step-btn {
+    flex: none;
+    width: auto;
+    height: 48px;
+    min-height: 0;
+    padding: 0 12px;
+    border-bottom: 3px solid transparent;
+
+    &.active {
+      border-color: var(--ui-primary);
+    }
+  }
+
+  .clinic .step-label {
+    white-space: nowrap;
+  }
+
+  .clinic .pat-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .clinic .handoff {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .clinic .handoff-title {
+    flex: 1;
+    width: auto;
+  }
+
+  .clinic .handoff-flow {
+    flex-basis: 100%;
+    order: 3;
+    overflow-x: auto;
+  }
+
+  .clinic .hand-node {
+    flex: none;
+    min-width: 128px;
+  }
+
+}
+
+// Tablets and phones: the brand and the icons on top, the tabs in a row of their own under them, with their names
+@container clinic (max-width: 991.98px) {
+  .clinic .navbar {
+    flex-wrap: wrap;
+    height: auto;
+  }
+
+  .clinic .navbar-brand-wrapper {
+    height: var(--cl-shell);
+    border-inline-end: 0;
+    background: var(--navbar-surface);
+  }
+
+  .clinic .navbar-menu-wrapper {
+    flex: 1;
+    justify-content: flex-end;
+    height: var(--cl-shell);
+  }
+
+  .clinic .nav {
+    flex-basis: 100%;
+    order: 3;
+    height: var(--cl-nav);
+    padding: 0 .25rem;
+
+    a {
+      padding: 0 .625rem;
+    }
+  }
+}
+
+// Phones: the rail along the bottom, sheets the full width, cards instead of the queue table, boards one under another
+@container clinic (max-width: 768px) {
+  .clinic .navbar-brand-wrapper,
+  .clinic .navbar-menu-wrapper {
+    padding: 0 .75rem;
+  }
+
+  .clinic .search-panel {
+    inset-inline-end: .75rem;
+  }
+
+  .clinic .clinic-main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 56px;
+  }
+
+  .clinic .rail {
+    flex-direction: row;
+    margin: 0;
+    padding: 0 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-width: 1px 0 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .clinic .rail-sep {
+    width: 1px;
+    height: 26px;
+    margin: 0 4px;
+  }
+
+  .clinic .scrim {
+    inset: 0 0 56px;
+  }
+
+  .clinic .sheet {
+    inset: 0 0 56px;
+    width: auto;
+    border-width: 0;
+    border-radius: 0;
+    transform: translateX(102%);
+  }
+
+  .clinic .workspace {
+    inset: 6px;
+    overflow-y: auto;
+  }
+
+  .clinic .table-wrap.queue-table {
+    display: none;
+  }
+
+  .clinic .queue-cards {
+    display: flex;
+    flex: none;
+  }
+
+  .clinic .board {
+    flex: none;
+    overflow: visible;
+  }
+
+  .clinic .board-grid,
+  .clinic .board-grid.cols-5 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .clinic .week-grid {
+    grid-template-columns: repeat(7, calc(var(--ui-100vw) * .62));
+    overflow-x: auto;
+  }
+
+  .clinic .encounter-layout {
+    flex: none;
+  }
+
+  .clinic .toolbar .search {
+    width: 100%;
+  }
+
+  .clinic .steps {
+    flex-wrap: wrap;
+
+    button {
+      flex: 1 1 30%;
+      border-bottom: 1px solid var(--ui-border);
+    }
+  }
+}
+
+// The admin navbar's narrower screens: words give way to the photo. By the window's width (a media query), unlike the
+// rest of the workspace: the display size then never reshapes the bar's controls, which keep their size while the
+// pointer stays on its button (UiScaleService.step), so a press cannot move the button away
+@media (max-width: 1199px) {
+  .clinic .user-text {
+    display: none;
+  }
+
+  .clinic .user-button {
+    padding-inline-end: .25rem;
+  }
+}
+
+@media (max-width: 575px) {
+  .clinic .navbar-actions > .navbar-divider {
+    display: none;
+  }
+}
+
+// The narrowest (a small phone, or a phone at a larger display size): the mark without the name, the icons closer
+@container clinic (max-width: 374px) {
+  .clinic .brand-name {
+    display: none;
+  }
+
+  .clinic .navbar-menu-wrapper {
+    padding: 0 .5rem;
+  }
+
+  .clinic .navbar-actions {
+    gap: 0;
+  }
+
+  .clinic .navbar-actions .icon-button {
+    width: 34px;
+  }
+}

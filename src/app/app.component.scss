@@ -18,7 +18,7 @@
 
 .app-body {
   display: flex;
-  min-height: 100vh;
+  min-height: var(--ui-100vh);
   padding-top: var(--app-navbar-height);
 
   &.full-page {
@@ -32,7 +32,7 @@
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  min-height: calc(100vh - var(--app-navbar-height));
+  min-height: calc(var(--ui-100vh) - var(--app-navbar-height));
   // In step with the sidebar's width
   transition: margin-inline-start var(--ui-duration) var(--ui-ease-standard);
 
@@ -63,7 +63,7 @@
 // its own content (a table, say) scrolls inside. Phones and short windows keep normal page scrolling.
 @media (min-width: 992px) and (min-height: 600px) {
   .main-panel:has(.page-fit) {
-    height: calc(100vh - var(--app-navbar-height));
+    height: calc(var(--ui-100vh) - var(--app-navbar-height));
 
     .content-wrapper,
     .page {

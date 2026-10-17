@@ -1,14 +1,18 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ConnectedPosition } from '@angular/cdk/overlay';
-import { afterNextRender, Component, computed, DOCUMENT, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, DOCUMENT, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideAArrowDown,
+  lucideAArrowUp,
   lucideAccessibility,
   lucideActivity,
   lucideBell,
   lucideBlocks,
+  lucideStethoscope,
   lucideHistory,
   lucideLogOut,
   lucideMenu,
@@ -35,8 +39,10 @@ import {
   UiMenuItemRadio,
   UiMenuTrigger,
   UiOption,
+  UiScaleService,
   UiSegmented,
   UiThemeService,
+  UiTooltip,
 } from '../../user-management/ui';
 import { Activity, AdminStore, fullName, Session, User } from '../../user-management';
 import { ActivityText } from '../../user-management/shared/activity-text';
@@ -67,6 +73,7 @@ const ACTIVITY_SEEN_KEY = 'activity-seen';
     UiMenuItemRadio,
     UiMenuTrigger,
     UiSegmented,
+    UiTooltip,
     ActivityDialog,
     ActivityText,
     RoleBadges,
@@ -75,7 +82,7 @@ const ACTIVITY_SEEN_KEY = 'activity-seen';
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.scss',
   viewProviders: [
-    provideIcons({ lucideBell, lucideMenu, lucideMoon, lucidePanelLeft, lucideSearch, lucideSun, lucideX }),
+    provideIcons({ lucideAArrowDown, lucideAArrowUp, lucideBell, lucideMenu, lucideMoon, lucidePanelLeft, lucideSearch, lucideSun, lucideX }),
   ],
   host: {
     '(document:keydown)': 'focusSearchOnShortcut($event)',
@@ -87,12 +94,19 @@ export class NavbarComponent {
   private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
   protected readonly language = inject(LanguageService);
   protected readonly theme = inject(UiThemeService);
+  protected readonly uiScale = inject(UiScaleService);
   protected readonly accessibleView = inject(UiAccessibleViewService);
   protected readonly store = inject(AdminStore);
   protected readonly session = inject(Session);
   protected readonly sidebar = inject(SidebarState);
   private readonly router = inject(Router);
+  private readonly announcer = inject(LiveAnnouncer);
   protected readonly fullName = fullName;
+
+  constructor() {
+    // Leaving the page with the bar's controls held at their size: the next bar starts at the size of the rest
+    inject(DestroyRef).onDestroy(() => this.uiScale.release());
+  }
   protected readonly themeToggleLabel = computed(() => this.theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode');
   private readonly translate = inject(TranslateService);
   private readonly i18n = translationsChanged();
@@ -106,6 +120,7 @@ export class NavbarComponent {
   /** Menu item icons, as SVG for ui-menu */
   protected readonly icons = {
     user: lucideUser, activity: lucideActivity, blocks: lucideBlocks, history: lucideHistory, security: lucideShieldCheck, signOut: lucideLogOut,
+    clinic: lucideStethoscope,
     accessible: lucideAccessibility,
   };
   /** Menus open under their button, lined up with its right edge, or above it when there is no room below */
@@ -113,6 +128,23 @@ export class NavbarComponent {
     { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top' },
     { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom' },
   ];
+
+  /** The display size: what it is now, and what a press of its button makes it */
+  protected readonly scaleNow = computed(() => {
+    this.i18n();
+    return `${this.translate.instant('Display size')} ${Math.round(this.uiScale.scale() * 100)}%`;
+  });
+  protected readonly scaleHint = computed(() => {
+    this.i18n();
+    return this.translate.instant('displaySizeNext', { size: `${Math.round(this.uiScale.next() * 100)}%` });
+  });
+
+  /** One size up, or back to 100%; screen readers hear the new size. A press with the pointer (not a key) holds the bar's
+   * controls at their size until the pointer leaves the button. */
+  protected stepScale(event: MouseEvent) {
+    this.uiScale.step({ hold: event.detail > 0 });
+    this.announcer.announce(this.scaleNow());
+  }
 
   /** Phones: the language switch moves from the bar into the account menu */
   protected readonly isPhone = toSignal(

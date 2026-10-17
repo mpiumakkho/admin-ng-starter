@@ -1,0 +1,156 @@
+// The encounter's dialogs: the templates to pick from, and the AI summary. Everything else of the workspace's look is in
+// shell/clinic.scss
+.tpl-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.tpl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tpl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  text-align: left;
+
+  &:hover {
+    background: var(--ui-hover);
+  }
+
+  &.on {
+    border-color: var(--ui-primary);
+    background: var(--ui-primary-soft);
+  }
+
+  > ng-icon {
+    color: var(--ui-primary-text);
+  }
+}
+
+.tpl-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+
+  b {
+    color: var(--ui-heading);
+    font-size: 13px;
+  }
+
+  small {
+    color: var(--ui-muted);
+    font-size: 11.5px;
+  }
+}
+
+.tpl-preview {
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+
+  .secondary {
+    margin: 0 0 10px;
+  }
+}
+
+.compare-sec {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 13px;
+  line-height: 1.55;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  b {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--ui-muted);
+    font-size: 11.5px;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+  }
+}
+
+.ai-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--ui-info-soft);
+  color: var(--ui-info-text);
+  font-size: 12.5px;
+}
+
+.sum-card {
+  padding: 12px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-r);
+
+  & + & {
+    margin-top: 10px;
+  }
+}
+
+.sum-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 10px;
+
+  b {
+    color: var(--ui-heading);
+    font-size: 14px;
+  }
+}
+
+.sum-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+.sum-block {
+  h4 {
+    margin: 0 0 4px;
+    color: var(--ui-muted);
+    font-size: 11.5px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+  }
+}
+
+@container clinic (max-width: 900px) {
+  .tpl-layout,
+  .sum-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

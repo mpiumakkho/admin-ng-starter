@@ -29,7 +29,7 @@ import { TwoFactorDialog } from './two-factor-dialog.component';
     <app-two-factor-dialog mode="enable" [(open)]="open" (openChange)="!$event && continue()" />
   `,
   styles: `
-    .setup { display: grid; place-items: center; min-height: 100vh; padding: 1rem; background: var(--ui-bg); }
+    .setup { display: grid; place-items: center; min-height: var(--ui-100vh); padding: 1rem; background: var(--ui-bg); }
     .setup ui-card { width: min(100%, 32rem); }
   `,
 })

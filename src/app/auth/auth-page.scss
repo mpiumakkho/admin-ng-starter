@@ -3,7 +3,7 @@
 
 .auth {
   display: flex;
-  min-height: 100vh;
+  min-height: var(--ui-100vh);
   background: var(--ui-surface);
 }
 

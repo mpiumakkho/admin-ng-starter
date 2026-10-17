@@ -38,6 +38,7 @@
     "This field is required.":      "กรุณากรอกข้อมูลช่องนี้",
     "Total users":                  "ผู้ใช้ทั้งหมด",
     "Component gallery":           "แกลเลอรีคอมโพเนนต์",
+    "Clinical work":               "งานตรวจรักษา",
     "Use at least 6 characters.":   "ใช้อย่างน้อย 6 ตัวอักษร",
     "Welcome back":                 "ยินดีต้อนรับกลับมา",
     "Hide password":                "ซ่อนรหัสผ่าน",
@@ -93,5 +94,7 @@
     "Use another email":             "ใช้อีเมลอื่น",
     "Send link":                     "ส่งลิงก์",
     "searchShortcut":              "แป้นลัด: {{keys}}",
-    "Type one of the recovery codes you saved when you turned on two-step sign-in.": "พิมพ์รหัสสำรองที่เก็บไว้ตอนเปิดการยืนยันตัวตน 2 ขั้นตอน หนึ่งรหัส"
+    "Type one of the recovery codes you saved when you turned on two-step sign-in.": "พิมพ์รหัสสำรองที่เก็บไว้ตอนเปิดการยืนยันตัวตน 2 ขั้นตอน หนึ่งรหัส",
+    "Display size": "ขนาดการแสดงผล",
+    "displaySizeNext": "กดเพื่อเปลี่ยนเป็น {{size}}"
 }

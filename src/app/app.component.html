@@ -28,7 +28,7 @@
   </div>
 </div>
 <!-- On the pages without the navbar, the switch to the accessible view; signed in, it is in the account menu -->
-@if (isFullPage()) {
+@if (isFullPage() && !isWorkspace()) {
   <app-accessible-view-switch />
 }
 @if (!accessibleView.on()) {

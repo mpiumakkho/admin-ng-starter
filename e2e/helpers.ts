@@ -52,13 +52,15 @@ export function totp(secret: string, time = Date.now()): string {
 
 /**
  * Checks what is on screen against WCAG 2.2 AA with axe: names, roles, labels, contrast and the rest. Colors are read
- * once transitions and entry animations have ended; endless ones, such as a spinner, are left running.
+ * once transitions and entry animations have ended; endless ones, such as a spinner, are left running. `within` limits
+ * the check to one part, such as a panel open over the page: what it covers is checked elsewhere, with nothing over it.
  */
-export async function expectAccessible(page: Page, label = new URL(page.url()).pathname) {
+export async function expectAccessible(page: Page, label = new URL(page.url()).pathname, within?: string) {
   await page.evaluate(() => Promise.all(document.getAnimations()
     .filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity))
     .map(animation => animation.finished.catch(() => undefined))));
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  const axe = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']);
+  const { violations } = await (within ? axe.include(within) : axe).analyze();
   const found = violations.map(violation => `${violation.id}: ${violation.help} (${violation.nodes.map(node => node.target.join(' ')).join(', ')})`);
   expect(found, `accessibility of ${label}`).toEqual([]);
 }

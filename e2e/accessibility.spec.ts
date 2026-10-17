@@ -15,6 +15,12 @@ const PAGES = [
   { path: '/activity', ready: '.log tbody tr' },
   { path: '/settings', ready: '#defaultRoleId' },
   { path: '/ui-kit', ready: 'ui-page-header' },
+  { path: '/clinic/queue', ready: '.queue-table tbody tr' },
+  { path: '/clinic/appointments', ready: '.board .task' },
+  { path: '/clinic/encounter', ready: '.patient-banner' },
+  { path: '/clinic/orders', ready: '.board .task' },
+  { path: '/clinic/results', ready: '.board .task' },
+  { path: '/clinic/dispense', ready: '.board .task' },
   { path: '/error-pages/404', ready: '.error-code' },
   { path: '/error-pages/500', ready: '.error-code' },
 ];
