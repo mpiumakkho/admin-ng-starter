@@ -381,3 +381,12 @@ export interface Activity {
 export function fullName(user: Pick<User, 'firstName' | 'lastName'>): string {
   return `${user.firstName} ${user.lastName}`.trim();
 }
+
+/**
+ * What an account button shows for the signed-in person: their name, then their main role and how many more, such as
+ * "Henry Klein, Administrator +1". The button's name holds it as shown, so a voice command with what is on it finds it
+ * (WCAG 2.5.3, Label in Name).
+ */
+export function accountText(user: Pick<User, 'firstName' | 'lastName'>, roleName: string | undefined, roleCount: number): string {
+  return fullName(user) + (roleName ? `, ${roleName}${roleCount > 1 ? ` +${roleCount - 1}` : ''}` : '');
+}

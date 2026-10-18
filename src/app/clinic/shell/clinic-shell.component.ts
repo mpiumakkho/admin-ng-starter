@@ -13,7 +13,7 @@ import {
 import { filter } from 'rxjs';
 
 import { LanguageCode, LANGUAGES, LanguageService } from '../../layout/language.service';
-import { fullName, Session } from '../../user-management';
+import { accountText, fullName, Session } from '../../user-management';
 import { RoleBadges } from '../../user-management/shared/badges';
 import {
   UiAccessibleViewService, UiAvatar, UiConfirmService, UiMenu, UiMenuDivider, UiMenuItem, UiMenuItemCheckbox, UiMenuTrigger, UiScaleService,
@@ -71,6 +71,7 @@ export class ClinicShellComponent {
   private readonly nav = viewChild.required<ElementRef<HTMLElement>>('nav');
 
   protected readonly fullName = fullName;
+  protected readonly accountText = accountText;
   protected readonly icons = {
     paw: lucidePawPrint, back: lucideArrowLeft, reset: lucideDatabaseBackup, signOut: lucideLogOut, moon: lucideMoon, sun: lucideSun,
     accessible: lucideAccessibility, larger: lucideAArrowUp, smaller: lucideAArrowDown,

@@ -31,7 +31,7 @@ import { UiOption } from '../core/types';
         class="ui-seg-option"
         [class.ui-seg-active]="option.value === value()"
         [attr.aria-pressed]="option.value === value()"
-        [attr.aria-label]="option.ariaLabel || null"
+        [attr.aria-label]="option.ariaLabel ? option.label + ' · ' + option.ariaLabel : null"
         [attr.title]="option.ariaLabel || null"
         [attr.lang]="option.lang || null"
         [disabled]="disabled() || !!option.disabled"

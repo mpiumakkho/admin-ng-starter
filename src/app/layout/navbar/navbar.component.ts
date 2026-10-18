@@ -44,7 +44,7 @@ import {
   UiThemeService,
   UiTooltip,
 } from '../../user-management/ui';
-import { Activity, AdminStore, fullName, Session, User } from '../../user-management';
+import { accountText, Activity, AdminStore, fullName, Session, User } from '../../user-management';
 import { ActivityText } from '../../user-management/shared/activity-text';
 import { RoleBadges } from '../../user-management/shared/badges';
 import { idleTimeoutLabel, TimeAgoPipe } from '../../user-management/shared/formatting';
@@ -102,6 +102,7 @@ export class NavbarComponent {
   private readonly router = inject(Router);
   private readonly announcer = inject(LiveAnnouncer);
   protected readonly fullName = fullName;
+  protected readonly accountText = accountText;
 
   constructor() {
     // Leaving the page with the bar's controls held at their size: the next bar starts at the size of the rest

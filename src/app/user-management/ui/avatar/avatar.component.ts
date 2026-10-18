@@ -22,7 +22,7 @@ const AAA_COLORS = ['#3730a3', '#0c4a6e', '#064e3b', '#78350f', '#831843', '#4c1
     @if (src() && !failed()) {
       <img [src]="src()" [alt]="name()" (error)="failed.set(true)" />
     } @else {
-      <span aria-hidden="true">{{ initials() }}</span>
+      <span aria-hidden="true" [attr.data-initials]="initials()"></span>
     }
   `,
   styles: `
@@ -44,6 +44,12 @@ const AAA_COLORS = ['#3730a3', '#0c4a6e', '#064e3b', '#78350f', '#831843', '#4c1
         width: 100%;
         height: 100%;
         object-fit: cover;
+      }
+
+      // The initials as a picture of the person, as the photo is: drawn, not text, so a control holding the avatar is
+      // not taken to show them in its label (WCAG 2.5.3); the avatar's own name says who it is
+      > span::before {
+        content: attr(data-initials);
       }
     }
   `,

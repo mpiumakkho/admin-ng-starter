@@ -122,10 +122,12 @@
       @if (session.user(); as me) {
         <!-- On every screen size: profile and sign out live here. Below 1200px only the photo shows. -->
         <li>
-          <button type="button" class="user-button" [uiMenuTrigger]="accountMenu" [uiMenuPosition]="menuPosition" [attr.aria-label]="'accountMenu' | translate: { name: fullName(me) }">
+          <button type="button" class="user-button" [uiMenuTrigger]="accountMenu" [uiMenuPosition]="menuPosition"
+            [attr.aria-label]="'accountMenu' | translate: { name: accountText(me, session.role()?.name, session.roles().length) }">
             <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="sm" />
             <span class="user-text" aria-hidden="true">
-              <span class="user-name">{{ fullName(me) }}</span>
+              <!-- A space between name and role, which the column does not show, so they read as words, as the button's name has them -->
+              <span class="user-name">{{ fullName(me) }}</span>{{ ' ' }}
               <span class="user-role">{{ session.role()?.name }}@if (session.roles().length > 1) { +{{ session.roles().length - 1 }}}</span>
             </span>
           </button>

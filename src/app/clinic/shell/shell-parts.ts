@@ -285,7 +285,7 @@ interface RailItem { sep?: boolean; icon?: string; label?: string; kind?: SheetK
         } @else {
           @let n = item.badge ? item.badge(p) : 0;
           <button type="button" class="rail-btn" [class.active]="isOpen(item)" [attr.aria-pressed]="isOpen(item)"
-            [attr.aria-label]="(item.label! | tx) + (n ? ' (' + n + ')' : '') + ' · ' + p.pet" [attr.title]="(item.label! | tx) + ' · ' + p.pet"
+            [attr.aria-label]="(item.label! | tx) + (n ? ': ' + n : '') + ' · ' + p.pet" [attr.title]="(item.label! | tx) + ' · ' + p.pet"
             (click)="ui.toggleSheet(item.kind!, item.tab)">
             <ng-icon [svg]="item.icon!" aria-hidden="true" />
             @if (n) {
