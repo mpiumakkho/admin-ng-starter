@@ -121,7 +121,6 @@
               </ul>
               <button uiButton variant="secondary" size="sm" type="button" class="grant-add" (click)="addingRole.set(true)"><ng-icon [svg]="icons.addRole" /> {{ 'Add a role' | translate }}</button>
             </div>
-            <app-role-assignment-dialog draft [exclude]="grantedIds()" [(open)]="addingRole" (granted)="addGrant($event)" />
           }
           <ui-form-field [label]="'Status' | translate" [hint]="'Invited users get an email to set their password. Suspended users cannot sign in.' | translate">
             <ui-segmented [options]="statusOptions()" formControlName="status" [ariaLabel]="'Status' | translate" />
@@ -136,4 +135,8 @@
       </div>
     </ui-card>
   </form>
+  <!-- Outside the form above: the dialog has a form of its own, and a form inside a form is not valid HTML -->
+  @if (!user()) {
+    <app-role-assignment-dialog draft [exclude]="grantedIds()" [(open)]="addingRole" (granted)="addGrant($event)" />
+  }
 }
