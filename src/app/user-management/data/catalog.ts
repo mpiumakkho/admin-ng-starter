@@ -308,6 +308,8 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   allowedDomains: [],
   inviteExpiryDays: 7,
   sessionTimeoutMinutes: 30,
+  // A server's new installation requires it of Administrator (API.md, Settings); the sample accounts sign in with one
+  // click, so the sample data leaves it to the settings page
   twoFactorRoleIds: [],
   passwordMinLength: 8,
   passwordHistory: 0,
