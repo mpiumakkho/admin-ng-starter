@@ -37,7 +37,8 @@ Any active user's email works too, with any password of 6 or more characters, un
 | Command | What it does |
 | --- | --- |
 | `npm start` | Runs the dev server, forwarding `/api` to `http://localhost:8080` for a real API |
-| `npm run build` | Builds the app for production into `dist/admin-dashboard` |
+| `npm run build` | Builds the app for production into `dist/admin-dashboard`. It reads its data from the server at `/api` (see Connecting a real API) and has no sample accounts |
+| `npm run build:demo` | The same build on sample data kept in the browser, with the sample accounts, as `npm start` runs: for a demo, never for real use |
 | `npm run watch` | Rebuilds the development bundle on change |
 | `npm test` | Runs the unit tests with Vitest |
 | `npm run e2e` | Runs the end-to-end tests in `e2e/` with Playwright, in the installed Google Chrome, against the dev server (started if it is not running) |
@@ -80,7 +81,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the translation check, the unit
 
 ## Connecting a real API
 
-`HttpAdminApi` calls the endpoints in [src/app/user-management/API.md](src/app/user-management/API.md). `../admin-api-starter`, next to this project, is a Spring Boot server that implements them; any other server that does works too. Start it on `http://localhost:8080`, then switch to `HttpAdminApi` in `src/app/app.config.ts`:
+`HttpAdminApi` calls the endpoints in [src/app/user-management/API.md](src/app/user-management/API.md). `../admin-api-starter`, next to this project, is a Spring Boot server that implements them; any other server that does works too. The production build (`npm run build`) uses it already, at `/api` on the app's own origin; `npm start` and `npm run build:demo` use sample data instead (`src/environments/`). To develop against the server, start it on `http://localhost:8080` and set `sampleData: false` in `src/environments/environment.sample-data.ts`, which `src/app/app.config.ts` turns into:
 
 ```ts
 provideUserManagement({ api: HttpAdminApi, apiUrl: '/api', liveUpdates: true }),

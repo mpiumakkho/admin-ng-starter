@@ -5,9 +5,10 @@ import { provideNgIconsConfig } from '@ng-icons/core';
 import { provideTranslateService } from '@ngx-translate/core';
 import { provideTranslateMultiHttpLoader } from '@ngx-translate/http-loader';
 
+import { environment } from '../environments/environment';
 import { routes } from './app.routes';
 import { FALLBACK_LANGUAGE } from './layout/language.service';
-import { provideUserManagement } from './user-management';
+import { HttpAdminApi, provideUserManagement } from './user-management';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -22,9 +23,9 @@ export const appConfig: ApplicationConfig = {
     }),
     // Lucide icons, drawn a little finer than their default 2px stroke
     provideNgIconsConfig({ strokeWidth: 1.75 }),
-    // Users, roles and activity, from sample data kept in the browser; the session is picked up before the first screen.
-    // For a real backend, such as ../admin-api-starter on port 8080, which npm start reaches as /api (proxy.conf.json):
-    // provideUserManagement({ api: HttpAdminApi, apiUrl: '/api', liveUpdates: true }), see user-management/API.md
-    provideUserManagement(),
+    // Users, roles and activity; the session is picked up before the first screen. The production build reads them from
+    // the server, such as ../admin-api-starter, at /api on the app's own origin (npm start forwards /api to port 8080,
+    // proxy.conf.json; see user-management/API.md). npm start and npm run build:demo use sample data kept in the browser.
+    environment.sampleData ? provideUserManagement() : provideUserManagement({ api: HttpAdminApi, apiUrl: '/api', liveUpdates: true }),
   ],
 };
