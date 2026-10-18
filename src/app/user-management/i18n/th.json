@@ -391,7 +391,7 @@
     "atLeastCharacters":             "อย่างน้อย {{count}} ตัวอักษร",
     "useAtLeastCharacters":          "ใช้อย่างน้อย {{count}} ตัวอักษร",
     "characterCount":                "{{count}} ตัวอักษร",
-    "This password is too short.":   "รหัสผ่านนี้สั้นเกินไป",
+    "This password is too short or too easy to guess.": "รหัสผ่านนี้สั้นหรือเดาง่ายเกินไป",
     "You used this password recently. Choose another one.": "คุณเพิ่งใช้รหัสผ่านนี้ไป เลือกรหัสอื่น",
     "Your role requires two-step sign-in. Turn it on to continue.": "บทบาทของคุณต้องใช้การยืนยันตัวตน 2 ขั้นตอน เปิดใช้เพื่อทำต่อ",
     "Turn on two-step sign-in to continue": "เปิดการยืนยันตัวตน 2 ขั้นตอนเพื่อใช้งานต่อ",

@@ -391,7 +391,7 @@
     "atLeastCharacters":             "At least {{count}} characters.",
     "useAtLeastCharacters":          "Use at least {{count}} characters.",
     "characterCount":                "{{count}} characters",
-    "This password is too short.":   "This password is too short.",
+    "This password is too short or too easy to guess.": "This password is too short or too easy to guess.",
     "You used this password recently. Choose another one.": "You used this password recently. Choose another one.",
     "Your role requires two-step sign-in. Turn it on to continue.": "Your role requires two-step sign-in. Turn it on to continue.",
     "Turn on two-step sign-in to continue": "Turn on two-step sign-in to continue",

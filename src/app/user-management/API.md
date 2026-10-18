@@ -85,7 +85,7 @@ Every email is in the language of the person it goes to: their `User.language`, 
 
 ## Password rules
 
-The settings decide how long a new password must be (`passwordMinLength`, 8 to 64) and how many of a user's most recent passwords, the current one included, cannot be chosen again (`passwordHistory`, 0 to 24; 0 checks nothing). They apply wherever someone sets a password: `POST /me/password`, `POST /auth/activate` and `POST /auth/password-reset/confirm`. Refuse a shorter one with `weak_password` and a recent one with `password_reused` (both `422`). Resetting someone's password keeps the old one in their history.
+The settings decide how long a new password must be (`passwordMinLength`, 8 to 64) and how many of a user's most recent passwords, the current one included, cannot be chosen again (`passwordHistory`, 0 to 24; 0 checks nothing). They apply wherever someone sets a password: `POST /me/password`, `POST /auth/activate` and `POST /auth/password-reset/confirm`. Refuse a shorter one with `weak_password` and a recent one with `password_reused` (both `422`). As NIST SP 800-63B asks, `weak_password` also refuses one of the most used passwords (the server keeps the 10,000 most used of 8 characters or more), case aside, and one that holds the product's name or a word of the person's names or email of 4 letters or more. Resetting someone's password keeps the old one in their history.
 
 | Request | Answer | Permission |
 | --- | --- | --- |

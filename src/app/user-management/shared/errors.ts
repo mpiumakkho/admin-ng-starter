@@ -10,7 +10,7 @@ const MESSAGES: Partial<Record<AdminApiErrorCode, string>> = {
   role_in_use: 'This role still has users. Move them to another role first.',
   system_role: 'Built-in roles cannot be deleted.',
   email_domain: 'This email is not on one of the allowed domains.',
-  weak_password: 'This password is too short.',
+  weak_password: 'This password is too short or too easy to guess.',
   password_reused: 'You used this password recently. Choose another one.',
   two_factor_mandatory: 'Your role requires two-step sign-in. Turn it on to continue.',
   default_role: 'New users get this role by default. Pick another default in the settings first.',
