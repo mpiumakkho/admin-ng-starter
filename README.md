@@ -91,6 +91,15 @@ provideUserManagement({ api: HttpAdminApi, apiUrl: '/api', liveUpdates: true }),
 
 Nothing else changes: the pages only talk to `AdminStore` and `Session`. The server keeps the session, checks every request against the signed-in user's permissions, and writes the activity log. API.md lists the rules it must check and the error codes the pages understand.
 
+## Deploying
+
+`npm run build` puts the app in `dist/admin-dashboard/browser`. [deploy/nginx.conf](deploy/nginx.conf) serves it with nginx, sends every other path to `index.html`, forwards `/api` to the API (host name `api`, port 8080), and adds the protections browsers need from the page (OWASP ASVS V3.4):
+
+- `Content-Security-Policy`: scripts and everything else from the app's own origin only, `frame-ancestors 'none'` so no other site can show the app in a frame, and no plugins. Styles may be inline, as Angular puts component styles in `<style>` elements and the print view writes its own.
+- `Referrer-Policy: no-referrer`, as the links in emails carry a token in the address; `X-Content-Type-Options: nosniff`; `Strict-Transport-Security`; and `X-Frame-Options` for older browsers.
+
+So that the policy needs no `'unsafe-inline'` for scripts, the app has no inline script: what picks the theme before the first paint is `public/theme.js`, and critical CSS inlining is off in `angular.json` (it adds an inline script). Behind other hosting, send the same headers; with the API on another origin, add it to `connect-src`.
+
 ## Languages
 
 The UI supports Thai (`th`, the default) and English (`en`). Each part keeps its own translation files, and the app loads both:

@@ -28,7 +28,7 @@ const AUTH_PAGES = ['/login', '/forgot-password', '/activate', '/reset-password'
 const ERROR_PAGES = ['/error-pages/404', '/error-pages/500'];
 /** Workspaces with their own shell bar and menu, which fill the window */
 const WORKSPACES = ['/clinic'];
-/** Read by index.html: someone was signed in when the app last ran */
+/** Read by public/theme.js: someone was signed in when the app last ran */
 const SIGNED_IN_KEY = 'app-signed-in';
 
 @Component({
@@ -62,7 +62,7 @@ export class AppComponent {
   constructor() {
     inject(LanguageService).init();
 
-    // Tells index.html, on the next load, to show the app's frame rather than a spinner while the session loads
+    // Tells public/theme.js, on the next load, to show the app's frame rather than a spinner while the session loads
     const session = inject(Session);
     effect(() => {
       try {
