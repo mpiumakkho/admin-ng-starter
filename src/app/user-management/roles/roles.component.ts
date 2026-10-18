@@ -153,21 +153,26 @@ export class RolesComponent {
 
   constructor() {
     // The role being edited stays in sight in a long list, as after creating one or opening ?role=…
-    afterRenderEffect(() => {
+    afterRenderEffect(onCleanup => {
       this.selected();
       this.shownRoles();
       const list = this.roleList()?.nativeElement;
-      const row = list?.querySelector<HTMLElement>('.role-item.active');
-      if (list && row) {
-        const listBox = list.getBoundingClientRect();
-        const rowBox = row.getBoundingClientRect();
-        // Only the list scrolls, never the page around it
-        if (rowBox.top < listBox.top) {
-          list.scrollTop -= listBox.top - rowBox.top;
-        } else if (rowBox.bottom > listBox.bottom) {
-          list.scrollTop += rowBox.bottom - listBox.bottom;
-        }
+      if (!list) {
+        return;
       }
+      // On a page just opened the list can have no height yet, and every row would seem out of sight: wait for it
+      if (!list.clientHeight) {
+        const sized = new ResizeObserver(() => {
+          if (list.clientHeight) {
+            sized.disconnect();
+            keepActiveRoleInSight(list);
+          }
+        });
+        sized.observe(list);
+        onCleanup(() => sized.disconnect());
+        return;
+      }
+      keepActiveRoleInSight(list);
     });
   }
 
@@ -338,5 +343,20 @@ export class RolesComponent {
     } catch (error) {
       this.toast.show(this.translate.instant(errorMessage(error)), 'error');
     }
+  }
+}
+
+/** Scrolls the list just enough to show the role being edited; only the list scrolls, never the page around it */
+function keepActiveRoleInSight(list: HTMLElement) {
+  const row = list.querySelector<HTMLElement>('.role-item.active');
+  if (!row) {
+    return;
+  }
+  const listBox = list.getBoundingClientRect();
+  const rowBox = row.getBoundingClientRect();
+  if (rowBox.top < listBox.top) {
+    list.scrollTop -= listBox.top - rowBox.top;
+  } else if (rowBox.bottom > listBox.bottom) {
+    list.scrollTop += rowBox.bottom - listBox.bottom;
   }
 }
