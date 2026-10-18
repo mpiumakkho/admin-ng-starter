@@ -34,7 +34,7 @@ Each sign-in is one **session**, which lasts until someone ends it or the refres
 | `POST /auth/refresh` | | A new `{ accessToken, expiresIn, user }` and a new refresh cookie. `401` `unauthenticated` when the cookie is missing, has run out or was already used, when the session has ended, or when the account is no longer active |
 | `POST /auth/logout` | | Nothing. Ends the refresh cookie's session and clears the cookie; works after the access token has run out, and answers the same when there is no cookie |
 | `GET /me` | | The signed-in `User` |
-| `POST /me/password` | `{ currentPassword, newPassword }` | Nothing. `invalid_credentials` when the current password is wrong; `weak_password` or `password_reused` when the new one breaks the password rules below |
+| `POST /me/password` | `{ currentPassword, newPassword }` | Nothing. `invalid_credentials` when the current password is wrong, which counts towards the lockout as at sign-in (refused the same while locked); `weak_password` or `password_reused` when the new one breaks the password rules below |
 
 Sign-in refusals: `invalid_credentials`, `account_suspended` (status `suspended`), `invite_pending` (status `invited`), `two_factor_required`, `invalid_code`. Wrong passwords count: after 5 in a row the account is locked for a minute, then twice as long each time (up to 30 minutes), answering `invalid_credentials` all the while so nobody learns which accounts exist. Too many attempts from one address are refused with `429` `too_many_requests`. On success, record the session (browser, OS, IP) for the devices list, write an `auth.sign_in` entry to the activity log and update `lastActiveAt`, which each refresh updates too: it is when the person last used the app.
 
@@ -102,7 +102,7 @@ People can see and end their own sessions and turn two-step sign-in on or off fo
 | `POST /users/:id/sessions/end` | `{ reason? }` for someone else (see Reasons) | Nothing. Ends every session of the user; for yourself, all but the current one |
 | `POST /me/two-factor` | | `TwoFactorSetup`: a new base32 `secret` and its `otpauth://` `uri`, kept pending until confirmed. `invalid_request` while two-step sign-in is on: an authenticator in use is replaced by turning it off, with a code, then on again |
 | `POST /me/two-factor/confirm` | `{ code }` | `TwoFactorConfirmation`: `{ user, recoveryCodes }`, the `User` with `twoFactor: true` and their first recovery codes; `invalid_code` if the code does not match the pending secret |
-| `POST /me/two-factor/disable` | `{ code }` | The `User` with `twoFactor: false`; `invalid_code` if the code is wrong |
+| `POST /me/two-factor/disable` | `{ code }` | The `User` with `twoFactor: false`; `invalid_code` if the code is wrong, which counts towards the lockout as at sign-in (refused the same while locked) |
 | `POST /users/:id/two-factor/reset` | `{ reason? }` (see Reasons) | The `User` with `twoFactor: false`. Needs `users.edit`; `self_change` for yourself |
 | `GET /me/recovery-codes` | | `{ remaining }`: how many of your recovery codes are left unused |
 | `POST /me/recovery-codes` | | `{ codes }`: ten new recovery codes, which replace the old ones; `invalid_request` while two-step sign-in is off |
@@ -333,6 +333,6 @@ Refuse a request with a 4xx status and a body such as `{ "code": "email_taken" }
 | `400` | `invalid_request`: a field the request may not set, or a value of the wrong kind; `invalid_token`: an email link that has expired or was used |
 | `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role`, `already_assigned`, `last_administrator`, `code_taken`, `branch_in_use`, `branch_closed`, `role_conflict`, `review_closed` |
 | `422` | `email_domain`, `weak_password`, `password_reused`, `assignment_too_long`, `reason_required` |
-| `429` | `too_many_requests`: too many sign-in, refresh or reset attempts from one address |
+| `429` | `too_many_requests`: too many sign-in, refresh or reset attempts from one address, or checks of a password or a code (`POST /me/reauthenticate`, `POST /me/password`, `POST /me/two-factor/disable`) |
 
 Without a known code, `401` counts as `unauthenticated`, `403` as `forbidden`, `404` as `not_found` and `429` as `too_many_requests`. When a refresh cannot fix an `unauthenticated`, the app sends the person to sign in, then brings them back to the page they were on. Other failures (offline, `5xx`) show "Something went wrong".
