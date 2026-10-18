@@ -6,7 +6,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { UiButton, UiMenu, UiMenuItem, UiMenuTrigger, UiToastService } from '../ui';
 import { downloadBlob, downloadText, toCsv } from './csv';
 import { intlLocale } from './formatting';
-import { copyText, forFormat, printHtml, printPage, TableExport } from './table-export';
+import { copyText, fontFiles, forFormat, printHtml, printPage, TableExport } from './table-export';
 import { toXlsx } from './xlsx';
 
 /**
@@ -91,7 +91,7 @@ export class ExportMenu {
       locale,
       language: this.language(),
       summary: this.translate.instant('printSummary', { count: table.rows.length, date: printed }),
-      fontBase: new URL('assets/fonts/sarabun/', this.document.baseURI).href,
+      fonts: fontFiles(this.document),
     }));
   }
 }

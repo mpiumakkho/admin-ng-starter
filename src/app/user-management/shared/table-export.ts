@@ -60,11 +60,46 @@ export function copyText(table: TableExport, locale: string): string {
   return [table.title, '', ...lines].join('\n');
 }
 
-/** A page with the title and the whole table, for the browser to print */
-export function printHtml(table: TableExport, options: { locale: string; language: string; summary: string; fontBase: string }): string {
-  const { locale, language, summary, fontBase } = options;
-  const font = (subset: string, weight: number, range: string) =>
-    `@font-face{font-family:Sarabun;font-weight:${weight};font-display:block;src:url('${fontBase}sarabun-${subset}-${weight}-normal.woff2') format('woff2');unicode-range:${range}}`;
+/**
+ * Where the app's own stylesheets load each font file from, by the file's name (sarabun-thai-400-normal.woff2), so the
+ * print page loads the same files: the build serves them under names of its own, such as
+ * media/sarabun-thai-400-normal-ZU7WTOUN.woff2, and not from the assets folder they are kept in.
+ */
+export function fontFiles(document: Document): Map<string, string> {
+  const files = new Map<string, string>();
+  for (const sheet of Array.from(document.styleSheets)) {
+    let rules: CSSRuleList;
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      // A stylesheet from another origin, which keeps its rules to itself
+      continue;
+    }
+    for (const rule of Array.from(rules)) {
+      if (!rule.cssText.startsWith('@font-face')) {
+        continue;
+      }
+      for (const [, address] of rule.cssText.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) {
+        const name = /([a-z]+(?:-[a-z]+)*-\d{3}-(?:normal|italic))(?:-[\w-]+)?\.woff2$/i.exec(address.split(/[?#]/)[0]);
+        if (name) {
+          files.set(`${name[1]}.woff2`, new URL(address, sheet.href ?? document.baseURI).href);
+        }
+      }
+    }
+  }
+  return files;
+}
+
+/** A page with the title and the whole table, for the browser to print; `fonts` from fontFiles() */
+export function printHtml(table: TableExport, options: { locale: string; language: string; summary: string; fonts: ReadonlyMap<string, string> }): string {
+  const { locale, language, summary, fonts } = options;
+  const font = (subset: string, weight: number, range: string) => {
+    const file = fonts.get(`sarabun-${subset}-${weight}-normal.woff2`);
+    // Without it, the system font prints
+    return file
+      ? `@font-face{font-family:Sarabun;font-weight:${weight};font-display:block;src:url('${file}') format('woff2');unicode-range:${range}}`
+      : '';
+  };
   const thai = 'U+02D7,U+0303,U+0331,U+0E01-0E5B,U+200C-200D,U+25CC';
   const latin = 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD';
   const head = table.columns.map(column => `<th>${escapeHtml(column.header)}</th>`).join('');

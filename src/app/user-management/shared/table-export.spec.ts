@@ -1,4 +1,4 @@
-import { copyText, forFormat, printHtml, TableExport } from './table-export';
+import { copyText, fontFiles, forFormat, printHtml, TableExport } from './table-export';
 import { columnName, crc32, toXlsx } from './xlsx';
 
 /** The files in a ZIP made by zip(), read back from its central directory, with their CRC checked */
@@ -83,10 +83,38 @@ describe('table export', () => {
   });
 
   it('prints the title and every row, escaped', () => {
-    const html = printHtml(table, { locale: 'en-GB', language: 'th', summary: '2 rows', fontBase: '/assets/fonts/sarabun/' });
+    const fonts = new Map([['sarabun-thai-400-normal.woff2', 'http://localhost/media/sarabun-thai-400-normal-ZU7WTOUN.woff2']]);
+    const html = printHtml(table, { locale: 'en-GB', language: 'th', summary: '2 rows', fonts });
     expect(html).toContain('<h1>ผู้ใช้</h1><p>2 rows</p>');
     expect(html).toContain('<td>Somchai &lt;Admin&gt; &amp; co</td><td>12</td><td class="date">9 Oct 2026</td>');
     expect(html).toContain('<td>=HYPERLINK(&quot;x&quot;)</td><td></td><td class="date"></td>');
     expect(html).toContain('@page{size:portrait');
+    // The font files the app loads, and only those it has
+    expect(html).toContain("src:url('http://localhost/media/sarabun-thai-400-normal-ZU7WTOUN.woff2')");
+    expect(html.match(/@font-face/g)).toHaveLength(1);
+  });
+
+  it('finds the font files the app loads, under the names the build gave them', () => {
+    // As the browser gives the app's stylesheets: the build's own file names, relative to each sheet or the page
+    const page = {
+      baseURI: 'http://localhost/users',
+      styleSheets: [
+        {
+          href: 'http://localhost/styles.css',
+          cssRules: [
+            { cssText: '@font-face { font-family: Sarabun; src: url("./media/sarabun-thai-400-normal-ZU7WTOUN.woff2") format("woff2"); }' },
+            { cssText: 'p { color: red; }' },
+          ],
+        },
+        { href: null, cssRules: [{ cssText: '@font-face { font-family: Sarabun; src: url("/assets/sarabun-latin-600-normal-C2Da-lKK.woff2"); }' }] },
+        // Another origin's, which keeps its rules to itself
+        { href: 'https://fonts.example.com/x.css', get cssRules(): never { throw new DOMException('', 'SecurityError'); } },
+      ],
+    } as unknown as Document;
+    const files = fontFiles(page);
+    expect([...files]).toEqual([
+      ['sarabun-thai-400-normal.woff2', 'http://localhost/media/sarabun-thai-400-normal-ZU7WTOUN.woff2'],
+      ['sarabun-latin-600-normal.woff2', 'http://localhost/assets/sarabun-latin-600-normal-C2Da-lKK.woff2'],
+    ]);
   });
 });
