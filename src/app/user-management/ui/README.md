@@ -44,6 +44,13 @@ Accessibility beyond WCAG 2.2 AA, for everything built from these pieces: focus 
 
 `UiScaleService` ปรับขนาด UI ทั้งหมดตาม `UI_SCALES` (100% 110% 125%) โดยตั้ง `--ui-zoom` บน `<html>` ให้ `ui.scss` zoom ที่ `app-root` และเนื้อหาในเมนูของ CDK overlay ส่วนที่ต้องเต็มหน้าต่างให้ใช้ `var(--ui-100vh)`, `var(--ui-100dvh)` และ `var(--ui-100vw)` แทน `100vh` และ `100vw` ที่ zoom ขยายเกินขอบจอ `step()` เลื่อนไปขนาดถัดไป (`next()`) และจาก 125% กลับเป็น 100% ส่วน `atLargest()` ใช้เลือกไอคอน ถ้ากดด้วยเมาส์ให้ใช้ `step({ hold: true })` ซึ่งตั้ง `--ui-zoom-hold` ให้ปุ่มต่างๆ ในแถบ (ใส่ `zoom: var(--ui-zoom-hold, 1)`) คงขนาดเดิมไว้ ปุ่มจะได้อยู่ใต้เมาส์ให้กดต่อได้ แล้วเรียก `release()` เมื่อเมาส์ออกจากปุ่มและเมื่อแถบถูกทำลาย (ดูรายละเอียดที่ README หลัก หัวข้อ "ขนาดการแสดงผล (Aa)")
 
+`ui-person-select` เลือกคนหนึ่งคน หรือ "ทุกคน" เป็นตัวกรอง จากคนกี่คนก็ได้ ใช้แทน `<select>` เมื่อรายชื่ออาจยาวถึงหลักพัน ปุ่มแสดง `label` ตามด้วยสิ่งที่เลือก เช่น "ทำโดย: ทุกคน" หรือ "ทำโดย: (รูป) Henry Klein" พร้อมปุ่ม × สำหรับล้างค่า (`clearLabel` เป็นชื่อของปุ่มนี้) กดแล้วเปิดแผงที่มีช่องค้นหาอยู่บนสุด ค้นจากชื่อหรือ `detail` (เช่นอีเมล) ขณะพิมพ์ โดยชื่อที่ขึ้นต้นด้วยคำที่พิมพ์จะขึ้นก่อน แผงแสดงทีละ `limit` คน (50) พร้อมข้อความจาก `moreText` ว่ายังมีอีกกี่คน และก่อนพิมพ์ คนที่เลือกไว้จะอยู่ในรายการเสมอแม้อยู่เกินลำดับที่ 50 ใช้คีย์บอร์ดได้แบบ combobox คือลูกศรขึ้นลงเลื่อน Enter เลือก Escape ปิดแล้วกลับไปที่ปุ่ม และ Tab ไปต่อตามปกติ แผงเปิดใน overlay ของ CDK (`cdkConnectedOverlay`) จึงไม่ถูกขอบการ์ดตัด และขยายตาม `UiScaleService` ในมุมมองเข้าถึงง่าย ปุ่มและรายการมีขนาดอย่างน้อย 44 พิกเซล ดูตัวอย่าง 1,200 คนได้ที่ `/ui-kit`
+
+```html
+<ui-person-select [label]="'Done by' | translate" [people]="people" [(value)]="actorId" [anyoneLabel]="'Anyone' | translate"
+  [searchLabel]="'Search name or email' | translate" [clearLabel]="'Clear Done by' | translate" [moreText]="morePeople" />
+```
+
 `ui-tooltip` ครอบ control หนึ่งตัวเพื่อแสดงข้อความสั้นๆ ใต้ control เมื่อชี้เมาส์ (หน่วง 300ms) เมื่อ focus ด้วยคีย์บอร์ด และทันทีหลังคลิก ข้อความเปลี่ยนตาม input ขณะเปิดอยู่ ใช้ `text` เป็นบรรทัดหลัก `detail` เป็นบรรทัดรอง และ `align="end"` จัดให้ชิดขอบขวาของ control สำหรับปุ่มที่อยู่ขวาสุดของหน้า tooltip เป็น `aria-hidden` จึงต้องใส่ข้อความเดียวกันไว้ใน `aria-label` ของ control ด้วย tooltip เป็นไปตาม WCAG 1.4.13 คือเลื่อนเมาส์ไปบน tooltip ได้โดยไม่หาย, กด Escape ปิดได้โดยไม่ต้องย้าย focus หรือเมาส์ และอยู่จนกว่าเมาส์และ focus จะออกไป
 
 Form controls implement `ControlValueAccessor`, so they work with `formControlName` and `ngModel`. `ui-form-field` shows the errors of the control inside it once the control is touched or changed:

@@ -50,6 +50,8 @@ import {
   UiPageSize,
   UiPagination,
   UiPerson,
+  UiPersonOption,
+  UiPersonSelect,
   UiProgress,
   UiSearchInput,
   UiSegmented,
@@ -78,6 +80,18 @@ interface Sample {
  * Every piece in user-management/ui, with a short usage note. Not in the menu; open /ui-kit.
  * Use it as the reference when building another dashboard on the library.
  */
+const FIRST_NAMES = ['Ann', 'Ben', 'Chloe', 'Dan', 'Ella', 'Finn', 'Grace', 'Hugo', 'Isla', 'Jack', 'Kate', 'Leo', 'Mia', 'Noah', 'Olive',
+  'Paul', 'Quinn', 'Ruby', 'Sam', 'Tara', 'Uma', 'Vic', 'Will', 'Xena', 'Yuki', 'Zoe', 'Arun', 'Busaba', 'Chai', 'Dao'];
+const LAST_NAMES = ['Adams', 'Baker', 'Carter', 'Davis', 'Evans', 'Foster', 'Green', 'Hughes', 'Irwin', 'Jones', 'Kelly', 'Lewis', 'Moore', 'Nash',
+  'Owens', 'Parker', 'Quinn', 'Reed', 'Scott', 'Turner', 'Underwood', 'Vance', 'Walker', 'Young', 'Zimmer', 'Boonmee', 'Chaiyaporn', 'Duangdee',
+  'Kaewkla', 'Srisuk', 'Thongdee', 'Wongsa', 'Phromma', 'Saetang', 'Jaidee', 'Meechai', 'Nakorn', 'Panya', 'Rattana', 'Siriwat'];
+/** Every first name with every last name, by name */
+const SAMPLE_PEOPLE: UiPersonOption[] = FIRST_NAMES.flatMap(first => LAST_NAMES.map(last => ({
+  id: `${first}-${last}`.toLowerCase(),
+  name: `${first} ${last}`,
+  detail: `${first}.${last}@example.com`.toLowerCase(),
+}))).sort((a, b) => a.name.localeCompare(b.name));
+
 @Component({
   selector: 'app-ui-kit',
   imports: [
@@ -85,7 +99,7 @@ interface Sample {
     NgIcon,
     UiChart,
     UiPageHeader, UiButton, UiCard, UiCardActions, UiCardFooter, UiBadge, UiTrend, UiIconChip, UiAlert,
-    UiAvatar, UiPerson, UiStatCard,
+    UiAvatar, UiPerson, UiPersonSelect, UiStatCard,
     UiSegmented, UiFilterChips, UiSearchInput, UiPagination, UiFormField, UiInput, UiCheckbox, UiSwitch, UiChoiceCards,
     UiFileDropzone, UiDialog, UiDialogFooter, UiEmptyState, UiProgress, UiTable, UiTableMinRows, UiSortHeader, UiBulkBar, UiPageSize, UiTimeline,
     UiTimelineItem, UiDetailList, UiDetailItem, UiMenu, UiMenuItem, UiMenuTrigger, UiMenuDivider, UiChartLegend,
@@ -128,6 +142,9 @@ export class UiKitComponent {
   ];
   protected readonly query = signal('');
   protected readonly page = signal(3);
+  /** 1,200 people, as an organization of that size would have, for the person picker */
+  protected readonly people: UiPersonOption[] = SAMPLE_PEOPLE;
+  protected readonly owner = signal<string | null>(null);
 
   /* Forms */
   private readonly fb = inject(NonNullableFormBuilder);

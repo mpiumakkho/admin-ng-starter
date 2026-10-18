@@ -56,7 +56,7 @@
   </div>
 
   <!-- Navigation -->
-  <ui-card title="Segmented, tabs, filter chips, search, pagination" description="Pickers and navigation; all support two-way binding.">
+  <ui-card title="Segmented, tabs, filter chips, search, person, pagination" description="Pickers and navigation; all support two-way binding.">
     <div class="row-wrap">
       <ui-segmented [options]="ranges" [(value)]="range" ariaLabel="Range" />
       <ui-filter-chips [options]="chips" [(value)]="chip" />
@@ -66,7 +66,12 @@
       <ui-search-input class="grow" [(value)]="query" placeholder="Search projects" />
       <ui-pagination [(page)]="page" [pageCount]="12" />
     </div>
-    <pre class="snippet">&lt;ui-segmented [options]="ranges" [(value)]="range" /&gt;  &lt;ui-pagination [(page)]="page" [pageCount]="12" /&gt;</pre>
+    <!-- One person out of thousands: the list searches, and shows the first 50 it finds -->
+    <div class="row-wrap">
+      <ui-person-select label="Owner" [people]="people" [(value)]="owner" searchLabel="Search name or email" clearLabel="Clear owner" />
+    </div>
+    <pre class="snippet">&lt;ui-segmented [options]="ranges" [(value)]="range" /&gt;  &lt;ui-pagination [(page)]="page" [pageCount]="12" /&gt;
+&lt;ui-person-select label="Owner" [people]="people" [(value)]="owner" searchLabel="Search name or email" /&gt;</pre>
   </ui-card>
 
   <!-- Forms -->

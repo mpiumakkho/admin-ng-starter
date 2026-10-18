@@ -13,53 +13,6 @@
   min-width: 160px;
 }
 
-// The person the log is narrowed to
-.subject-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: .375rem;
-  max-width: 240px;
-  height: 32px;
-  padding: 0 .25rem 0 .375rem;
-  border: 1px solid color-mix(in srgb, var(--ui-primary) 35%, transparent);
-  border-radius: 999px;
-  background: var(--ui-primary-soft);
-  color: var(--ui-primary-text);
-  font-size: .8125rem;
-  font-weight: 500;
-}
-
-.subject-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.subject-clear {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-
-  &:hover {
-    background: color-mix(in srgb, var(--ui-primary) 15%, transparent);
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--ui-ring);
-  }
-}
-
 .date-range {
   display: inline-flex;
   align-items: center;
@@ -200,19 +153,26 @@
   }
 }
 
-// Phones: the search takes the row, the two filters share the next one
+// Phones: the search takes a row, the time range the next, and the two person filters share the one after
 @media (max-width: 575px) {
   .toolbar {
     padding: .75rem 1rem;
   }
 
-  .toolbar-search {
+  .toolbar-search,
+  .toolbar-select {
     flex: 1 1 100%;
   }
 
-  .toolbar-select {
+  // Two "Anyone" share a row; one with a person picked takes a row of its own, so the name has room
+  .toolbar-person {
     flex: 1 1 0;
     min-width: 0;
+    max-width: none;
+
+    &.ui-ps-picked {
+      flex-basis: 100%;
+    }
   }
 
   // One row that scrolls sideways

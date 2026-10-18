@@ -1,11 +1,10 @@
 import { Component, computed, effect, inject, input, linkedSignal, resource, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
-import { lucideChevronRight, lucideHistory, lucideMonitor, lucideSearchX, lucideSmartphone, lucideX } from '@ng-icons/lucide';
+import { lucideChevronRight, lucideHistory, lucideMonitor, lucideSearchX, lucideSmartphone } from '@ng-icons/lucide';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 
 import {
-  UiAvatar,
   UiButton,
   UiCard,
   UiEmptyState,
@@ -17,6 +16,8 @@ import {
   UiPageSize,
   UiPagination,
   UiPerson,
+  UiPersonOption,
+  UiPersonSelect,
   UiSearchInput,
   UiSortHeader,
   UiTable,
@@ -30,7 +31,7 @@ import { ACTIVITY_KINDS, ACTIVITY_META, ActivityKind } from '../data/catalog';
 import { Activity, fullName, User } from '../data/models';
 import { ExportMenu } from '../shared/export-menu.component';
 import { TableExport } from '../shared/table-export';
-import { LocalDatePipe, LocalNamePipe, TimeAgoPipe } from '../shared/formatting';
+import { intlLocale, LocalDatePipe, LocalNamePipe, TimeAgoPipe } from '../shared/formatting';
 import { translationsChanged } from '../shared/i18n';
 import { ActivityDialog } from './activity-dialog.component';
 import { ActivityFormat, ActivityTarget } from './activity-format';
@@ -70,7 +71,7 @@ const DAY = 24 * 60 * 60 * 1000;
     UiTableScrollReset,
     UiSortHeader,
     UiPerson,
-    UiAvatar,
+    UiPersonSelect,
     UiIconChip,
     UiPagination,
     UiPageSize,
@@ -95,7 +96,6 @@ export class ActivityComponent {
 
   protected readonly icons = {
     page: lucideHistory, empty: lucideSearchX, open: lucideChevronRight, desktop: lucideMonitor, phone: lucideSmartphone,
-    clear: lucideX,
   };
   protected readonly fullName = fullName;
   protected readonly meta = ACTIVITY_META;
@@ -103,7 +103,8 @@ export class ActivityComponent {
   /* Filters */
 
   protected readonly kind = signal<Kind>('all');
-  protected readonly actor = signal('all');
+  /** Who did it; null for anyone */
+  protected readonly actor = signal<string | null>(null);
   protected readonly period = signal<Period>('all');
   /** A range of days picked by hand ('custom'), as the date inputs give them: "2026-10-01" */
   protected readonly fromDay = signal('');
@@ -142,7 +143,7 @@ export class ActivityComponent {
     const subject = this.subject();
     const since = this.since(this.period());
     const entries = this.rows().filter(row =>
-      (actor === 'all' || row.entry.actorId === actor)
+      (!actor || row.entry.actorId === actor)
       && (!subject || row.entry.actorId === subject || row.entry.targetId === subject)
       && (!since || row.entry.at >= since)
       && (!query || matchesSearch(row, query))).map(row => row.entry);
@@ -158,11 +159,22 @@ export class ActivityComponent {
   });
 
   /** People who have done something, for the "Done by" filter */
-  protected readonly actors = computed(() => {
-    const ids = new Set(this.entries().map(entry => entry.actorId ?? ''));
-    return [...ids].map(id => this.store.usersById().get(id)).filter(user => !!user).map(user => ({ id: user.id, name: fullName(user) }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+  protected readonly actors = computed(() => this.peopleOf(new Set(this.entries().map(entry => entry.actorId ?? ''))));
+
+  /** People something was done by or to, for the "About" filter; the one asked for in the address too, deleted or not */
+  protected readonly subjects = computed(() => {
+    const ids = new Set(this.entries().flatMap(entry => [entry.actorId ?? '', entry.targetId ?? '']));
+    const subject = this.subject();
+    const people = this.peopleOf(subject ? ids.add(subject) : ids);
+    return subject && !people.some(person => person.id === subject) ? [{ id: subject, name: this.subjectName() }, ...people] : people;
   });
+
+  /** Under a person filter's list when it shows only the first it found */
+  protected readonly morePeople = (shown: number, total: number) => {
+    this.i18n();
+    const number = new Intl.NumberFormat(intlLocale(this.translate.currentLang() ?? 'en'));
+    return this.translate.instant('morePeople', { shown: number.format(shown), total: number.format(total) });
+  };
 
   private readonly rows = computed<ActivityRow[]>(() => {
     this.i18n();
@@ -193,7 +205,7 @@ export class ActivityComponent {
       const since = this.since(this.period());
       return (row: ActivityRow) =>
         (kind === 'all' || ACTIVITY_META[row.entry.action].kind === kind)
-        && (actor === 'all' || row.entry.actorId === actor)
+        && (!actor || row.entry.actorId === actor)
         && (!subject || row.entry.actorId === subject || row.entry.targetId === subject)
         && (!since || row.entry.at >= since);
     }),
@@ -205,7 +217,7 @@ export class ActivityComponent {
   });
 
   protected readonly hasFilters = computed(() =>
-    !!this.table.query() || this.kind() !== 'all' || this.actor() !== 'all' || this.period() !== 'all' || !!this.subject());
+    !!this.table.query() || this.kind() !== 'all' || !!this.actor() || this.period() !== 'all' || !!this.subject());
 
   /* Details */
 
@@ -231,11 +243,11 @@ export class ActivityComponent {
     });
   }
 
-  /** Back to everyone's activity; the address follows, so Back and reload agree */
-  protected clearSubject() {
-    this.subject.set(null);
+  /** The person the log is about, or everyone (null); the address follows, so Back and reload agree */
+  protected setSubject(id: string | null) {
+    this.subject.set(id);
     this.table.resetPage();
-    this.router.navigate([], { queryParams: { user: null }, queryParamsHandling: 'merge', replaceUrl: true });
+    this.router.navigate([], { queryParams: { user: id }, queryParamsHandling: 'merge', replaceUrl: true });
   }
 
   protected setKind(kind: Kind | null) {
@@ -243,7 +255,7 @@ export class ActivityComponent {
     this.table.resetPage();
   }
 
-  protected setActor(actor: string) {
+  protected setActor(actor: string | null) {
     this.actor.set(actor);
     this.table.resetPage();
   }
@@ -261,12 +273,12 @@ export class ActivityComponent {
   protected clearFilters() {
     this.table.search('');
     this.kind.set('all');
-    this.actor.set('all');
+    this.actor.set(null);
     this.period.set('all');
     this.fromDay.set('');
     this.toDay.set('');
     if (this.subject()) {
-      this.clearSubject();
+      this.setSubject(null);
     }
   }
 
@@ -304,6 +316,14 @@ export class ActivityComponent {
       ],
     };
   };
+
+  /** The users among these ids, as a person filter lists them: by name, with their email and photo */
+  private peopleOf(ids: Set<string>): UiPersonOption[] {
+    const users = this.store.usersById();
+    return [...ids].map(id => users.get(id)).filter(user => !!user)
+      .map(user => ({ id: user.id, name: fullName(user), detail: user.email, avatar: user.avatar }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   /** The earliest time a period includes, as an ISO string, or null for all time (and for a range, read already cut) */
   private since(period: Period): string | null {

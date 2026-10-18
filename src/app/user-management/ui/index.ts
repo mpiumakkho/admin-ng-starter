@@ -34,6 +34,7 @@ export * from './segmented/segmented.component';
 export * from './search-input/search-input.component';
 export * from './filter-chips/filter-chips.component';
 export * from './pagination/pagination.component';
+export * from './person-select/person-select.component';
 
 // Tables
 export * from './table/table-state';

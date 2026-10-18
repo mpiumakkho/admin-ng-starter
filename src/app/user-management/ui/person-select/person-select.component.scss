@@ -1,0 +1,244 @@
+// A filter that picks one person, or anyone: a box the size of a small select, holding what is picked. Picked, it is
+// tinted as a filter in use and the cross clears it.
+.ui-person-select {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  max-width: 260px;
+  height: 32px;
+  border: 1px solid var(--ui-input-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+  transition: border-color .15s ease, box-shadow .15s ease;
+
+  &:hover {
+    border-color: var(--ui-border-strong);
+  }
+
+  &.ui-ps-open {
+    border-color: var(--ui-focus);
+    box-shadow: 0 0 0 1px var(--ui-focus);
+  }
+
+  &.ui-ps-picked {
+    border-color: color-mix(in srgb, var(--ui-primary) 35%, transparent);
+    background: var(--ui-primary-soft);
+
+    .ui-ps-value {
+      color: var(--ui-primary-text);
+    }
+  }
+
+  &.ui-ps-picked.ui-ps-open {
+    border-color: var(--ui-focus);
+  }
+}
+
+.ui-ps-trigger {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: .375rem;
+  min-width: 0;
+  height: 100%;
+  padding: 0 .5rem 0 .625rem;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--ui-heading);
+  font: 400 .8125rem/1.5 var(--ui-font);
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-ps-label {
+  flex-shrink: 0;
+  color: var(--ui-muted);
+}
+
+.ui-ps-value {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.ui-ps-caret {
+  flex-shrink: 0;
+  color: var(--ui-subtle);
+  font-size: 1rem;
+}
+
+.ui-ps-clear {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-inline-end: .25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ui-primary-text);
+  font-size: .875rem;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--ui-primary) 15%, transparent);
+  }
+}
+
+// The list it opens, over the page: a search field, then the people it finds, a few dozen at a time
+.ui-ps-panel {
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  max-width: calc(var(--ui-100vw) - 2rem);
+  margin: 4px 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-lg);
+  font-family: var(--ui-font);
+  animation: ui-ps-in .16s var(--ui-ease);
+}
+
+@keyframes ui-ps-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.ui-ps-search {
+  position: relative;
+  padding: .5rem;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.ui-ps-search-icon {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 1.125rem;
+  color: var(--ui-subtle);
+  font-size: .875rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ui-input.ui-ps-input {
+  padding-inline-start: 2rem;
+}
+
+.ui-ps-list {
+  max-height: min(320px, calc(var(--ui-100dvh) - 12rem));
+  padding: .375rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ui-ps-option {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  min-height: 40px;
+  padding: .25rem .5rem;
+  border-radius: .375rem;
+  color: var(--ui-text);
+  font-size: .8125rem;
+  cursor: pointer;
+
+  // The one the arrow keys are on, which the pointer moves too: one shows at a time
+  &.ui-ps-active {
+    background: var(--ui-hover);
+  }
+}
+
+.ui-ps-anyone {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ui-surface-muted);
+  color: var(--ui-muted);
+  font-size: .8125rem;
+}
+
+.ui-ps-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.ui-ps-name,
+.ui-ps-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-ps-name {
+  color: var(--ui-heading);
+  font-weight: 500;
+}
+
+.ui-ps-detail {
+  color: var(--ui-muted);
+  font-size: .75rem;
+}
+
+.ui-ps-check {
+  flex-shrink: 0;
+  color: var(--ui-primary-text);
+  font-size: 1rem;
+}
+
+.ui-ps-empty {
+  margin: 0;
+  padding: 1rem .5rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  text-align: center;
+}
+
+.ui-ps-more {
+  margin: 0;
+  padding: .5rem .875rem;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-muted);
+  font-size: .75rem;
+  line-height: 1.4;
+}
+
+// The accessible view: targets of 44 by 44 pixels
+body.ui-aaa {
+  .ui-person-select {
+    height: 44px;
+  }
+
+  // As tall as the box, its border included, rather than the 42 pixels inside it
+  .ui-ps-trigger {
+    height: 44px;
+    margin-block: -1px;
+  }
+
+  .ui-ps-clear {
+    width: 44px;
+    height: 44px;
+    margin-inline-end: 0;
+  }
+
+  .ui-ps-option {
+    min-height: 44px;
+  }
+}

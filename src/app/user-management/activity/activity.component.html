@@ -6,16 +6,6 @@
 
 <ui-card flush fit>
   <div class="toolbar">
-    @if (subject()) {
-      <!-- One person's activity, as opened from their profile; the cross shows everyone's again -->
-      <span class="subject-chip" [title]="'activityOf' | translate: { name: subjectName() }">
-        <ui-avatar [name]="subjectName()" [src]="subjectUser()?.avatar" size="xs" />
-        <span class="subject-name">{{ subjectName() }}</span>
-        <button type="button" class="subject-clear" (click)="clearSubject()" [attr.aria-label]="'Show everyone\'s activity' | translate">
-          <ng-icon [svg]="icons.clear" />
-        </button>
-      </span>
-    }
     <ui-search-input class="toolbar-search" size="sm" [value]="table.query()" (valueChange)="table.search($event)" [placeholder]="'Search name, item or IP' | translate" [clearLabel]="'Clear search' | translate" />
     <select uiInput class="ui-input-sm toolbar-select toolbar-period" [value]="period()" (change)="setPeriod($any($event.target).value)" [attr.aria-label]="'Time range' | translate">
       <option value="all">{{ 'Any time' | translate }}</option>
@@ -31,12 +21,13 @@
         <input uiInput type="date" class="ui-input-sm" [value]="toDay()" [min]="fromDay()" (change)="setDay('to', $any($event.target).value)" [attr.aria-label]="'To' | translate" />
       </span>
     }
-    <select uiInput class="ui-input-sm toolbar-select" [value]="actor()" (change)="setActor($any($event.target).value)" [attr.aria-label]="'Done by' | translate">
-      <option value="all">{{ 'Anyone' | translate }}</option>
-      @for (person of actors(); track person.id) {
-        <option [value]="person.id">{{ person.name }}</option>
-      }
-    </select>
+    <!-- Who did it, and whom it was about (?user=…, as a profile opens it): either can be anyone among thousands, so each searches -->
+    <ui-person-select class="toolbar-person" [label]="'Done by' | translate" [people]="actors()" [value]="actor()" (valueChange)="setActor($event)"
+      [anyoneLabel]="'Anyone' | translate" [searchLabel]="'Search name or email' | translate" [emptyLabel]="'No one found' | translate"
+      [clearLabel]="'clearPersonFilter' | translate: { label: ('Done by' | translate) }" [moreText]="morePeople" />
+    <ui-person-select class="toolbar-person subject-select" [label]="'About' | translate" [people]="subjects()" [value]="subject()" (valueChange)="setSubject($event)"
+      [anyoneLabel]="'Anyone' | translate" [searchLabel]="'Search name or email' | translate" [emptyLabel]="'No one found' | translate"
+      [clearLabel]="'clearPersonFilter' | translate: { label: ('About' | translate) }" [moreText]="morePeople" />
     <ui-filter-chips class="toolbar-chips" scroll [options]="kindOptions()" [value]="kind()" (valueChange)="setKind($event)" [ariaLabel]="'Type' | translate" />
   </div>
 
