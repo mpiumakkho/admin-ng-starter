@@ -307,7 +307,7 @@ export const DEFAULT_SETTINGS: AdminSettings = {
   defaultRoleId: 'viewer',
   allowedDomains: [],
   inviteExpiryDays: 7,
-  sessionTimeoutMinutes: 0,
+  sessionTimeoutMinutes: 30,
   twoFactorRoleIds: [],
   passwordMinLength: 8,
   passwordHistory: 0,

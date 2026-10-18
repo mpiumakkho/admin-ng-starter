@@ -43,6 +43,8 @@ test('a risky change asks for the password again once the sign-in is old, then g
   await expect(save).toBeDisabled();
   await sections.getByRole('button', { name: 'Sign-in' }).click();
   await again.selectOption({ label: 'Never' });
+  // Nor sign out when idle, for the two hours that go by
+  await page.locator('#sessionTimeoutMinutes').selectOption({ label: 'Never' });
   await save.click();
   await expect(save).toBeDisabled();
   await expect(save).not.toHaveClass(/ui-btn-loading/);

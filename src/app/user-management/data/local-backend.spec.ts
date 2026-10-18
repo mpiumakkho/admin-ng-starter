@@ -130,6 +130,8 @@ describe('HttpAdminApi against localBackend', () => {
   it('asks for the password again before a risky change, once the sign-in is older than the settings allow', async () => {
     const admin = await api.signIn(DEMO_ACCOUNTS[0].email, 'any-password', false);
     const other = (await api.listUsers()).find(user => user.status === 'active' && user.id !== admin.id)!;
+    // An hour goes by with no request: not signed out for being idle, which is not what this is about
+    await api.updateSettings({ sessionTimeoutMinutes: 0 });
 
     vi.useFakeTimers({ toFake: ['Date'] });
     try {

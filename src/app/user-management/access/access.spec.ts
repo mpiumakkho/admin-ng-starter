@@ -434,6 +434,8 @@ describe('Session and permissions', () => {
       await signInAs('admin');
       const someone = userWithRole('viewer');
       await store.assignRole({ userId: someone.id, roleId: 'support', endsAt: hours(1) });
+      // Two hours go by with no request: not signed out for being idle, which is not what this is about
+      await store.updateSettings({ sessionTimeoutMinutes: 0 });
 
       vi.useFakeTimers({ toFake: ['Date'] });
       try {
