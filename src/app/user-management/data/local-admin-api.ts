@@ -136,7 +136,8 @@ export class LocalAdminApi extends AdminApi {
   }
 
   async reauthenticate(password: string, code?: string): Promise<void> {
-    const actor = this.actor();
+    // Also while two-step sign-in must be set up first, since turning it on may ask for the password
+    const actor = this.actor(undefined, true);
     if (!(await this.passwordMatches(actor.id, String(password ?? '')))) {
       this.logFailedSignIn(actor, 'password');
       await this.respond(undefined);
@@ -257,6 +258,8 @@ export class LocalAdminApi extends AdminApi {
       this.assertEmailFree(changes.email, id);
       if (changes.email.toLowerCase() !== current.email.toLowerCase()) {
         this.assertEmailDomain(changes.email);
+        // A new email receives the reset links: whoever changes it could take the account
+        this.assertReauthenticated();
       }
     }
     const statusChanged = changes.status !== undefined && changes.status !== current.status;
@@ -1032,6 +1035,9 @@ export class LocalAdminApi extends AdminApi {
 
   async startTwoFactor(): Promise<TwoFactorSetup> {
     const actor = this.actor(undefined, true);
+    // Not while it is on: the authenticator is replaced by turning it off, with a code, then on again
+    check(!actor.twoFactor);
+    this.assertReauthenticated();
     const secret = createSecret();
     this.data.pendingTwoFactor = { ...this.data.pendingTwoFactor, [actor.id]: secret };
     return this.respond({ secret, uri: otpauthUri(secret, actor.email, ISSUER) });
@@ -1039,6 +1045,7 @@ export class LocalAdminApi extends AdminApi {
 
   async confirmTwoFactor(code: string): Promise<TwoFactorConfirmation> {
     const actor = this.actor(undefined, true);
+    check(!actor.twoFactor);
     const secret = this.data.pendingTwoFactor?.[actor.id];
     if (!secret || !(await verifyTotp(secret, String(code ?? '')))) {
       await this.respond(undefined);

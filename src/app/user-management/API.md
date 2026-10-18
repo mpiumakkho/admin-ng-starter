@@ -100,7 +100,7 @@ People can see and end their own sessions and turn two-step sign-in on or off fo
 | `GET /users/:id/sessions` | | `UserSession[]`, newest use first, the one making the request with `current: true` |
 | `DELETE /sessions/:id` | `{ reason? }` for someone else's (see Reasons) | Nothing |
 | `POST /users/:id/sessions/end` | `{ reason? }` for someone else (see Reasons) | Nothing. Ends every session of the user; for yourself, all but the current one |
-| `POST /me/two-factor` | | `TwoFactorSetup`: a new base32 `secret` and its `otpauth://` `uri`, kept pending until confirmed |
+| `POST /me/two-factor` | | `TwoFactorSetup`: a new base32 `secret` and its `otpauth://` `uri`, kept pending until confirmed. `invalid_request` while two-step sign-in is on: an authenticator in use is replaced by turning it off, with a code, then on again |
 | `POST /me/two-factor/confirm` | `{ code }` | `TwoFactorConfirmation`: `{ user, recoveryCodes }`, the `User` with `twoFactor: true` and their first recovery codes; `invalid_code` if the code does not match the pending secret |
 | `POST /me/two-factor/disable` | `{ code }` | The `User` with `twoFactor: false`; `invalid_code` if the code is wrong |
 | `POST /users/:id/two-factor/reset` | `{ reason? }` (see Reasons) | The `User` with `twoFactor: false`. Needs `users.edit`; `self_change` for yourself |
@@ -115,7 +115,7 @@ As Google and GitHub give backup codes, turning two-step sign-in on gives ten re
 
 ### Roles that must use two-step sign-in
 
-The settings can require it for some roles (`twoFactorRoleIds`). Someone who holds one of them now (see Role assignments) and has not turned it on can still sign in, but until they turn it on the server answers every request with `403` `two_factor_mandatory`, `GET /events` included, except the ones they need to do it: `GET /me`, `GET /settings`, `GET /roles`, `POST /me/two-factor` and `POST /me/two-factor/confirm` (and `/auth/*`, which need no access token). This applies at once, from the next request: an administrator who adds their own role while their two-step sign-in is off is held back too. `POST /me/two-factor/disable` is refused with `two_factor_mandatory` while their role requires it. An administrator can still turn it off for them with `POST /users/:id/two-factor/reset`; they then have to turn it on again before anything else.
+The settings can require it for some roles (`twoFactorRoleIds`). Someone who holds one of them now (see Role assignments) and has not turned it on can still sign in, but until they turn it on the server answers every request with `403` `two_factor_mandatory`, `GET /events` included, except the ones they need to do it: `GET /me`, `GET /settings`, `GET /roles`, `POST /me/reauthenticate` (turning it on may ask for the password again), `POST /me/two-factor` and `POST /me/two-factor/confirm` (and `/auth/*`, which need no access token). This applies at once, from the next request: an administrator who adds their own role while their two-step sign-in is off is held back too. `POST /me/two-factor/disable` is refused with `two_factor_mandatory` while their role requires it. An administrator can still turn it off for them with `POST /users/:id/two-factor/reset`; they then have to turn it on again before anything else.
 
 The app checks the same thing after signing in, and whenever a request answers `two_factor_mandatory`, and sends the person to `/setup-two-factor` until it is on. The settings page warns an administrator who is about to add their own role that way.
 
@@ -129,6 +129,7 @@ As GitHub's sudo mode and Microsoft Entra's reauthentication ask for the passwor
 | What a role allows | `PATCH /roles/:id` when `permissions` change, `DELETE /roles/:id` |
 | Deleting people | `POST /users/delete` |
 | Someone else's sign-in | `POST /users/:id/reset-password`, `POST /users/:id/two-factor/reset`, and `DELETE /sessions/:id` and `POST /users/:id/sessions/end`, each for someone else |
+| What recovers an account | `PATCH /users/:id` when `email` changes, since the reset links go there; `POST /me/two-factor`, which binds the account to an authenticator |
 | Your own recovery codes | `POST /me/recovery-codes` |
 | Closing an access review, which takes away the roles decided `remove` | `POST /access-reviews/:id/close` |
 | The settings | `PATCH /settings` |
