@@ -301,6 +301,7 @@
     "importReady":                  "{{count}} ready to import",
     "importProblems":               "{{count}} with problems",
     "Only the first 500 rows are read. Split larger files.": "Only the first 500 rows are read. Split larger files.",
+    "This file is larger than 1 MB. Split it into smaller files.": "This file is larger than 1 MB. Split it into smaller files.",
     "Line":                         "Line",
     "Check":                        "Check",
     "Ready":                        "Ready",

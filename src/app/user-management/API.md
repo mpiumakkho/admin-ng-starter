@@ -167,6 +167,8 @@ The server sends `data: changed` after each change and a `: ping` comment every 
 
 `language` is `th`, `en`, or `null` for the settings' `defaultLanguage`: the language of the person's emails (see The language of emails). Anything else is `invalid_request`. A change of `language` alone writes no `user.updated` entry, as it is a preference, like the theme; nor does a `PATCH` that changes nothing else the log keeps.
 
+`firstName`, `lastName` and `department` are 1 to 100 characters, not only spaces: `PATCH` may leave them out, not empty them. `avatar` is `""` for no photo, or a JPEG, PNG or WebP image in a base64 `data:` URL of at most 100,000 characters whose bytes are that kind of image; never a link, which every browser showing the person would fetch from wherever it points, nor an SVG, which can carry script. The app sends a 160-pixel JPEG, and sends `avatar` in a `PATCH` only when it changed. Anything else is `invalid_request`.
+
 The server assigns `id`, `createdAt` and `lastActiveAt`. A new user with status `invited` gets an invitation email. Refuse an email someone else has with `email_taken`. When the settings list allowed domains, refuse a new or changed email outside them with `email_domain`.
 
 ## Role assignments
@@ -330,7 +332,7 @@ Refuse a request with a 4xx status and a body such as `{ "code": "email_taken" }
 | `401` | `unauthenticated` (no access token, or one that has run out or whose session has ended), `invalid_credentials`, `two_factor_required`, `invalid_code` |
 | `403` | `forbidden`, `self_change`, `account_suspended`, `invite_pending`, `two_factor_mandatory`: the role requires two-step sign-in and it is off; `reauth_required`: the change needs the password confirmed again |
 | `404` | `not_found` |
-| `400` | `invalid_request`: a field the request may not set, or a value of the wrong kind; `invalid_token`: an email link that has expired or was used |
+| `400` | `invalid_request`: a field the request may not set, a value of the wrong kind, or a body larger than 1 MB (5 MB for `POST /users/import`), refused before it is read; `invalid_token`: an email link that has expired or was used |
 | `409` | `email_taken`, `role_in_use`, `system_role`, `not_invited`, `default_role`, `already_assigned`, `last_administrator`, `code_taken`, `branch_in_use`, `branch_closed`, `role_conflict`, `review_closed` |
 | `422` | `email_domain`, `weak_password`, `password_reused`, `assignment_too_long`, `reason_required` |
 | `429` | `too_many_requests`: too many sign-in, refresh or reset attempts from one address, or checks of a password or a code (`POST /me/reauthenticate`, `POST /me/password`, `POST /me/two-factor/disable`) |

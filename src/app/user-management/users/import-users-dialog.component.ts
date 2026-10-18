@@ -15,6 +15,8 @@ import { UiAlert, UiButton, UiDialog, UiDialogFooter, UiFileDropzone, UiOption, 
 
 /** The most rows one import takes */
 const MAX_ROWS = 500;
+/** The largest file read: 500 rows take a fraction of it, and the server takes no more than 5 MB */
+const MAX_FILE_BYTES = 1024 * 1024;
 
 /**
  * Adds users from a CSV file. Every row is checked as the server would before anything is saved; rows with
@@ -78,6 +80,10 @@ export class ImportUsersDialog {
   }
 
   protected async pick(file: File) {
+    if (file.size > MAX_FILE_BYTES) {
+      this.toast.show(this.translate.instant('This file is larger than 1 MB. Split it into smaller files.'), 'error');
+      return;
+    }
     const cells = parseCsv(await file.text());
     this.tooMany.set(cells.length - 1 > MAX_ROWS);
     this.fileName.set(file.name);

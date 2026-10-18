@@ -249,12 +249,15 @@ export class UserFormComponent implements OnInit {
       this.toast.show(this.translate.instant('Check the highlighted fields.'), 'error');
       return;
     }
-    const { branchId, language, ...rest } = this.form.getRawValue();
+    const { branchId, language, avatar, ...rest } = this.form.getRawValue();
     const profile = { ...rest, branchId: branchId || null, language: language || null };
     this.saving.set(true);
     try {
       const id = this.id();
-      const user = id ? await this.store.updateUser(id, profile) : await this.store.createUser({ ...profile, roles: this.grants() });
+      // The photo goes only when it changed: one kept from before stays as it is
+      const user = id
+        ? await this.store.updateUser(id, avatar === this.user()?.avatar ? profile : { ...profile, avatar })
+        : await this.store.createUser({ ...profile, avatar, roles: this.grants() });
       this.saved = true;
       this.toast.show(this.translate.instant(id ? 'toast.userUpdated' : 'toast.userCreated', { name: fullName(user) }));
       this.router.navigate(['/users', user.id]);

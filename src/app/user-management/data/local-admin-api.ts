@@ -52,6 +52,15 @@ const USER_CHANGE_FIELDS = [...USER_FIELDS, 'language'];
 /** A branch code: short letters, digits and dashes */
 const BRANCH_CODE = /^[A-Za-z0-9-]{1,10}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** A profile picture as the server takes it (API.md, Users): a JPEG, PNG or WebP image in a base64 data URL */
+const AVATAR = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
+const AVATAR_MAX_LENGTH = 100_000;
+/** The bytes each kind of image starts with */
+const AVATAR_SIGNATURES: Record<string, (bytes: string) => boolean> = {
+  jpeg: bytes => bytes.startsWith('\xFF\xD8\xFF'),
+  png: bytes => bytes.startsWith('\x89PNG\r\n\x1A\n'),
+  webp: bytes => bytes.startsWith('RIFF') && bytes.slice(8, 12) === 'WEBP',
+};
 
 /**
  * AdminApi backed by localStorage, seeded with sample data on first use. It plays the server's part: it knows
@@ -1624,7 +1633,23 @@ function userChanges(input: unknown): UserChanges {
   check(changes['language'] === undefined || changes['language'] === null || (changes['language'] as string) in EMAIL_LANGUAGES);
   check(changes['status'] === undefined || (changes['status'] as string) in STATUS_META);
   check(changes['email'] === undefined || EMAIL.test((changes['email'] as string).trim()));
+  // Left out, or some text: never emptied
+  check(['firstName', 'lastName', 'department'].every(field => changes[field] === undefined || (changes[field] as string).trim() !== ''));
+  check(changes['avatar'] === undefined || isAvatar(changes['avatar'] as string));
   return changes as UserChanges;
+}
+
+/** Empty for no photo, or an image in a data URL whose bytes are the kind it says; never a link nor an SVG */
+function isAvatar(value: string): boolean {
+  if (value === '') {
+    return true;
+  }
+  const match = value.length <= AVATAR_MAX_LENGTH ? AVATAR.exec(value) : null;
+  try {
+    return !!match && AVATAR_SIGNATURES[match[1]](atob(match[2].slice(0, 16)));
+  } catch {
+    return false;
+  }
 }
 
 function userDraft(input: unknown): UserDraft {

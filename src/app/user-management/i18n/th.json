@@ -301,6 +301,7 @@
     "importReady":                  "พร้อมนำเข้า {{count}} คน",
     "importProblems":               "มีปัญหา {{count}} แถว",
     "Only the first 500 rows are read. Split larger files.": "อ่านเฉพาะ 500 แถวแรก ไฟล์ที่ใหญ่กว่านี้ให้แบ่งเป็นหลายไฟล์",
+    "This file is larger than 1 MB. Split it into smaller files.": "ไฟล์นี้ใหญ่เกิน 1 MB ให้แบ่งเป็นไฟล์ที่เล็กลง",
     "Line":                         "แถว",
     "Check":                        "ผลตรวจ",
     "Ready":                        "พร้อม",
