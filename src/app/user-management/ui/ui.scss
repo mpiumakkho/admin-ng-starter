@@ -87,10 +87,13 @@
   --ui-100vw: calc(100vw / var(--ui-zoom));
 }
 
-/* The UI's size: the app, and the menus the CDK opens over it in its overlay, outside app-root. The overlay's panes
-   themselves keep the window's own pixels, so the CDK still puts them where it means to; what is in them grows. */
+/* The UI's size: the app, the menus the CDK opens over it in its overlay, and the questions UiConfirmService asks,
+   both outside app-root. The overlay's panes themselves keep the window's own pixels, so the CDK still puts them where
+   it means to; what is in them grows. */
 app-root,
-.cdk-overlay-pane > * {
+.cdk-overlay-pane > *,
+body > ui-confirm-dialog,
+body > ui-prompt-dialog {
   zoom: var(--ui-zoom);
 }
 
