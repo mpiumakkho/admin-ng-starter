@@ -22,17 +22,17 @@ export function twoFactorCodeControl(): FormControl<string> {
   selector: 'app-two-factor-code-field',
   imports: [ReactiveFormsModule, TranslatePipe, UiFormField, UiInput],
   template: `
+    <!-- One input for either kind: the form field finds its control, to show its errors, only outside an @if -->
     <ui-form-field [label]="(recovery() ? 'Recovery code' : 'Code') | translate" [for]="inputId()" [errors]="errors()"
       [hint]="hinted() ? ((recovery() ? recoveryHint : codeHint) | translate) : ''">
-      @if (recovery()) {
-        <input #input uiInput class="code-input" [id]="inputId()" [formControl]="control()" autocomplete="off" autocapitalize="off"
-          spellcheck="false" maxlength="11" placeholder="abcde-fghjk" />
-      } @else {
-        <input #input uiInput class="code-input" [id]="inputId()" [formControl]="control()" inputmode="numeric"
-          autocomplete="one-time-code" maxlength="6" placeholder="123456" />
-      }
+      <input #input uiInput class="code-input" [id]="inputId()" [formControl]="control()"
+        [attr.inputmode]="recovery() ? null : 'numeric'" [attr.autocomplete]="recovery() ? 'off' : 'one-time-code'"
+        [attr.autocapitalize]="recovery() ? 'off' : null" [attr.spellcheck]="recovery() ? 'false' : null"
+        [attr.maxlength]="recovery() ? 11 : 6" [placeholder]="recovery() ? 'abcde-fghjk' : '123456'" />
     </ui-form-field>
-    <button type="button" class="code-switch" (click)="switchKind()">
+    <!-- Pressed, it leaves the focus in the field: the field it is about to change asks for nothing yet, and no message
+         appearing under it moves the button away from the pointer before the press ends -->
+    <button type="button" class="code-switch" (mousedown)="$event.preventDefault()" (click)="switchKind()">
       {{ (recovery() ? 'Use the code from the app' : 'Lost your phone? Use a recovery code') | translate }}
     </button>
   `,
