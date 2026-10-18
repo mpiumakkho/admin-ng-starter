@@ -296,6 +296,12 @@ select.ui-input {
   scroll-padding-top: 2.5rem;
 }
 
+// An icon's drawing fills its box. @ng-icons/core leaves the <svg> inline on the text's baseline inside a box that clips
+// what overflows, so it sat a pixel or three low and lost the bottom of its shape (a page header's icon, every button's)
+ng-icon > svg {
+  display: block;
+}
+
 // Visually hidden but read by screen readers. The CDK's LiveAnnouncer puts what it says in such an element at the end of
 // <body> (cdk-visually-hidden), whose own styles the app does not load: without these it adds a line below the page.
 .ui-sr-only,
