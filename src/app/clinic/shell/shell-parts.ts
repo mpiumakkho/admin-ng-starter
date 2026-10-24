@@ -6,12 +6,13 @@ import { NgIcon } from '@ng-icons/core';
 import { lucideBell, lucideCalendarDays, lucideFlaskConical, lucideHourglass, lucidePawPrint, lucidePill, lucideSearch, lucideTriangleAlert } from '@ng-icons/lucide';
 
 import { UiMenu, UiMenuHeading, UiMenuItem, UiMenuTrigger } from '../../user-management/ui';
-import { ClinicUi, SheetKind } from '../clinic-ui';
+import { ClinicUi, SheetKind, SheetState } from '../clinic-ui';
 import { ClinicStore } from '../clinic.store';
 import { stageState, statusOf, TODAY } from '../data/model';
+import { railBadges, type RailBadgeKey } from '../data/rail';
 import type { Patient } from '../data/types';
 import { ClinicI18n, TxPipe } from '../i18n/clinic-i18n';
-import { RAIL_ICONS } from '../shared/icons';
+import { PET_ICONS, RAIL_ICONS } from '../shared/icons';
 
 interface SearchHit { kind: 'patient' | 'appointment'; id: string; title: string; detail: string; patient?: Patient }
 
@@ -166,6 +167,10 @@ export class GlobalSearch {
       this.store.select(hit.patient);
       this.ui.openSheet('visit');
     } else {
+      const a = this.store.data().appointments.find(x => x.id === hit.id);
+      if (a) {
+        this.store.selectPet(a.pet, a.owner);
+      }
       this.router.navigate(['/clinic/appointments']).then(() => this.ui.openSheet('appointment', { id: hit.id }));
     }
   }
@@ -242,7 +247,7 @@ export class Notifications {
       list.push({
         id: 'r' + r.id, tone: critical ? 'danger' : 'info', icon: critical ? lucideTriangleAlert : lucideFlaskConical,
         title: `${r.pet} · ${t(r.name)}`, detail: t(critical ? 'ค่าวิกฤต · ต้องรับทราบทางโทรศัพท์' : 'ผลตรวจใหม่รอรับทราบ'),
-        go: () => this.router.navigate(['/clinic/results']).then(() => this.ui.openSheet('result', { id: r.id })),
+        go: () => { this.store.selectPet(r.pet); this.router.navigate(['/clinic/results']).then(() => this.ui.openSheet('result', { id: r.id })); },
       });
     }
     for (const p of d.patients.filter(x => stageState(x) === 'late')) {
@@ -254,7 +259,7 @@ export class Notifications {
     for (const rx of d.prescriptions.filter(x => x.verbal && !x.cosignedBy)) {
       list.push({
         id: 'x' + rx.id, tone: 'warn', icon: lucidePill, title: `${rx.pet} · ${rx.drug}`, detail: t('คำสั่งวาจา · รอเซ็นกำกับ'),
-        go: () => this.router.navigate(['/clinic/orders']),
+        go: () => { this.store.selectPet(rx.pet); this.router.navigate(['/clinic/orders']); },
       });
     }
     return list;
@@ -270,26 +275,72 @@ export class Notifications {
   }
 }
 
-interface RailItem { sep?: boolean; icon?: string; label?: string; kind?: SheetKind; tab?: string; badge?: (p: Patient) => number; danger?: boolean }
+interface RailItem {
+  sep?: boolean; icon?: string; label?: string; kind?: SheetKind; tab?: string; badge?: RailBadgeKey;
+  /** When the button shows its sheet as open, when that is more than the same kind and tab */
+  match?: (open: SheetState) => boolean;
+}
 
-/** Shortcuts to the selected patient's sheets, beside the page (the collapsed right sidebar) */
+/** The tab a sheet shows when it was opened without one */
+const tabOf = (open: SheetState) => open.tab || (open.kind === 'patient' ? 'overview' : open.kind === 'owner' ? 'contact' : undefined);
+
+/** The rail's buttons, top to bottom: who · the clinical sheets · the record · results and the desk's */
+const RAIL_ITEMS: RailItem[] = [
+  { icon: RAIL_ICONS.alerts, label: 'Clinical alerts', kind: 'patient', tab: 'alerts', badge: 'alerts' },
+  { icon: RAIL_ICONS.patient, label: 'Patient summary', kind: 'patient', tab: 'overview' },
+  { icon: RAIL_ICONS.owner, label: 'Owner', kind: 'owner', match: open => open.kind === 'owner' && tabOf(open) !== 'consent' },
+  { sep: true },
+  { icon: RAIL_ICONS.visit, label: 'Quick view', kind: 'visit' },
+  { icon: RAIL_ICONS.notes, label: 'Notes', kind: 'notes' },
+  { sep: true },
+  { icon: RAIL_ICONS.problems, label: 'Problem list', kind: 'patient', tab: 'problems', badge: 'problems' },
+  { icon: RAIL_ICONS.meds, label: 'Medications', kind: 'patient', tab: 'meds', badge: 'meds' },
+  { icon: RAIL_ICONS.vaccines, label: 'Vaccines / reminders', kind: 'patient', tab: 'vaccines', badge: 'vaccines' },
+  { icon: RAIL_ICONS.visits, label: 'Visit history', kind: 'patient', tab: 'visits', match: open => open.kind === 'pastVisit' || (open.kind === 'patient' && open.tab === 'visits') },
+  { icon: RAIL_ICONS.docs, label: 'Documents', kind: 'patient', tab: 'docs', badge: 'docs', match: open => open.kind === 'document' || (open.kind === 'patient' && open.tab === 'docs') },
+  { sep: true },
+  { icon: RAIL_ICONS.results, label: 'Results preview', kind: 'results', badge: 'results' },
+  { icon: RAIL_ICONS.estimate, label: 'Estimate', kind: 'estimate' },
+  { icon: RAIL_ICONS.billing, label: 'Billing / balance', kind: 'billing', badge: 'billing' },
+  { icon: RAIL_ICONS.consent, label: 'Consent / PDPA', kind: 'owner', tab: 'consent', badge: 'consent' },
+];
+
+/**
+ * Shortcuts to the selected patient's sheets, beside the page (the collapsed right sidebar). On top, who they are
+ * about: the patient's avatar, in its species' color; a press opens the summary. With no patient, a placeholder, and
+ * the buttons wait.
+ */
 @Component({
   selector: 'cl-context-rail',
   imports: [NgIcon, TxPipe],
   template: `
-    @let p = store.selected();
+    @let p = store.selectedOrNull();
+    @let b = badges();
     <aside class="rail" [attr.aria-label]="'Context rail' | tx">
+      @if (p) {
+        <button type="button" class="rail-subject" [class]="'rail-subject sp-' + p.kind" [attr.aria-label]="('Patient summary' | tx) + ' · ' + who()" [attr.title]="who()"
+          (click)="ui.openSheet('patient', { tab: 'overview' })">
+          <ng-icon [svg]="petIcons[p.kind]" aria-hidden="true" />
+        </button>
+      } @else {
+        <span class="rail-subject empty" role="img" [attr.aria-label]="'ยังไม่ได้เลือกผู้ป่วย' | tx" [attr.title]="'ยังไม่ได้เลือกผู้ป่วย' | tx">
+          <ng-icon [svg]="paw" aria-hidden="true" />
+        </span>
+      }
+      <span class="rail-sep" aria-hidden="true"></span>
       @for (item of items; track $index) {
         @if (item.sep) {
           <span class="rail-sep" aria-hidden="true"></span>
         } @else {
-          @let n = item.badge ? item.badge(p) : 0;
-          <button type="button" class="rail-btn" [class.active]="isOpen(item)" [attr.aria-pressed]="isOpen(item)"
-            [attr.aria-label]="(item.label! | tx) + (n ? ': ' + n : '') + ' · ' + p.pet" [attr.title]="(item.label! | tx) + ' · ' + p.pet"
-            (click)="ui.toggleSheet(item.kind!, item.tab)">
+          @let badge = item.badge ? b[item.badge] : undefined;
+          @let label = item.label! | tx;
+          @let open = isOpen(item);
+          <button type="button" class="rail-btn" [class.active]="open" [attr.aria-pressed]="open" [disabled]="!p"
+            [attr.aria-label]="label + (badge ? ': ' + (badge.text === '!' ? ('ต้องดำเนินการ' | tx) : badge.text) : '') + (p ? ' · ' + p.pet : '')"
+            [attr.title]="label + (p ? ' · ' + p.pet : '')" (click)="press(item)">
             <ng-icon [svg]="item.icon!" aria-hidden="true" />
-            @if (n) {
-              <span class="badge" [class.danger]="item.danger" aria-hidden="true">{{ n }}</span>
+            @if (badge) {
+              <span class="badge" [class.danger]="badge.tone === 'danger'" [class.neutral]="badge.tone === 'neutral'" aria-hidden="true">{{ badge.text }}</span>
             }
           </button>
         }
@@ -301,25 +352,31 @@ interface RailItem { sep?: boolean; icon?: string; label?: string; kind?: SheetK
 export class ContextRail {
   protected readonly store = inject(ClinicStore);
   protected readonly ui = inject(ClinicUi);
+  protected readonly items = RAIL_ITEMS;
+  protected readonly petIcons = PET_ICONS;
+  protected readonly paw = lucidePawPrint;
 
-  protected readonly items: RailItem[] = [
-    { icon: RAIL_ICONS.alerts, label: 'Clinical alerts', kind: 'patient', tab: 'alerts', danger: true, badge: p => p.alerts.length },
-    { icon: RAIL_ICONS.patient, label: 'Patient summary', kind: 'patient', tab: 'overview' },
-    { icon: RAIL_ICONS.owner, label: 'Owner', kind: 'owner' },
-    { sep: true },
-    { icon: RAIL_ICONS.problems, label: 'Problem list', kind: 'patient', tab: 'problems', badge: p => p.problems.length },
-    { icon: RAIL_ICONS.meds, label: 'Medications', kind: 'patient', tab: 'meds', badge: p => p.meds.length },
-    { icon: RAIL_ICONS.vaccines, label: 'Vaccines / reminders', kind: 'patient', tab: 'vaccines', badge: p => p.vaccines.filter(v => v[2] !== 'ok').length },
-    { icon: RAIL_ICONS.visits, label: 'Visit history', kind: 'patient', tab: 'visits' },
-    { icon: RAIL_ICONS.docs, label: 'Documents', kind: 'patient', tab: 'docs' },
-    { icon: RAIL_ICONS.notes, label: 'Notes', kind: 'notes' },
-    { sep: true },
-    { icon: RAIL_ICONS.results, label: 'Results preview', kind: 'results', badge: p => this.store.resultsFor(p).filter(r => !r.ack).length },
-    { icon: RAIL_ICONS.estimate, label: 'Estimate', kind: 'estimate' },
-  ];
+  protected readonly badges = computed(() => {
+    const p = this.store.selectedOrNull();
+    return p ? railBadges(this.store.data(), p) : {};
+  });
+
+  /** Who the rail is about: "name · HN · owner" */
+  protected readonly who = computed(() => {
+    const p = this.store.selectedOrNull();
+    return p ? [p.pet, p.hn, this.store.owner(p)?.name].filter(Boolean).join(' · ') : '';
+  });
 
   protected isOpen(item: RailItem): boolean {
     const open = this.ui.sheet();
-    return !!open && open.kind === item.kind && (!item.tab || open.tab === item.tab);
+    return !!open && (item.match ? item.match(open) : open.kind === item.kind && (!item.tab || tabOf(open) === item.tab));
+  }
+
+  protected press(item: RailItem) {
+    if (this.isOpen(item)) {
+      this.ui.closeSheet();
+    } else {
+      this.ui.openSheet(item.kind!, { tab: item.tab });
+    }
   }
 }

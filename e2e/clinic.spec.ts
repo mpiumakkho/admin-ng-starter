@@ -5,6 +5,7 @@ import { expectAccessible, signInAs, start } from './helpers';
 const TABS = [
   { link: 'Queue', heading: "Today's queue" },
   { link: 'Appointments', heading: 'Appointments' },
+  { link: 'Register', heading: 'New patient' },
   { link: 'Encounter', heading: 'SOAP' },
   { link: 'Orders', heading: 'Orders' },
   { link: 'Results', heading: 'Results Inbox' },
@@ -57,6 +58,40 @@ test('the queue: a row opens the quick view, the context rail opens the patient,
   await expect(page.locator('.sheet.open .sheet-tabs button[aria-pressed="true"]')).toHaveText('Clinical alerts');
   await page.keyboard.press('Escape');
   await expect(page.locator('.sheet.open')).toHaveCount(0);
+});
+
+test('the context rail: who it is about, the owner\'s balance, a past visit and its document, and a pet picked on a board', async ({ page }) => {
+  await openClinic(page);
+  const rail = page.getByRole('complementary', { name: 'Context rail' });
+  // Bolt is selected: his avatar on top, his owner's unpaid bill counted
+  await expect(rail.locator('.rail-subject')).toHaveAttribute('title', 'Bolt · HN-240118 · Patcharee L.');
+  await rail.getByRole('button', { name: /^Billing \/ balance: 1/ }).click();
+  const sheet = page.locator('.sheet.open');
+  await expect(sheet).toContainText('INV-2609-0112');
+  await expect(sheet).toContainText('฿1,450');
+  await expectAccessible(page, 'billing sheet');
+
+  // Visit history leads to a past visit, and the visit to its document
+  await rail.getByRole('button', { name: /^Visit history/ }).click();
+  await sheet.locator('button.row-card', { hasText: '2026-09-11' }).click();
+  await expect(sheet.getByRole('heading', { name: 'Visit · 2026-09-11' })).toBeVisible();
+  await sheet.locator('button.row-card', { hasText: 'Lameness report' }).click();
+  await expect(sheet.getByRole('button', { name: 'Download details' })).toBeEnabled();
+  await page.keyboard.press('Escape');
+
+  // A result on the board selects its pet: Nala, whose potassium is critical
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Results/ }).click();
+  await page.locator('.task', { hasText: 'Nala' }).first().click();
+  await page.keyboard.press('Escape');
+  await expect(rail.locator('.rail-subject')).toHaveAttribute('title', /^Nala/);
+  await expect(rail.getByRole('button', { name: /^Results preview: 1/ }).locator('.badge.danger')).toHaveText('1');
+
+  // Khao Niao's owner has not signed the consent: "!" on its button, and the consent tab says so
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Queue/ }).click();
+  await page.locator('.queue-table tbody tr', { hasText: 'Khao Niao' }).click();
+  await page.keyboard.press('Escape');
+  await rail.getByRole('button', { name: /^Consent \/ PDPA: needs action/ }).click();
+  await expect(sheet).toContainText('Consent waiting to be signed');
 });
 
 test('the encounter: steps, a signature that locks S/O/A/P, and no drug the pet is allergic to', async ({ page }) => {
@@ -118,6 +153,84 @@ test('orders: a verbal order is co-signed, and a new order goes on the board', a
   await page.locator('.sheet.open .row-card', { hasText: 'Urinalysis' }).click();
   await page.locator('.sheet.open .sheet-foot').getByRole('button', { name: 'Send order' }).click();
   await expect(page.locator('.column', { hasText: 'Accepted' })).toContainText('Urinalysis');
+});
+
+test('registration: a new pet and owner go to the queue, a pet on file loads read-only, and a duplicate is stopped', async ({ page }) => {
+  await openClinic(page);
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Register/ }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'New patient' })).toBeVisible();
+  const foot = page.locator('.reg-foot');
+  const queue = foot.getByRole('button', { name: 'Visit / queue' });
+  const register = foot.getByRole('button', { name: 'Register', exact: true });
+  await expect(queue).toBeDisabled();
+  await expect(foot).toContainText("Required: Pet name · Owner's name · Phone");
+
+  // A new pet of a new owner, with an address, straight to the emergency room
+  await page.locator('#reg-pet').fill('Taohu');
+  await page.getByRole('button', { name: 'Cat', exact: true }).click();
+  await page.locator('#reg-breed').fill('Persian');
+  await page.locator('#reg-caution').fill('Bites when restrained');
+  // The title is picked; "Other" opens a box for any other
+  await page.locator('#reg-honorific').selectOption({ label: 'Other' });
+  await page.locator('#reg-honorific-other').fill('Dr.');
+  await page.locator('#reg-first').fill('Pim');
+  await page.locator('#reg-last').fill('S.');
+  await page.locator('#reg-phone').fill('089-555-0101');
+  // The address is on the form; the province is picked from the list
+  await page.locator('#addr-tambon').fill('Suan Luang');
+  await expect(page.locator('.reg-addr-note')).toContainText('The address is incomplete');
+  await page.locator('#addr-amphoe').fill('Suan Luang');
+  await page.locator('#addr-province').selectOption({ label: 'Bangkok' });
+  await page.locator('#addr-zip').fill('10250');
+  await expect(page.locator('.reg-addr-note')).toContainText('The current address will be saved');
+  await expect(foot).toContainText('Dr. Pim S.');
+  await expect(foot).toContainText('Ready to save');
+  await expectAccessible(page, 'registration');
+  await page.locator('#reg-route').selectOption({ label: 'Emergency room' });
+  await queue.click();
+  await expect(page).toHaveURL('/clinic/queue');
+  await expect(page.locator('ui-toaster')).toContainText("Taohu sent to today's queue");
+  await expect(page.locator('.queue-table tbody tr')).toHaveCount(9);
+  await expect(page.locator('.queue-table tbody tr', { hasText: 'Taohu' })).toContainText('Emergency room');
+
+  // A pet on file loads read-only; one in today's queue already does not go again
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Register/ }).click();
+  await page.locator('#reg-hn').fill('Bolt');
+  await page.locator('.reg-hit', { hasText: 'Bolt' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: /^Bolt/ })).toBeVisible();
+  await expect(page.locator('.reg-objstat')).toContainText('Record loaded · read-only');
+  await expect(page.locator('#reg-pet')).toBeDisabled();
+  await expect(queue).toBeDisabled();
+  await expect(register).toBeDisabled();
+  await page.getByRole('button', { name: 'Reset' }).click();
+
+  // The same microchip is the same animal: no new record, only the way to the one on file
+  await page.locator('#reg-pet').fill('Lulu');
+  await page.locator('#reg-chip').fill('900182000345678');
+  await page.locator('#reg-first').fill('Someone');
+  await page.locator('#reg-phone').fill('089-000-0000');
+  await register.click();
+  await expect(page.locator('.reg-block')).toContainText('Matched on Microchip');
+  await page.locator('.reg-block').getByRole('button', { name: 'Open the record' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: /^Luna/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Reset' }).click();
+
+  // The same name and kind of the same owner asks first; an administrator creates past it, with a reason
+  await page.getByRole('searchbox', { name: 'Find an owner' }).fill('Somsak');
+  await page.locator('.reg-owner-find .reg-hit', { hasText: 'Somsak W.' }).click();
+  await expect(page.locator('.reg-owner-bar')).toContainText('Loaded · Somsak W.');
+  await page.locator('#reg-pet').fill('Kiki');
+  await page.getByRole('button', { name: 'Cat', exact: true }).click();
+  await register.click();
+  const dialog = page.getByRole('dialog', { name: 'Possible duplicates — please review' });
+  await expect(dialog).toContainText('same owner');
+  const create = dialog.getByRole('button', { name: 'Create anyway' });
+  await expect(create).toBeDisabled();
+  await dialog.getByLabel('Reason for creating a new record (kept on the record)').fill('A second cat, also called Kiki');
+  await create.click();
+  await expect(page.locator('ui-toaster')).toContainText('Kiki registered');
+  await expect(page.getByRole('heading', { level: 1, name: /^Kiki/ })).toBeVisible();
+  await expect(foot).toContainText('Registered already');
 });
 
 test('the bar, as the admin navbar: the tabs in it, a patient from the search, and a notification that leads to its result', async ({ page }) => {

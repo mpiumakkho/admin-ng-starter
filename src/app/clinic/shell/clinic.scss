@@ -2185,7 +2185,7 @@
   width: 40px;
   height: 40px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--ui-radius);
   background: transparent;
   color: var(--ui-subtle);
   font-size: 18px;
@@ -2217,7 +2217,7 @@
     min-width: 15px;
     height: 15px;
     padding: 0 4px;
-    border-radius: 8px;
+    border-radius: var(--ui-radius);
     background: var(--ui-primary);
     color: var(--ui-on-primary);
     font-size: 10px;
@@ -2225,8 +2225,21 @@
 
     &.danger {
       background: var(--ui-danger);
-      color: #fff;
+      color: var(--ui-on-primary);
     }
+
+    // A count to know, not to act on: the documents
+    &.neutral {
+      box-shadow: inset 0 0 0 1px var(--ui-border);
+      background: var(--ui-neutral-soft);
+      color: var(--ui-neutral-text);
+    }
+  }
+
+  &:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 }
 
@@ -2712,5 +2725,813 @@
 
   .clinic .navbar-actions .icon-button {
     width: 34px;
+  }
+}
+
+/* ---------- registration (after SEPH1's registration screen, seph1-fe screens/Register.tsx) ---------- */
+.clinic .reg-page {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chip {
+    padding: .0625rem .5rem;
+  }
+}
+
+// Who is on the form, the HN search, and the page's actions
+.clinic .reg-title {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-r);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+}
+
+.clinic .reg-id {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  margin-right: auto;
+
+  h1 {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .hn {
+    color: var(--ui-muted);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .secondary {
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.clinic .reg-id-text {
+  min-width: 0;
+}
+
+.clinic .reg-id-ph {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 2px dashed var(--ui-border-strong);
+  border-radius: var(--ui-radius-lg);
+  color: var(--ui-subtle);
+  font-size: 20px;
+}
+
+.clinic .reg-lookup {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  > label {
+    color: var(--ui-muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .ui-input {
+    width: 220px;
+  }
+
+  .reg-pop {
+    top: calc(100% + 4px);
+    right: 0;
+    width: 360px;
+  }
+}
+
+.clinic .reg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+// A drop-down of search results under a search box
+.clinic .reg-pop {
+  position: absolute;
+  z-index: 30;
+  overflow: auto;
+  max-height: 260px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-md);
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li + li {
+    border-top: 1px solid var(--ui-border);
+  }
+}
+
+.clinic .reg-hit {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 11px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-heading);
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--ui-hover);
+  }
+
+  .secondary {
+    display: block;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.clinic .reg-hit b + .tnum {
+  margin-left: 6px;
+}
+
+.clinic .reg-pop-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--ui-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.clinic .reg-initial {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--ui-primary-soft);
+  color: var(--ui-primary-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+// What is on file about the pet shown, under the title
+.clinic .reg-objstat {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  padding: 6px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-r);
+  background: var(--ui-surface);
+
+  .os {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ui-muted);
+    font-size: 12px;
+
+    b {
+      color: var(--ui-heading);
+      font-weight: 600;
+    }
+
+    &.good {
+      color: var(--ui-success-text);
+    }
+
+    &.warn {
+      color: var(--ui-warning-text);
+    }
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+}
+
+// The same animal is on file already
+.clinic .reg-block {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--ui-danger);
+  border-radius: var(--cl-r);
+  background: var(--ui-danger-soft);
+  color: var(--ui-text);
+  font-size: 13px;
+
+  > ng-icon,
+  > svg {
+    margin-top: 2px;
+    color: var(--ui-danger-text);
+    font-size: 16px;
+  }
+
+  .reg-block-title {
+    display: block;
+    color: var(--ui-danger-text);
+    font-size: 14px;
+  }
+}
+
+// The pet | its owner, as tall as each other; the footer stays at the foot of the page
+.clinic .reg-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  align-content: start;
+  gap: var(--cl-gap);
+  min-height: 0;
+  overflow: auto;
+}
+
+.clinic .reg-panel {
+  min-width: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-r);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+}
+
+.clinic .reg-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--ui-border);
+
+  > ng-icon,
+  > svg {
+    color: var(--ui-primary-text);
+    font-size: 16px;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .hint {
+    margin-left: auto;
+    color: var(--ui-subtle);
+    font-size: 12px;
+  }
+}
+
+// A form of label | control pairs on a grid, as the design's SimpleForm
+.clinic .rf {
+  display: grid;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px 14px;
+
+  &.pet-grid {
+    grid-template-columns: 84px minmax(0, 1fr) 76px minmax(0, 1fr);
+  }
+
+  &.owner-grid {
+    grid-template-columns: 104px minmax(0, 1fr) 96px minmax(0, 1fr);
+    padding-top: 4px;
+  }
+}
+
+.clinic .addr-no {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr);
+  gap: 6px;
+
+  .ui-input {
+    width: 100%;
+  }
+}
+
+.clinic .rf-lbl {
+  color: var(--ui-muted);
+  font-size: 13px;
+  white-space: nowrap;
+
+  &.top {
+    align-self: start;
+    padding-top: 8px;
+  }
+
+  .rq {
+    color: var(--ui-danger-text);
+    font-weight: 700;
+  }
+}
+
+.clinic .rf-ctl {
+  min-width: 0;
+
+  > .ui-input {
+    width: 100%;
+  }
+
+  &.wide {
+    grid-column: 2 / -1;
+  }
+
+  &.inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+  }
+}
+
+.clinic .rf-all {
+  grid-column: 1 / -1;
+}
+
+.clinic .ui-input.reg-date {
+  width: 170px;
+}
+
+.clinic .reg-known {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-text);
+  font-size: 13px;
+
+  input {
+    margin: 0;
+    accent-color: var(--ui-primary);
+  }
+}
+
+// The kind of animal: dog blue, cat pink, other plain
+.clinic .sp-pick {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.clinic .sp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--ui-border-strong);
+    color: var(--ui-heading);
+  }
+
+  &.on {
+    font-weight: 600;
+  }
+
+  &.sp-dog.on {
+    border-color: var(--ui-info);
+    background: var(--ui-info-soft);
+    color: var(--ui-info-text);
+  }
+
+  &.sp-cat.on {
+    border-color: #ec4899;
+    background: color-mix(in srgb, #ec4899 12%, var(--ui-surface));
+    color: color-mix(in srgb, #be185d 75%, var(--ui-heading));
+  }
+
+  &.sp-other.on {
+    border-color: var(--ui-muted);
+    color: var(--ui-heading);
+  }
+}
+
+// A message under a field
+.clinic .vmsg {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0;
+  font-size: 11.5px;
+
+  &.warn {
+    color: var(--ui-warning-text);
+  }
+}
+
+.clinic .ui-input.vs-warn {
+  border-color: var(--ui-warning);
+  background: var(--ui-warning-soft);
+}
+
+// Finding an owner on file, or the one picked
+.clinic .reg-owner-find {
+  position: relative;
+  margin: 12px 14px 8px;
+
+  .reg-pop {
+    top: calc(100% + 4px);
+    right: 0;
+    left: 0;
+  }
+}
+
+.clinic .reg-owner-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 4px 0 11px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface-muted);
+  color: var(--ui-subtle);
+
+  &:focus-within {
+    border-color: var(--ui-primary);
+    box-shadow: 0 0 0 1px var(--ui-primary);
+  }
+
+  input {
+    height: 34px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--ui-heading);
+    font: inherit;
+    font-size: 13px;
+  }
+
+  &.on {
+    border-color: var(--ui-success);
+    background: var(--ui-success-soft);
+    color: var(--ui-success-text);
+    font-size: 13px;
+    font-weight: 600;
+
+    .grow {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+.clinic .reg-name {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+
+  // "อื่นๆ" picked: a box for the title, beside the list
+  &.other {
+    grid-template-columns: 112px 96px minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .ui-input {
+    width: 100%;
+  }
+}
+
+// Current or registered address, and what will be saved
+.clinic .reg-addr-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.clinic .reg-addr-note {
+  margin-left: auto;
+  color: var(--ui-subtle);
+  font-size: 11.5px;
+
+  &.warn {
+    color: var(--ui-warning-text);
+  }
+}
+
+.clinic .reg-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-text);
+  font-size: 13px;
+  cursor: pointer;
+
+  input {
+    margin: 2px 0 0;
+    accent-color: var(--ui-primary);
+  }
+}
+
+// What will be saved, where the pet goes, and the two ways to save
+.clinic .reg-foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-r);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-xs);
+}
+
+.clinic .reg-summary {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--ui-muted);
+  font-size: 13px;
+  white-space: nowrap;
+
+  b {
+    color: var(--ui-heading);
+  }
+}
+
+.clinic .reg-summary-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clinic .reg-state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+
+  &.ok {
+    color: var(--ui-success-text);
+  }
+
+  &.warn {
+    color: var(--ui-warning-text);
+  }
+}
+
+.clinic .reg-route-label {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.clinic .ui-input.reg-route {
+  width: 220px;
+}
+
+@container clinic (max-width: 1100px) {
+  .clinic .reg-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container clinic (max-width: 700px) {
+  .clinic .reg-lookup {
+    flex: 1 1 100%;
+
+    .ui-input {
+      flex: 1;
+      width: auto;
+    }
+  }
+
+  .clinic .rf.pet-grid,
+  .clinic .rf.owner-grid {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .clinic .rf-ctl.wide {
+    grid-column: 2;
+  }
+
+  .clinic .reg-name,
+  .clinic .reg-name.other {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .clinic .reg-addr-note {
+    margin-left: 0;
+  }
+
+  .clinic .reg-summary {
+    flex-basis: 100%;
+    white-space: normal;
+  }
+}
+
+/* ---------- the context rail's subject, and the sheets it leads to ---------- */
+
+// Species colors on patient avatars: dog blue, cat pink, other white. Status never fills an avatar.
+.clinic {
+  --cl-dog: var(--ui-info);
+  --cl-dog-soft: var(--ui-info-soft);
+  --cl-dog-text: var(--ui-info-text);
+  --cl-cat: #db2777;
+  --cl-cat-soft: #fce7f3;
+  --cl-cat-text: #9d174d;
+}
+
+.theme-dark .clinic,
+[data-theme="dark"] .clinic {
+  --cl-cat: #f472b6;
+  --cl-cat-soft: rgba(244, 114, 182, .16);
+  --cl-cat-text: #f9a8d4;
+}
+
+.clinic :is(.pet-fallback, .rail-subject) {
+  &.sp-dog {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-dog) 35%, transparent);
+    background: var(--cl-dog-soft);
+    color: var(--cl-dog-text);
+  }
+
+  &.sp-cat {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-cat) 35%, transparent);
+    background: var(--cl-cat-soft);
+    color: var(--cl-cat-text);
+  }
+
+  &.sp-other {
+    box-shadow: inset 0 0 0 1px var(--ui-border-strong);
+    background: var(--ui-surface);
+    color: var(--ui-heading);
+  }
+}
+
+// Who the rail is about: the selected patient's avatar, a circle above the buttons
+.clinic .rail-subject {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  transition: box-shadow var(--ui-duration-fast) ease;
+
+  &:is(button):hover {
+    outline: 2px solid color-mix(in srgb, var(--ui-primary) 35%, transparent);
+    outline-offset: 1px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
+  }
+
+  // No patient: a paw in a dashed ring
+  &.empty {
+    border: 1.5px dashed var(--ui-border-strong);
+    background: transparent;
+    color: var(--ui-muted);
+    cursor: default;
+  }
+}
+
+// A row of a sheet's list that opens what it is about
+.clinic button.row-card.go {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color var(--ui-duration-fast) ease, background-color var(--ui-duration-fast) ease;
+
+  .grow {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .go-icon {
+    flex: none;
+    color: var(--ui-muted);
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--ui-primary) 40%, transparent);
+    background: var(--ui-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 1px;
+  }
+}
+
+// A document the sample has no file for: a page that says what it is
+.clinic .doc-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 28px 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface-muted);
+  font-size: 13px;
+  text-align: center;
+
+  > ng-icon,
+  > svg {
+    margin-bottom: 6px;
+    color: var(--ui-muted);
+    font-size: 36px;
+  }
+
+  b {
+    color: var(--ui-heading);
+    font-size: 14px;
+  }
+}
+
+// An open bill: its numbers on one line, its items under it when opened
+.clinic details.row-card.invoice {
+  display: block;
+  padding: 0;
+
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    .grow {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .amount {
+      color: var(--ui-heading);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-focus);
+      outline-offset: -2px;
+      border-radius: var(--ui-radius);
+    }
+  }
+
+  .mini-table {
+    border-top: 1px solid var(--ui-border);
   }
 }

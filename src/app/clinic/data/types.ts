@@ -1,7 +1,7 @@
 /* The clinical workspace's records, as in the design it follows (seph1-vet-erp-rc, src/types.ts) */
 
 export type Tone = 'ok' | 'warn' | 'danger';
-export type PetKind = 'dog' | 'cat';
+export type PetKind = 'dog' | 'cat' | 'other';
 export type StageState = 'ok' | 'warn' | 'late';
 
 export type AlertType = 'allergy' | 'drug' | 'handling' | 'dnr' | 'isolation' | 'pregnancy';
@@ -31,6 +31,10 @@ export interface Owner {
   name: string; phone: string; phone2: string; email: string; line: string;
   coOwner: string; address: string; consent: string; pdpa: string; prefer: string;
   badges: string[]; pets: string[]; note: string; insurance: string;
+  /** The Thai ID, 13 digits, when the owner gave it at registration */
+  thaiId?: string;
+  /** Money the owner has with the hospital, in baht: a deposit or a refund not used yet */
+  credit?: number;
   appts: [date: string, title: string, status: string][];
 }
 
@@ -105,6 +109,13 @@ export interface EncounterNote {
   closedBy?: string; closedAt?: string;
 }
 
+/** A bill given to an owner, in baht: what it was for, what it came to and how much is paid */
+export interface Invoice {
+  id: string; no: string; ownerKey: string; pet: string; date: string; title: string;
+  items: [name: string, amount: number][];
+  total: number; paid: number;
+}
+
 export interface ClinicData {
   owners: Record<string, Owner>;
   patients: Patient[];
@@ -113,4 +124,5 @@ export interface ClinicData {
   results: LabResult[];
   prescriptions: Prescription[];
   encounters: Record<number, EncounterNote>;
+  invoices: Invoice[];
 }

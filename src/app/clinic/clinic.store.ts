@@ -5,6 +5,7 @@ import { fullName, Session } from '../user-management';
 import {
   advanceStage, defaultNote, ENCOUNTER_ORDERS, LAB_VALUES, NOW, nextSeq, ORDER_FLOW, RX_FLOW, SOAP_FIELDS, stageKey, TODAY,
 } from './data/model';
+import { type PetRecord, registerPet, type RegistrationDraft, sendToQueue } from './data/registration';
 import { createSeed } from './data/seed';
 import type { AckMethod, ClinicData, EncounterNote, LabResult, Order, Owner, Patient, Prescription, StageKey } from './data/types';
 
@@ -38,6 +39,9 @@ export class ClinicStore {
     return patients.find(p => p.id === this.selectedId()) ?? patients[0];
   }, { equal: () => false });
 
+  /** The selected patient, or null when the clinic has none (the context rail then waits) */
+  readonly selectedOrNull = computed<Patient | null>(() => (this.data().patients.length ? this.selected() : null), { equal: () => false });
+
   /** Counts on the tabs */
   readonly counts = computed(() => {
     const d = this.data();
@@ -48,6 +52,8 @@ export class ClinicStore {
       orders: d.orders.filter(o => o.col !== 'Completed' && o.col !== 'Cancelled').length,
       results: d.results.filter(r => !r.ack).length,
       dispense: d.prescriptions.filter(r => !r.verbal && r.col !== 'Ready').length,
+      // Nothing waits on the registration tab
+      register: 0,
     };
   });
 
@@ -67,6 +73,14 @@ export class ClinicStore {
 
   select(p: Patient) {
     this.selectedId.set(p.id);
+  }
+
+  /** Selects the pet a row of another list is about (an order, a result, an appointment), when it is in today's clinic */
+  selectPet(pet: string, ownerKey?: string) {
+    const p = this.data().patients.find(x => x.pet === pet && (!ownerKey || x.ownerKey === ownerKey));
+    if (p && p.id !== this.selectedId()) {
+      this.select(p);
+    }
   }
 
   owner(p: Patient): Owner {
@@ -286,6 +300,26 @@ export class ClinicStore {
   /** Sent to the owner; a critical value goes only once a clinician has acknowledged it */
   markSent(r: LabResult) {
     this.mutate(() => { if (r.ack) { r.col = 'Sent to owner'; } });
+  }
+
+  /* Registration */
+
+  /** Files a pet, and its owner when they are new; with a route, sends the pet to today's queue (data/registration.ts) */
+  register(draft: RegistrationDraft, route: string | null, forceReason?: string) {
+    let result!: ReturnType<typeof registerPet>;
+    this.mutate(d => { result = registerPet(d, draft, { route, by: this.userName(), forceReason }); });
+    if (result.patient) {
+      this.select(result.patient);
+    }
+    return result;
+  }
+
+  /** Sends a pet on file, not in today's queue yet, to the queue */
+  queuePet(record: PetRecord, route: string): Patient {
+    let p!: Patient;
+    this.mutate(d => { p = sendToQueue(d, record, route, this.userName()); });
+    this.select(p);
+    return p;
   }
 
   /* Prescriptions */

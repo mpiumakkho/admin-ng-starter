@@ -1,6 +1,6 @@
 /* The morning of 24 September 2026 at a veterinary hospital: sample data from the design (seph1-vet-erp-rc, data/seed.ts) */
 import { defaultHandoff } from './model';
-import type { Appointment, ClinicData, LabResult, Order, Owner, Patient, Prescription } from './types';
+import type { Appointment, ClinicData, Invoice, LabResult, Order, Owner, Patient, Prescription } from './types';
 
 const OWNERS: Record<string, Owner> = {
   'Somsak W.': {
@@ -36,6 +36,8 @@ const OWNERS: Record<string, Owner> = {
     consent: 'ครบถ้วน · ลงนาม 2026-09-18', pdpa: 'ยินยอม · 2026-09-18', prefer: 'LINE', badges: ['VIP', 'Staff referral'],
     pets: ['Bolt · สุนัข · V123460', 'Mochi Jr. · แมว · V123488'], note: 'ขอใบเสนอราคาก่อนทุกครั้งที่มีค่าใช้จ่ายเกิน ฿2,000',
     insurance: 'PetSure · กรมธรรม์ PS-88120 · เหลือวงเงิน ฿18,000',
+    // The deposit paid for Bolt's appointment on 2026-09-26, not used yet
+    credit: 500,
     appts: [['2026-09-11', 'Lameness recheck', 'Completed'], ['2026-07-02', 'Vaccination', 'Completed'], ['2026-09-24', 'Limping', 'Today']],
   },
   'Waraporn D.': {
@@ -308,6 +310,27 @@ const RESULTS: LabResult[] = [
   { id: 'R5', col: 'Sent to owner', name: 'Wellness panel', pet: 'Luna', status: 'Final', time: '2026-09-24 09:40', by: 'น.สพ. นรินทร์', flag: '', ack: true,
     values: [['ALT', '58 U/L', '10–100', 0], ['BUN', '18 mg/dL', '7–27', 0]], interp: 'ผลอยู่ในเกณฑ์ปกติ · ส่งให้เจ้าของทาง LINE แล้ว',
     ackMethod: 'in_person', ackBy: 'น.สพ. นรินทร์', ackAt: '09:45' },
+  // From Bolt's recheck two weeks ago: read then and sent to the owner
+  { id: 'R6', col: 'Sent to owner', name: 'Right hind limb X-ray', pet: 'Bolt', status: 'Final', time: '2026-09-11 15:10', by: 'น.สพ. นรินทร์', flag: '', ack: true,
+    values: [['Findings', 'ข้อเข่าขวามีน้ำในข้อเล็กน้อย ไม่พบกระดูกหัก', '—', 1]], interp: 'สงสัยเอ็นไขว้หน้าอักเสบ — ให้ยาแก้ปวด 14 วันแล้วนัดตรวจซ้ำ',
+    ackMethod: 'in_person', ackBy: 'น.สพ. นรินทร์', ackAt: '15:20' },
+];
+
+/* Bills given to owners before today, in baht: paid, part paid, or not paid yet */
+const INVOICES: Invoice[] = [
+  { id: 'I1', no: 'INV-2609-0112', ownerKey: 'Patcharee L.', pet: 'Bolt', date: '2026-09-11', title: 'Lameness recheck',
+    items: [['Consultation — General', 450], ['Right hind limb X-ray (2 views)', 1200], ['Carprofen 25 mg × 14', 480], ['Joint supplement 30 caps', 320]],
+    total: 2450, paid: 1000 },
+  { id: 'I2', no: 'INV-2607-0045', ownerKey: 'Patcharee L.', pet: 'Bolt', date: '2026-07-02', title: 'Vaccination',
+    items: [['Consultation — General', 450], ['DHPPiL booster', 700]], total: 1150, paid: 1150 },
+  { id: 'I3', no: 'INV-2609-0031', ownerKey: 'Sirinya M.', pet: 'Khao Niao', date: '2026-09-01', title: 'URI treatment',
+    items: [['Consultation — General', 450], ['Doxycycline 50 mg × 10', 280], ['Nebulization', 250]], total: 980, paid: 0 },
+  { id: 'I4', no: 'INV-2609-0158', ownerKey: 'Waraporn D.', pet: 'Nala', date: '2026-09-12', title: 'CKD recheck',
+    items: [['Consultation — General', 450], ['Renal panel', 1250], ['Subcutaneous fluids', 650]], total: 2350, paid: 2350 },
+  { id: 'I5', no: 'INV-2608-0007', ownerKey: 'Napat T.', pet: 'Mochi', date: '2026-08-02', title: 'Vomiting',
+    items: [['Consultation — General', 450], ['Renal panel', 1250], ['Maropitant injection', 180]], total: 1880, paid: 1880 },
+  { id: 'I6', no: 'INV-2606-0090', ownerKey: 'Somsak W.', pet: 'Luna', date: '2026-06-12', title: 'Wellness exam',
+    items: [['Consultation — General', 450], ['Wellness panel', 1200]], total: 1650, paid: 1650 },
 ];
 
 const PRESCRIPTIONS: Prescription[] = [
@@ -343,5 +366,6 @@ export function createSeed(): ClinicData {
     results: structuredClone(RESULTS),
     prescriptions: structuredClone(PRESCRIPTIONS),
     encounters: {},
+    invoices: structuredClone(INVOICES),
   };
 }

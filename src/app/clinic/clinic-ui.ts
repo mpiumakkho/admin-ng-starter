@@ -8,8 +8,10 @@ import { ClinicI18n } from './i18n/clinic-i18n';
  * show one record, by its id.
  */
 export type SheetKind =
-  | 'visit' | 'patient' | 'owner' | 'notes' | 'results' | 'estimate'
-  | 'result' | 'order' | 'appointment' | 'prescription' | 'newOrder';
+  | 'visit' | 'patient' | 'owner' | 'notes' | 'results' | 'estimate' | 'billing'
+  | 'result' | 'order' | 'appointment' | 'prescription' | 'newOrder'
+  /** One of the selected patient's past visits or documents: its id is "<patient id>/<date or index>" */
+  | 'pastVisit' | 'document';
 
 export interface SheetState { kind: SheetKind; id?: string; tab?: string }
 

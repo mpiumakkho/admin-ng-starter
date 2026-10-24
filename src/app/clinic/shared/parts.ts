@@ -18,7 +18,7 @@ import { ALERT_ICONS, PET_ICONS } from './icons';
   selector: 'cl-pet-icon',
   imports: [NgIcon, TxPipe],
   template: `
-    <span role="img" class="pet-fallback" [class.pet-lg]="size() === 'lg'" [attr.aria-label]="(kind() === 'dog' ? 'สุนัข' : 'แมว') | tx">
+    <span role="img" class="pet-fallback" [class]="'pet-fallback sp-' + kind()" [class.pet-lg]="size() === 'lg'" [attr.aria-label]="(kind() === 'dog' ? 'สุนัข' : kind() === 'cat' ? 'แมว' : 'อื่นๆ') | tx">
       <ng-icon [svg]="icons[kind()]" aria-hidden="true" />
     </span>
   `,

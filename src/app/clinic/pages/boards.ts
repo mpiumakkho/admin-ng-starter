@@ -46,7 +46,7 @@ import { BoardColumn, MiniAlerts, TaskCard, Toolbar } from '../shared/parts';
                   <td><span class="chip ok">{{ 'CDS ผ่าน' | tx }}</span></td>
                   <td>
                     <button uiButton size="sm" type="button" (click)="actions.cosign(rx)">{{ 'เซ็นกำกับ' | tx }}</button>
-                    <button type="button" class="link" (click)="ui.openSheet('prescription', { id: rx.id })">{{ 'รายละเอียด' | tx }}</button>
+                    <button type="button" class="link" (click)="store.selectPet(rx.pet); ui.openSheet('prescription', { id: rx.id })">{{ 'รายละเอียด' | tx }}</button>
                   </td>
                 </tr>
               }
@@ -64,7 +64,7 @@ import { BoardColumn, MiniAlerts, TaskCard, Toolbar } from '../shared/parts';
           <cl-column [name]="column.name" [count]="column.list.length">
             @for (o of column.list; track o.id) {
               <cl-task [title]="o.pet + ' · ' + (o.name | tx)" [line1]="(o.kind | tx) + ' · ' + timeOf(o.time)" [line2]="o.code"
-                [status]="o.priority === 'Urgent' ? { text: 'Urgent', cls: 'danger' } : null" (opened)="ui.openSheet('order', { id: o.id })" />
+                [status]="o.priority === 'Urgent' ? { text: 'Urgent', cls: 'danger' } : null" (opened)="store.selectPet(o.pet); ui.openSheet('order', { id: o.id })" />
             }
           </cl-column>
         }
@@ -74,7 +74,7 @@ import { BoardColumn, MiniAlerts, TaskCard, Toolbar } from '../shared/parts';
   host: { class: 'workspace' },
 })
 export class OrdersComponent {
-  private readonly store = inject(ClinicStore);
+  protected readonly store = inject(ClinicStore);
   protected readonly ui = inject(ClinicUi);
   protected readonly actions = inject(ClinicActions);
   protected readonly plus = lucidePlus;
@@ -108,7 +108,7 @@ export class OrdersComponent {
           <cl-column [name]="column.name" [count]="column.list.length">
             @for (r of column.list; track r.id) {
               <cl-task [title]="r.pet + ' · ' + (r.name | tx)" [line1]="(r.status | tx) + ' · ' + timeOf(r.time)" [line2]="('สั่งโดย' | tx) + ' ' + (r.by | tx)"
-                [status]="r.flag === 'critical' && !r.ack ? { text: 'Critical', cls: 'danger' } : null" (opened)="ui.openSheet('result', { id: r.id })" />
+                [status]="r.flag === 'critical' && !r.ack ? { text: 'Critical', cls: 'danger' } : null" (opened)="store.selectPet(r.pet); ui.openSheet('result', { id: r.id })" />
             }
           </cl-column>
         }
@@ -118,7 +118,7 @@ export class OrdersComponent {
   host: { class: 'workspace' },
 })
 export class ResultsComponent {
-  private readonly store = inject(ClinicStore);
+  protected readonly store = inject(ClinicStore);
   protected readonly ui = inject(ClinicUi);
   protected readonly timeOf = timeOf;
   protected readonly sort = signal<'unread' | 'critical'>('unread');
@@ -143,7 +143,7 @@ export class ResultsComponent {
           <cl-column [name]="column.name" [count]="column.list.length">
             @for (rx of column.list; track rx.id) {
               @let p = store.patientByPet(rx.pet);
-              <cl-task [title]="rx.pet + ' · ' + rx.code" [line1]="rx.drug" [line2]="(rx.qty | tx) + ' · ' + rx.owner" (opened)="ui.openSheet('prescription', { id: rx.id })">
+              <cl-task [title]="rx.pet + ' · ' + rx.code" [line1]="rx.drug" [line2]="(rx.qty | tx) + ' · ' + rx.owner" (opened)="store.selectPet(rx.pet); ui.openSheet('prescription', { id: rx.id })">
                 @if (p && p.alerts.length) {
                   <cl-mini-alerts [patient]="p" [blank]="true" />
                 }

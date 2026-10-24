@@ -54,7 +54,7 @@ const byTime = (a: Appointment, b: Appointment) => a.time.localeCompare(b.time);
               @for (a of column.list; track a.id) {
                 @let p = patientOf(a);
                 <cl-task [title]="a.pet + ' · ' + (a.time === '—' ? ('Waitlist' | tx) : a.time)" [line1]="(a.type | tx) + ' · ' + (a.provider | tx)" [line2]="a.owner"
-                  [status]="a.state === 'Confirmed' ? null : { text: a.state, cls: chip[a.state] || 'quiet' }" (opened)="ui.openSheet('appointment', { id: a.id })">
+                  [status]="a.state === 'Confirmed' ? null : { text: a.state, cls: chip[a.state] || 'quiet' }" (opened)="openAppointment(a)">
                   @if (p && p.alerts.length) {
                     <cl-mini-alerts [patient]="p" [blank]="true" />
                   }
@@ -73,7 +73,7 @@ const byTime = (a: Appointment, b: Appointment) => a.time.localeCompare(b.time);
                 <span>{{ day.label }}</span><span class="count">{{ day.list.length }}</span>
               </button>
               @for (a of day.list; track a.id) {
-                <button type="button" class="appt-mini" [class.done]="a.state === 'Completed'" (click)="ui.openSheet('appointment', { id: a.id })">
+                <button type="button" class="appt-mini" [class.done]="a.state === 'Completed'" (click)="openAppointment(a)">
                   <b>{{ a.time === '—' ? ('Waitlist' | tx) : a.time }}</b> {{ a.pet }}
                   <span class="secondary">{{ a.type | tx }} · {{ a.provider | tx }}</span>
                 </button>
@@ -146,6 +146,12 @@ export class AppointmentsComponent {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       this.date.set(value);
     }
+  }
+
+  /** An appointment opens with its pet selected, when the pet is in today's clinic, so the context rail is about it */
+  protected openAppointment(a: Appointment) {
+    this.store.selectPet(a.pet, a.owner);
+    this.ui.openSheet('appointment', { id: a.id });
   }
 
   protected patientOf(a: Appointment) {

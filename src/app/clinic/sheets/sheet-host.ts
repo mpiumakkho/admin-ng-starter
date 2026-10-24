@@ -4,12 +4,13 @@ import {
 
 import { ClinicUi, SheetKind, SheetState } from '../clinic-ui';
 import { EstimateSheet, NotesSheet, OwnerSheet, PatientSheet, ResultsPreviewSheet, VisitSheet } from './patient-sheets';
+import { BillingSheet, DocumentSheet, PastVisitSheet } from './rail-sheets';
 import { AppointmentSheet, NewOrderSheet, OrderSheet, PrescriptionSheet, ResultSheet } from './record-sheets';
 
 /** Widths of the sheets, as in the design: sm 396, md 460, lg 600 pixels */
 const SHEET_WIDTH: Record<SheetKind, number> = {
   visit: 396, notes: 396, results: 396, result: 396, order: 396, appointment: 396,
-  owner: 460, patient: 460, newOrder: 460,
+  owner: 460, patient: 460, newOrder: 460, billing: 460, pastVisit: 460, document: 460,
   prescription: 600, estimate: 600,
 };
 
@@ -22,7 +23,7 @@ const SHEET_WIDTH: Record<SheetKind, number> = {
   selector: 'cl-sheet-host',
   imports: [
     VisitSheet, PatientSheet, OwnerSheet, NotesSheet, ResultsPreviewSheet, EstimateSheet,
-    ResultSheet, OrderSheet, AppointmentSheet, PrescriptionSheet, NewOrderSheet,
+    ResultSheet, OrderSheet, AppointmentSheet, PrescriptionSheet, NewOrderSheet, BillingSheet, PastVisitSheet, DocumentSheet,
   ],
   template: `
     <div class="scrim" [class.show]="out()" (click)="ui.closeSheet()" aria-hidden="true"></div>
@@ -41,6 +42,9 @@ const SHEET_WIDTH: Record<SheetKind, number> = {
           @case ('appointment') { <cl-appointment-sheet [id]="sheet.id ?? ''" /> }
           @case ('prescription') { <cl-prescription-sheet [id]="sheet.id ?? ''" /> }
           @case ('newOrder') { <cl-new-order-sheet /> }
+          @case ('billing') { <cl-billing-sheet /> }
+          @case ('pastVisit') { <cl-past-visit-sheet [id]="sheet.id ?? ''" /> }
+          @case ('document') { <cl-document-sheet [id]="sheet.id ?? ''" /> }
         }
       }
     </aside>

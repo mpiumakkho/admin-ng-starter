@@ -7,8 +7,10 @@ import {
   ACK_METHODS, CRITICAL_RULE, drugConflict, FORMULARY, LOCATIONS, NOW, NURSES, ORDER_FLOW, REASON_MIN, RX_DAYS, RX_FREQS, STAGES, stageIndex,
   TRIAGE, VETS,
 } from './data/model';
+import { draftFromRecord, petRecords } from './data/registration';
 import type { AckMethod, AlertType, LabResult, Order, Patient, Prescription, StageKey } from './data/types';
 import { ClinicI18n } from './i18n/clinic-i18n';
+import { RegistrationForm } from './registration-form';
 
 const reasonCheck = (v: string) => (v.trim().length >= REASON_MIN ? null : 'อย่างน้อย {n} ตัวอักษร — ข้อความนี้คือหลักฐานตรวจสอบ');
 
@@ -22,6 +24,7 @@ export class ClinicActions {
   private readonly ui = inject(ClinicUi);
   private readonly i18n = inject(ClinicI18n);
   private readonly router = inject(Router);
+  private readonly registration = inject(RegistrationForm);
 
   /* Patients and visits */
 
@@ -30,6 +33,17 @@ export class ClinicActions {
     this.ui.closeSheet();
     this.store.select(p);
     this.router.navigate(['/clinic/encounter']);
+  }
+
+  /** The pet's record and its owner's on the registration tab, where the desk keeps them, consent to the data too */
+  openInRegistry(p: Patient) {
+    const data = this.store.data();
+    const record = petRecords(data).find(r => r.patient?.id === p.id);
+    if (record) {
+      this.registration.load(record, draftFromRecord(data, record));
+    }
+    this.ui.closeSheet();
+    this.router.navigate(['/clinic/register']);
   }
 
   moveStage(p: Patient) {

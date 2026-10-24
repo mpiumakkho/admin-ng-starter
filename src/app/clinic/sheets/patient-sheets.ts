@@ -2,16 +2,18 @@
 import { Component, computed, inject, input, linkedSignal } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
-import { lucideCheck, lucideChevronRight, lucideTriangleAlert, lucideUserRound } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideCheck, lucideChevronRight, lucideFileText, lucideTriangleAlert, lucideUserRound } from '@ng-icons/lucide';
 
 import { UiButton } from '../../user-management/ui';
 import { ClinicActions } from '../clinic-actions';
 import { ClinicUi } from '../clinic-ui';
 import { ClinicStore } from '../clinic.store';
-import { ALERT_META, locOf, STAGES, stageIndex, stageMinutes, statusOf, timeOf } from '../data/model';
+import { ALERT_META, locOf, STAGES, stageIndex, stageMinutes, statusOf } from '../data/model';
+import { CONSENT_TEXT, consentState, nextAppointment, pastVisits, resultsNewestFirst, resultsToReview } from '../data/rail';
 import { TxPipe } from '../i18n/clinic-i18n';
 import { ALERT_ICONS } from '../shared/icons';
 import { PetIcon, VStepper } from '../shared/parts';
+import { OpenRow, ResultRow } from './rail-sheets';
 import { SheetHead } from './sheet-head';
 
 /** The patient's sections, in the order of the context rail */
@@ -126,7 +128,7 @@ export class VisitSheet {
 /* ---- The patient's record, by section ---- */
 @Component({
   selector: 'cl-patient-sheet',
-  imports: [...SHARED, NgIcon],
+  imports: [...SHARED, NgIcon, OpenRow],
   template: `
     @let p = store.selected();
     <cl-sheet-head [heading]="p.pet + ' · ' + p.hn" [status]="status()" [sub]="(p.species | tx) + ' · ' + p.breed + ' · ' + (p.sex | tx) + ' · ' + (p.age | tx)"
@@ -233,11 +235,25 @@ export class VisitSheet {
           </div>
         }
         @case ('visits') {
+          @let next = nextAppointment();
+          <div class="section">
+            <div class="section-title"><h3>{{ 'Visit ปัจจุบัน' | tx }}</h3></div>
+            <cl-open-row [name]="('วันนี้' | tx) + ' · ' + (p.reason | tx)" [detail]="(p.vet | tx) + ' · ' + (stage() | tx) + ' · ' + p.code" (opened)="ui.openSheet('visit')" />
+          </div>
+          @if (next) {
+            <div class="section">
+              <div class="section-title"><h3>{{ 'นัดถัดไป' | tx }}</h3></div>
+              <cl-open-row [name]="next.date + ' · ' + next.time + ' · ' + (next.type | tx)" [detail]="(next.provider | tx) + ' · ' + (next.reason | tx)"
+                (opened)="ui.openSheet('appointment', { id: next.id })" />
+            </div>
+          }
           <div class="section">
             <div class="section-title"><h3>{{ 'Visit history' | tx }}</h3></div>
-            <div class="timeline">
-              @for (visit of p.visits; track $index) {
-                <div class="tl"><b>{{ visit[0] }}</b><div class="secondary">{{ visit[1] | tx }}</div></div>
+            <div class="kv-list">
+              @for (visit of visits(); track visit.date) {
+                <cl-open-row [name]="visit.date + ' · ' + (visit.title | tx)" [detail]="visit.vet | tx" (opened)="ui.openSheet('pastVisit', { id: p.id + '/' + visit.date })" />
+              } @empty {
+                <p class="muted">{{ 'ยังไม่มีประวัติการมารักษา' | tx }}</p>
               }
             </div>
           </div>
@@ -246,8 +262,10 @@ export class VisitSheet {
           <div class="section">
             <div class="section-title"><h3>{{ 'Documents' | tx }}</h3></div>
             <div class="kv-list">
-              @for (doc of p.docs; track doc[0]) {
-                <div class="row-card"><span class="grow"><b>{{ doc[0] | tx }}</b><div class="secondary">{{ doc[1] | tx }}</div></span></div>
+              @for (doc of p.docs; track doc[0]; let index = $index) {
+                <cl-open-row [name]="doc[0] | tx" [detail]="doc[1] | tx" (opened)="ui.openSheet('document', { id: p.id + '/' + index })">
+                  <ng-icon class="go-icon" [svg]="icons.file" aria-hidden="true" />
+                </cl-open-row>
               } @empty {
                 <p class="muted">{{ 'ยังไม่มีเอกสาร' | tx }}</p>
               }
@@ -257,10 +275,16 @@ export class VisitSheet {
       }
     </div>
     <div class="sheet-foot">
-      <button uiButton variant="secondary" size="sm" type="button" (click)="actions.addAlert(p)">{{ 'เพิ่ม alert' | tx }}</button>
-      <button uiButton variant="secondary" size="sm" type="button" (click)="actions.addProblem(p)">{{ 'เพิ่ม problem' | tx }}</button>
+      <!-- What the section adds to, then the page that keeps it -->
+      @if (tab() === 'alerts') {
+        <button uiButton variant="secondary" size="sm" type="button" (click)="actions.addAlert(p)">{{ 'เพิ่ม alert' | tx }}</button>
+      } @else if (tab() === 'problems') {
+        <button uiButton variant="secondary" size="sm" type="button" (click)="actions.addProblem(p)">{{ 'เพิ่ม problem' | tx }}</button>
+      } @else if (tab() === 'overview') {
+        <button uiButton variant="secondary" size="sm" type="button" (click)="actions.recordWeight(p)">{{ 'บันทึกน้ำหนัก' | tx }}</button>
+      }
       <span class="grow"></span>
-      <button uiButton size="sm" type="button" (click)="actions.recordWeight(p)">{{ 'บันทึกน้ำหนัก' | tx }}</button>
+      <button uiButton size="sm" type="button" (click)="goHome()">{{ (home()?.label ?? 'เปิด Encounter') | tx }}<ng-icon [svg]="icons.next" aria-hidden="true" /></button>
     </div>
   `,
   host: { class: 'contents' },
@@ -270,18 +294,36 @@ export class PatientSheet {
   protected readonly store = inject(ClinicStore);
   protected readonly ui = inject(ClinicUi);
   protected readonly actions = inject(ClinicActions);
+  private readonly router = inject(Router);
   protected readonly tabs = PATIENT_TABS;
-  protected readonly icons = { check: lucideCheck };
+  protected readonly icons = { check: lucideCheck, file: lucideFileText, next: lucideArrowRight };
   protected readonly meta = ALERT_META;
   protected readonly alertIcons = ALERT_ICONS;
   protected readonly status = computed(() => statusOf(this.store.selected()));
   protected readonly location = computed(() => locOf(this.store.selected()));
+  protected readonly stage = computed(() => STAGES[stageIndex(this.store.selected())].label);
+  protected readonly visits = computed(() => pastVisits(this.store.selected()));
+  protected readonly nextAppointment = computed(() => nextAppointment(this.store.data(), this.store.selected()));
+
+  /** Where the section's data is kept: the encounter, the appointments (vaccine recalls) or today's queue (the visits) */
+  protected readonly home = computed(() =>
+    this.tab() === 'vaccines' ? { label: 'เปิดนัดหมาย', path: '/clinic/appointments' } : this.tab() === 'visits' ? { label: 'เปิดคิววันนี้', path: '/clinic/queue' } : null);
+
+  protected goHome() {
+    const home = this.home();
+    if (home) {
+      this.ui.closeSheet();
+      this.router.navigate([home.path]);
+    } else {
+      this.actions.startEncounter(this.store.selected());
+    }
+  }
 }
 
 /* ---- The owner ---- */
 @Component({
   selector: 'cl-owner-sheet',
-  imports: [...SHARED],
+  imports: [...SHARED, NgIcon],
   template: `
     @let p = store.selected();
     @let o = store.owner(p);
@@ -348,9 +390,13 @@ export class PatientSheet {
           </div>
         }
         @default {
+          @let consent = consentState(o);
           <div class="section">
-            <div class="section-title"><h3>{{ 'Consent' | tx }}</h3></div>
-            <p class="sheet-text">{{ o.consent | tx }}</p>
+            <div class="section-title">
+              <h3>{{ 'Consent' | tx }}</h3>
+              <span class="chip" [class]="'chip ' + (consent === 'valid' ? 'ok' : 'danger')">{{ consentText[consent] | tx }}</span>
+            </div>
+            <p class="sheet-text">{{ o.consent === '—' ? ('ยังไม่ได้ลงนามใบยินยอมการรักษา' | tx) : (o.consent | tx) }}</p>
           </div>
           <div class="section">
             <div class="section-title"><h3>{{ 'PDPA' | tx }}</h3></div>
@@ -365,8 +411,9 @@ export class PatientSheet {
     </div>
     <div class="sheet-foot">
       <button uiButton variant="secondary" size="sm" type="button" (click)="actions.callOwner(p)">{{ 'โทร' | tx }}</button>
+      <button uiButton variant="secondary" size="sm" type="button" (click)="message()">{{ 'ส่งข้อความ' | tx }}</button>
       <span class="grow"></span>
-      <button uiButton size="sm" type="button" (click)="message()">{{ 'ส่งข้อความ' | tx }}</button>
+      <button uiButton size="sm" type="button" (click)="actions.openInRegistry(p)">{{ 'เปิดในทะเบียน' | tx }}<ng-icon [svg]="next" aria-hidden="true" /></button>
     </div>
   `,
   host: { class: 'contents' },
@@ -379,6 +426,9 @@ export class OwnerSheet {
   protected readonly tabs = [
     { id: 'contact', label: 'ติดต่อ' }, { id: 'pets', label: 'สัตว์' }, { id: 'history', label: 'นัดหมาย' }, { id: 'consent', label: 'Consent / PDPA' },
   ];
+  protected readonly consentState = consentState;
+  protected readonly consentText = CONSENT_TEXT;
+  protected readonly next = lucideArrowRight;
 
   protected patientFor(pet: string) {
     const code = (pet.split('·').pop() || '').trim();
@@ -442,35 +492,29 @@ export class NotesSheet {
   }
 }
 
-/* ---- The patient's results in this visit ---- */
+/* ---- The patient's results, from every visit, newest first ---- */
 @Component({
   selector: 'cl-results-preview-sheet',
-  imports: [...SHARED],
+  imports: [...SHARED, NgIcon, ResultRow],
   template: `
     @let p = store.selected();
-    @let results = store.resultsFor(p);
-    <cl-sheet-head [heading]="('ผลตรวจ' | tx) + ' · ' + p.pet" [sub]="'{0} รายการใน visit ปัจจุบัน' | tx: { '0': results.length }" />
+    @let results = all();
+    <cl-sheet-head [heading]="('ผลตรวจ' | tx) + ' · ' + p.pet" [sub]="'{0} รายการ · {1} รายการผิดปกติรอรับทราบ' | tx: { '0': results.length, '1': review() }" />
     <div class="sheet-body">
       <div class="section">
-        <div class="section-title"><h3>{{ 'ผลตรวจใน visit นี้' | tx }}</h3></div>
+        <div class="section-title"><h3>{{ 'ผลตรวจทั้งหมด ใหม่สุดก่อน' | tx }}</h3></div>
         <div class="kv-list">
           @for (r of results; track r.id) {
-            <div class="row-card" [class.blocked]="r.flag === 'critical' && !r.ack">
-              <span class="grow">
-                <b>{{ r.name | tx }}</b>
-                <div class="secondary">{{ r.status | tx }} · {{ timeOf(r.time) }}@if (r.flag === 'critical') { · <b class="text-danger">{{ 'Critical' | tx }}</b>}</div>
-              </span>
-              <button uiButton variant="secondary" size="sm" type="button" (click)="ui.openSheet('result', { id: r.id })">{{ 'เปิด' | tx }}</button>
-            </div>
+            <cl-result-row [r]="r" />
           } @empty {
-            <p class="muted">{{ 'ยังไม่มีผลตรวจใน visit นี้' | tx }}</p>
+            <p class="muted">{{ 'ยังไม่มีผลตรวจ' | tx }}</p>
           }
         </div>
       </div>
     </div>
     <div class="sheet-foot">
       <span class="grow"></span>
-      <button uiButton size="sm" type="button" (click)="inbox()">{{ 'เปิด Results inbox' | tx }}</button>
+      <button uiButton size="sm" type="button" (click)="inbox()">{{ 'เปิด Results inbox' | tx }}<ng-icon [svg]="next" aria-hidden="true" /></button>
     </div>
   `,
   host: { class: 'contents' },
@@ -479,7 +523,9 @@ export class ResultsPreviewSheet {
   protected readonly store = inject(ClinicStore);
   protected readonly ui = inject(ClinicUi);
   private readonly router = inject(Router);
-  protected readonly timeOf = timeOf;
+  protected readonly next = lucideArrowRight;
+  protected readonly all = computed(() => resultsNewestFirst(this.store.data(), this.store.selected()));
+  protected readonly review = computed(() => resultsToReview(this.store.data(), this.store.selected()).length);
 
   protected inbox() {
     this.ui.closeSheet();
