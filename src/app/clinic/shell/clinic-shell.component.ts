@@ -85,6 +85,7 @@ export class ClinicShellComponent {
     { key: 'orders', label: 'Orders', icon: NAV_ICONS.orders },
     { key: 'results', label: 'Results', icon: NAV_ICONS.results },
     { key: 'dispense', label: 'Dispense', icon: NAV_ICONS.dispense },
+    { key: 'ward', label: 'Ward', icon: NAV_ICONS.ward },
   ] as const;
 
   /** As the admin navbar: menus open under their button, lined up with its right edge, or above it when there is no room */

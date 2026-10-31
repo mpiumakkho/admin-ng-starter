@@ -138,12 +138,16 @@ export class VisitSheet {
         @case ('alerts') {
           <div class="section">
             <div class="section-title"><h3>{{ 'Clinical alerts' | tx }} ({{ p.alerts.length }})</h3></div>
-            @for (alert of p.alerts; track $index) {
+            @for (alert of p.alerts; track $index; let i = $index) {
               <div class="safety" [class.warn]="meta[alert.type].cls === 'warn'">
                 <b><ng-icon [svg]="alertIcons[alert.type]" aria-hidden="true" />{{ alert.label | tx }}</b>
                 @if (alert.detail) {
                   <div class="secondary">{{ alert.detail | tx }}</div>
                 }
+                <div class="safety-actions">
+                  <button type="button" class="link" (click)="actions.editAlert(p, i)">{{ 'แก้ไข' | tx }}</button>
+                  <button type="button" class="link" (click)="actions.withdrawAlert(p, i)">{{ 'ยกเลิก alert' | tx }}</button>
+                </div>
               </div>
               @if (alert.type === 'allergy') {
                 <div class="secondary alert-meta">
@@ -163,6 +167,16 @@ export class VisitSheet {
             }
             <p class="secondary">{{ 'Alert เหล่านี้แสดงถาวรบน patient banner และในแถวคิว ไม่ถูกซ่อนไว้ใน sheet เท่านั้น' | tx }}</p>
           </div>
+          @if (p.withdrawnAlerts?.length) {
+            <div class="section">
+              <div class="section-title"><h3>{{ 'Alert ที่ยกเลิกแล้ว' | tx }}</h3></div>
+              <div class="timeline">
+                @for (w of p.withdrawnAlerts; track $index) {
+                  <div class="tl"><b>{{ w.label | tx }}</b><div class="secondary">{{ w.withdrawnAt }} · {{ w.withdrawnBy | tx }} · {{ w.withdrawnReason }}</div></div>
+                }
+              </div>
+            </div>
+          }
         }
         @case ('overview') {
           <div class="section">
@@ -198,10 +212,11 @@ export class VisitSheet {
           <div class="section">
             <div class="section-title"><h3>{{ 'Problem list' | tx }}</h3></div>
             <div class="kv-list">
-              @for (problem of p.problems; track problem[0]) {
+              @for (problem of p.problems; track $index; let i = $index) {
                 <div class="row-card">
                   <span class="grow"><b>{{ problem[0] | tx }}</b><div class="secondary">{{ problem[1] | tx }}</div></span>
                   <span class="chip" [class]="'chip ' + problem[2]">{{ (problem[2] === 'ok' ? 'Resolved' : problem[2] === 'danger' ? 'Critical' : 'Active') | tx }}</span>
+                  <button uiButton variant="secondary" size="sm" type="button" (click)="actions.editProblem(p, i)">{{ 'แก้ไข' | tx }}</button>
                 </div>
               } @empty {
                 <p class="muted">{{ 'ยังไม่มี problem ที่บันทึกไว้' | tx }}</p>
@@ -229,10 +244,26 @@ export class VisitSheet {
                 <div class="row-card">
                   <span class="grow"><b>{{ vaccine[0] }}</b><div class="secondary">{{ vaccine[1] | tx }}</div></span>
                   <span class="chip" [class]="'chip ' + vaccine[2]">{{ (vaccine[2] === 'ok' ? 'Current' : 'Due') | tx }}</span>
+                  @if (vaccine[2] !== 'ok') {
+                    <button uiButton variant="secondary" size="sm" type="button" (click)="actions.remindVaccine(p, vaccine[0], vaccine[1])">{{ 'ส่งเตือน' | tx }}</button>
+                    <button uiButton size="sm" type="button" (click)="actions.recordVaccine(p, vaccine[0])">{{ 'ฉีดวันนี้' | tx }}</button>
+                  }
                 </div>
+              } @empty {
+                <p class="muted">{{ 'ยังไม่มีประวัติวัคซีน' | tx }}</p>
               }
             </div>
           </div>
+          @if (p.vaccineLog?.length) {
+            <div class="section">
+              <div class="section-title"><h3>{{ 'ประวัติการฉีด' | tx }}</h3></div>
+              <div class="timeline">
+                @for (dose of p.vaccineLog; track $index) {
+                  <div class="tl"><b>{{ dose[0] }} · {{ dose[1] }}</b><div class="secondary">Lot {{ dose[2] }} · {{ 'ครั้งถัดไป' | tx }} {{ dose[3] }} · {{ dose[4] | tx }}</div></div>
+                }
+              </div>
+            </div>
+          }
         }
         @case ('visits') {
           @let next = nextAppointment();
@@ -280,6 +311,8 @@ export class VisitSheet {
         <button uiButton variant="secondary" size="sm" type="button" (click)="actions.addAlert(p)">{{ 'เพิ่ม alert' | tx }}</button>
       } @else if (tab() === 'problems') {
         <button uiButton variant="secondary" size="sm" type="button" (click)="actions.addProblem(p)">{{ 'เพิ่ม problem' | tx }}</button>
+      } @else if (tab() === 'vaccines') {
+        <button uiButton variant="secondary" size="sm" type="button" (click)="actions.recordVaccine(p)">{{ 'บันทึกการฉีดวัคซีน' | tx }}</button>
       } @else if (tab() === 'overview') {
         <button uiButton variant="secondary" size="sm" type="button" (click)="actions.recordWeight(p)">{{ 'บันทึกน้ำหนัก' | tx }}</button>
       }
@@ -397,6 +430,13 @@ export class PatientSheet {
               <span class="chip" [class]="'chip ' + (consent === 'valid' ? 'ok' : 'danger')">{{ consentText[consent] | tx }}</span>
             </div>
             <p class="sheet-text">{{ o.consent === '—' ? ('ยังไม่ได้ลงนามใบยินยอมการรักษา' | tx) : (o.consent | tx) }}</p>
+            <div class="row-card">
+              <span class="grow">
+                <b>{{ 'ใบยินยอมการรักษาของวันนี้' | tx }} · {{ p.pet }}</b>
+                <div class="secondary">{{ p.consentForm ? ('ลงนามแล้ว {0} · {1}' | tx: { '0': p.consentForm.at, '1': p.consentForm.signer }) : ('ยังไม่ลงนาม' | tx) }}</div>
+              </span>
+              <button uiButton variant="secondary" size="sm" type="button" (click)="ui.openSheet('consent')">{{ (p.consentForm ? 'ดูใบยินยอม' : 'ลงนามใบยินยอม') | tx }}</button>
+            </div>
           </div>
           <div class="section">
             <div class="section-title"><h3>{{ 'PDPA' | tx }}</h3></div>
@@ -530,72 +570,5 @@ export class ResultsPreviewSheet {
   protected inbox() {
     this.ui.closeSheet();
     this.router.navigate(['/clinic/results']);
-  }
-}
-
-/* ---- The estimate the owner approves before treatment ---- */
-@Component({
-  selector: 'cl-estimate-sheet',
-  imports: [...SHARED],
-  template: `
-    @let p = store.selected();
-    @let o = store.owner(p);
-    @let approved = p.handoff.estimate.state === 'done';
-    <cl-sheet-head [heading]="'Estimate · ' + p.pet" [status]="approved ? { text: 'อนุมัติแล้ว', cls: 'checked' } : { text: 'รออนุมัติ', cls: 'waiting' }"
-      [sub]="'EST-260924-05 · {0} · ต้องอนุมัติก่อนเริ่มหัตถการ' | tx: { '0': o.name }" />
-    <div class="sheet-body">
-      <div class="section">
-        <div class="section-title"><h3>{{ 'รายการประมาณการ' | tx }}</h3></div>
-        <table class="mini-table">
-          <thead><tr><th scope="col">{{ 'รายการ' | tx }}</th><th scope="col" class="num">{{ 'จำนวน' | tx }}</th><th scope="col" class="num">{{ 'ต่ำสุด' | tx }}</th><th scope="col" class="num">{{ 'สูงสุด' | tx }}</th></tr></thead>
-          <tbody>
-            @for (line of lines; track line[0]) {
-              <tr><td>{{ line[0] | tx }}</td><td class="num">{{ line[1] }}</td><td class="num">{{ line[2] }}</td><td class="num">{{ line[3] }}</td></tr>
-            }
-          </tbody>
-        </table>
-        <div class="summary-line total"><span>{{ 'รวม' | tx }}</span><span>฿2,920 – ฿3,220</span></div>
-      </div>
-      <div class="section">
-        <div class="section-title"><h3>{{ 'เงื่อนไข' | tx }}</h3></div>
-        <dl class="data-grid">
-          <dt>{{ 'ผู้อนุมัติ' | tx }}</dt><dd>{{ o.name }}</dd>
-          <dt>{{ 'ช่องทางส่ง' | tx }}</dt><dd>{{ o.prefer | tx }}</dd>
-          <dt>{{ 'อายุประมาณการ' | tx }}</dt><dd>{{ '7 วัน' | tx }}</dd>
-        </dl>
-      </div>
-    </div>
-    <div class="sheet-foot">
-      <button uiButton variant="secondary" size="sm" type="button" (click)="send()">{{ 'ส่งให้เจ้าของ' | tx }}</button>
-      <span class="grow"></span>
-      <button uiButton size="sm" type="button" [disabled]="approved" (click)="approve()">{{ 'อนุมัติ' | tx }}</button>
-    </div>
-  `,
-  host: { class: 'contents' },
-})
-export class EstimateSheet {
-  protected readonly store = inject(ClinicStore);
-  private readonly ui = inject(ClinicUi);
-  private readonly actions = inject(ClinicActions);
-  protected readonly lines = [
-    ['Consultation — General', 1, '฿450', '฿450'], ['CBC + Blood chemistry', 1, '฿1,250', '฿1,250'],
-    ['Right hind limb X-ray (2 views)', 1, '฿900', '฿1,200'], ['Carprofen 25 mg', 10, '฿320', '฿320'],
-  ] as const;
-
-  protected approve() {
-    this.store.approveEstimate(this.store.selected());
-    this.ui.toast('บันทึกการอนุมัติประมาณการแล้ว');
-  }
-
-  protected send() {
-    const p = this.store.selected();
-    const o = this.store.owner(p);
-    this.actions.sendMessage(p, 'ประมาณการค่าใช้จ่าย',
-      `เรียนคุณ ${o.name}\nประมาณการค่าใช้จ่ายของ ${p.pet} อยู่ที่ ฿2,920 – ฿3,220 (มีอายุ 7 วัน)\nกรุณาตรวจสอบและยืนยันการอนุมัติกับเจ้าหน้าที่`,
-      channel => this.store.mutate(() => {
-        if (p.handoff.estimate.state !== 'done') {
-          p.handoff.estimate = { state: 'active', note: `ส่งทาง ${channel} แล้ว` };
-        }
-      }));
   }
 }

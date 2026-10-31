@@ -284,6 +284,12 @@ export class DocumentSheet {
                   }
                 </tbody>
               </table>
+              <div class="invoice-actions">
+                @if (i.paid) {
+                  <button uiButton variant="secondary" size="sm" type="button" (click)="actions.printReceipt(i)">{{ 'พิมพ์ใบเสร็จ' | tx }}</button>
+                }
+                <button uiButton size="sm" type="button" (click)="actions.pay(i)">{{ 'รับชำระ' | tx }}</button>
+              </div>
             </details>
           } @empty {
             <p class="muted">{{ 'ไม่มีใบแจ้งหนี้ค้างชำระ' | tx }}</p>
@@ -301,7 +307,14 @@ export class DocumentSheet {
             </tbody>
           </table>
           <div class="summary-line total"><span>{{ 'รวมโดยประมาณ' | tx }}</span><span>{{ baht(bill.total) }}</span></div>
-          <p class="muted">{{ 'ยังไม่ออกใบแจ้งหนี้ · คิดจากคำสั่งตรวจวันนี้ ช่วงราคาคิดที่ราคาต่ำสุด' | tx }}</p>
+          @if (issued(); as i) {
+            <p class="muted">{{ 'ออกใบแจ้งหนี้ {0} แล้วตอนจำหน่าย · {1}' | tx: { '0': i.no, '1': (invoiceState(i) | tx) } }}</p>
+            @if (i.paid) {
+              <button uiButton variant="secondary" size="sm" type="button" (click)="actions.printReceipt(i)">{{ 'พิมพ์ใบเสร็จ' | tx }}</button>
+            }
+          } @else {
+            <p class="muted">{{ 'ยังไม่ออกใบแจ้งหนี้ · คิดจากคำสั่งตรวจวันนี้ ช่วงราคาคิดที่ราคาต่ำสุด' | tx }}</p>
+          }
         } @else {
           <p class="muted">{{ 'ยังไม่มีค่าใช้จ่ายใน visit วันนี้' | tx }}</p>
         }
@@ -318,9 +331,14 @@ export class DocumentSheet {
 export class BillingSheet {
   protected readonly store = inject(ClinicStore);
   protected readonly ui = inject(ClinicUi);
-  private readonly actions = inject(ClinicActions);
+  protected readonly actions = inject(ClinicActions);
   protected readonly baht = baht;
   protected readonly balanceOf = balanceOf;
+  /** The invoice issued when the selected pet was discharged today */
+  protected readonly issued = computed(() => {
+    const id = this.store.selected().invoiceId;
+    return id ? this.store.data().invoices.find(i => i.id === id) : undefined;
+  }, { equal: () => false });
   protected readonly invoiceState = invoiceState;
   protected readonly invoices = computed(() => openInvoices(this.store.data(), this.store.selected().ownerKey));
   protected readonly owing = computed(() => outstanding(this.store.data(), this.store.selected().ownerKey));

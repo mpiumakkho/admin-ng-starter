@@ -3535,3 +3535,413 @@
     border-top: 1px solid var(--ui-border);
   }
 }
+
+/* ---------- prescribing: the dose worked out from the weight, and the override (sheets/prescribe-sheet) ---------- */
+.clinic .dose-calc {
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-ctl-r);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+
+  .chip {
+    margin-left: 6px;
+  }
+
+  .link {
+    justify-self: start;
+  }
+}
+
+.clinic .form-12.override {
+  margin-top: 12px;
+}
+
+/* ---------- the consent: signing on the screen (shared/signature-pad, sheets/care-sheets) ---------- */
+.clinic .sig-pad {
+  position: relative;
+  margin-bottom: 8px;
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 150px;
+    border: 1px dashed var(--ui-border-strong, var(--ui-border));
+    border-radius: var(--cl-ctl-r);
+    background: var(--ui-surface);
+    color: var(--ui-heading);
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .sig-line {
+    position: absolute;
+    right: 16px;
+    bottom: 34px;
+    left: 16px;
+    border-bottom: 1px solid var(--ui-border);
+    pointer-events: none;
+  }
+
+  .sig-clear {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    font-size: 12px;
+  }
+}
+
+.clinic .sig-image {
+  display: block;
+  max-width: 100%;
+  height: 90px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--cl-ctl-r);
+  background: #fff;
+}
+
+.clinic .plain-list {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  font-size: 13px;
+
+  li + li {
+    margin-top: 2px;
+  }
+}
+
+.clinic .sheet-body .check + .check {
+  margin-top: 8px;
+}
+
+.clinic .sheet-body .check + .field {
+  margin-top: 12px;
+}
+
+/* ---------- discharge: what goes home, what is left to do, the follow-up (pages/encounter, data/discharge) ---------- */
+.clinic .discharge-panel {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ui-border);
+
+  .section-title {
+    margin-top: 12px;
+  }
+}
+
+.clinic .discharge-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ui-warning-text);
+
+    ng-icon {
+      flex: none;
+    }
+
+    &.ok {
+      color: var(--ui-success-text);
+    }
+
+    &.req {
+      color: var(--ui-danger-text);
+      font-weight: 600;
+    }
+  }
+}
+
+.clinic .row-card.followup {
+  margin-top: 12px;
+}
+
+.clinic .invoice-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ---------- keeping the record: addenda, the vitals trend, the steps filled in (data/record) ---------- */
+.clinic .addenda {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.clinic .addendum {
+  width: 100%;
+  padding: 8px 12px;
+  border-left: 3px solid var(--ui-primary);
+  border-radius: 0 var(--cl-ctl-r) var(--cl-ctl-r) 0;
+  background: var(--ui-surface-muted);
+  font-size: 13px;
+
+  p {
+    margin: 4px 0 0;
+    white-space: pre-wrap;
+  }
+}
+
+.clinic .vitals-trend {
+  margin-top: 16px;
+}
+
+.clinic .vitals-table {
+  font-variant-numeric: tabular-nums;
+
+  th.num span {
+    display: block;
+  }
+
+  .spark {
+    display: block;
+    width: 64px;
+    height: 20px;
+    margin: 4px 0 0 auto;
+    overflow: visible;
+
+    polyline {
+      fill: none;
+      stroke: var(--ui-primary);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    circle {
+      fill: var(--ui-primary);
+      stroke: var(--ui-surface);
+      stroke-width: 1;
+    }
+  }
+}
+
+.clinic .safety .safety-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.clinic .step-btn.done .step-no {
+  border-color: var(--ui-success);
+  color: var(--ui-success-text);
+}
+
+/* ---------- the ward (pages/ward): the bed map, then the treatment sheet of the pet picked ---------- */
+.clinic .ward-layout {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--cl-gap);
+  min-height: 0;
+  overflow: auto;
+}
+
+.clinic .bed-map {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--cl-gap);
+}
+
+.clinic .ward-block {
+  padding: 12px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: var(--ui-surface);
+
+  .section-title {
+    margin-bottom: 8px;
+
+    h2 {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-size: 14px;
+    }
+  }
+}
+
+.clinic .beds {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.clinic .bed {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 92px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+
+  .bed-no {
+    color: var(--ui-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+
+  .bed-pet {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .secondary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bed-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: auto;
+  }
+
+  &.taken {
+    border-left: 3px solid var(--ui-success);
+    cursor: pointer;
+    transition: border-color var(--ui-duration-fast) ease, box-shadow var(--ui-duration-fast) ease;
+
+    &.warn { border-left-color: var(--ui-warning); }
+    &.danger { border-left-color: var(--ui-danger); }
+
+    &:hover {
+      border-color: var(--ui-primary);
+      box-shadow: var(--ui-shadow-sm);
+    }
+
+    &.active {
+      border-color: var(--ui-primary);
+      box-shadow: 0 0 0 2px var(--ui-primary-soft);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-focus);
+      outline-offset: 1px;
+    }
+  }
+
+  &.free {
+    border-style: dashed;
+    background: transparent;
+  }
+
+  &.cleaning {
+    background: var(--ui-warning-soft);
+    border-color: transparent;
+  }
+}
+
+.clinic .treatment-sheet {
+  flex: none;
+  padding: 12px 16px 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: var(--ui-surface);
+
+  &.empty {
+    padding: 28px 16px;
+    text-align: center;
+  }
+
+  > .section-title {
+    flex-wrap: wrap;
+    margin-top: 16px;
+
+    &:first-child { margin-top: 0; }
+
+    h2, h3 {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+    }
+
+    h2 { font-size: 15px; }
+    h3 { font-size: 13.5px; }
+  }
+
+  .step-actions {
+    margin-top: 10px;
+  }
+
+  .table-wrap {
+    margin-top: 6px;
+  }
+
+  .mini-table td b + .chip {
+    margin-left: 6px;
+  }
+
+  th.now,
+  td.now {
+    background: var(--ui-primary-soft);
+  }
+
+  .row-actions {
+    white-space: nowrap;
+
+    .link + .link {
+      margin-left: 10px;
+    }
+
+    .link ng-icon {
+      margin-right: 2px;
+      vertical-align: -2px;
+    }
+  }
+
+  .chip ng-icon {
+    font-size: 11px;
+  }
+}
+
+.clinic .mar-table th.num,
+.clinic .mar-table td.num {
+  min-width: 74px;
+}
+
+/* A dose to give is the one action on the sheet: filled, so it reads on the highlighted column in either theme */
+.clinic .mar-table button.chip {
+  cursor: pointer;
+
+  &.info {
+    background: var(--ui-primary);
+    color: var(--ui-on-primary);
+  }
+}
+
+@media (max-width: 991px) {
+  .clinic .treatment-sheet .step-actions .grow {
+    flex-basis: 100%;
+  }
+}

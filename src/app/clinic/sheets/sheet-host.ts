@@ -3,15 +3,17 @@ import {
 } from '@angular/core';
 
 import { ClinicUi, SheetKind, SheetState } from '../clinic-ui';
-import { EstimateSheet, NotesSheet, OwnerSheet, PatientSheet, ResultsPreviewSheet, VisitSheet } from './patient-sheets';
+import { ConsentSheet, EstimateSheet } from './care-sheets';
+import { NotesSheet, OwnerSheet, PatientSheet, ResultsPreviewSheet, VisitSheet } from './patient-sheets';
 import { BillingSheet, DocumentSheet, PastVisitSheet } from './rail-sheets';
+import { PrescribeSheet } from './prescribe-sheet';
 import { AppointmentSheet, NewOrderSheet, OrderSheet, PrescriptionSheet, ResultSheet } from './record-sheets';
 
 /** Widths of the sheets, as in the design: sm 396, md 460, lg 600 pixels */
 const SHEET_WIDTH: Record<SheetKind, number> = {
   visit: 396, notes: 396, results: 396, result: 396, order: 396, appointment: 396,
   owner: 460, patient: 460, newOrder: 460, billing: 460, pastVisit: 460, document: 460,
-  prescription: 600, estimate: 600,
+  prescription: 600, estimate: 600, prescribe: 600, consent: 600,
 };
 
 /**
@@ -22,8 +24,8 @@ const SHEET_WIDTH: Record<SheetKind, number> = {
 @Component({
   selector: 'cl-sheet-host',
   imports: [
-    VisitSheet, PatientSheet, OwnerSheet, NotesSheet, ResultsPreviewSheet, EstimateSheet,
-    ResultSheet, OrderSheet, AppointmentSheet, PrescriptionSheet, NewOrderSheet, BillingSheet, PastVisitSheet, DocumentSheet,
+    VisitSheet, PatientSheet, OwnerSheet, NotesSheet, ResultsPreviewSheet, EstimateSheet, ConsentSheet,
+    ResultSheet, OrderSheet, AppointmentSheet, PrescriptionSheet, NewOrderSheet, PrescribeSheet, BillingSheet, PastVisitSheet, DocumentSheet,
   ],
   template: `
     <div class="scrim" [class.show]="out()" (click)="ui.closeSheet()" aria-hidden="true"></div>
@@ -37,11 +39,13 @@ const SHEET_WIDTH: Record<SheetKind, number> = {
           @case ('notes') { <cl-notes-sheet /> }
           @case ('results') { <cl-results-preview-sheet /> }
           @case ('estimate') { <cl-estimate-sheet /> }
+          @case ('consent') { <cl-consent-sheet /> }
           @case ('result') { <cl-result-sheet [id]="sheet.id ?? ''" /> }
           @case ('order') { <cl-order-sheet [id]="sheet.id ?? ''" /> }
           @case ('appointment') { <cl-appointment-sheet [id]="sheet.id ?? ''" /> }
           @case ('prescription') { <cl-prescription-sheet [id]="sheet.id ?? ''" /> }
           @case ('newOrder') { <cl-new-order-sheet /> }
+          @case ('prescribe') { <cl-prescribe-sheet /> }
           @case ('billing') { <cl-billing-sheet /> }
           @case ('pastVisit') { <cl-past-visit-sheet [id]="sheet.id ?? ''" /> }
           @case ('document') { <cl-document-sheet [id]="sheet.id ?? ''" /> }

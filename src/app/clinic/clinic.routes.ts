@@ -5,6 +5,7 @@ import { DispenseComponent, OrdersComponent, ResultsComponent } from './pages/bo
 import { EncounterComponent } from './pages/encounter.component';
 import { QueueComponent } from './pages/queue.component';
 import { RegisterComponent } from './pages/register.component';
+import { WardComponent } from './pages/ward.component';
 import { ClinicShellComponent } from './shell/clinic-shell.component';
 
 /** The clinical workspace's tabs, under /clinic */
@@ -21,6 +22,7 @@ export const CLINIC_ROUTES: Routes = [
       { path: 'orders', component: OrdersComponent },
       { path: 'results', component: ResultsComponent },
       { path: 'dispense', component: DispenseComponent },
+      { path: 'ward', component: WardComponent },
       { path: '**', redirectTo: 'queue' },
     ],
   },

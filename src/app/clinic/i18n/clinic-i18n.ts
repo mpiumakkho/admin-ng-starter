@@ -2,10 +2,12 @@ import { computed, inject, Injectable, Pipe, PipeTransform } from '@angular/core
 
 import { LanguageService } from '../../layout/language.service';
 import { EN } from './en';
+import { EN_CARE, TH_CARE } from './care';
 import { EN_EXTRA } from './extra';
 import { EN_RAIL, TH_RAIL } from './rail';
 import { EN_REGISTER, TH_REGISTER } from './register';
 import { TH } from './th';
+import { EN_WARD, TH_WARD } from './ward';
 
 /*
  * The clinical workspace's language, ported from the design it follows (seph1-vet-erp-rc, src/i18n.ts).
@@ -23,7 +25,10 @@ type Lang = 'th' | 'en';
 type Vars = Record<string, string | number>;
 interface Pattern { re: RegExp; names: string[]; out: string }
 
-const DICTS: Record<Lang, Record<string, string>> = { th: { ...TH, ...TH_REGISTER, ...TH_RAIL }, en: { ...EN, ...EN_EXTRA, ...EN_REGISTER, ...EN_RAIL } };
+const DICTS: Record<Lang, Record<string, string>> = {
+  th: { ...TH, ...TH_REGISTER, ...TH_RAIL, ...TH_CARE, ...TH_WARD },
+  en: { ...EN, ...EN_EXTRA, ...EN_REGISTER, ...EN_RAIL, ...EN_CARE, ...EN_WARD },
+};
 /** Thai letters and marks (not the baht sign) or Latin letters: anything worth looking up */
 const LETTERS = /[ก-ฺเ-๛A-Za-z]/;
 /** Coarse pieces of a stored string ("จ่ายยาแล้ว · น.สพ. นรินทร์ — พยาน …"), then finer ones */

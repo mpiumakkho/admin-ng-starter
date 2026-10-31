@@ -41,7 +41,7 @@ import { BoardColumn, MiniAlerts, TaskCard, Toolbar } from '../shared/parts';
                 <tr class="static">
                   <td><b>{{ rx.pet }}</b><div class="secondary">{{ rx.owner }}</div></td>
                   <td><b>{{ rx.drug }}</b><div class="secondary">{{ rx.dose | tx }} · {{ rx.freq | tx }} · {{ rx.days | tx }} · {{ rx.code }}</div></td>
-                  <td>{{ rx.by | tx }}<div class="secondary">{{ rx.orderedAt }}</div></td>
+                  <td>{{ rx.by | tx }}<div class="secondary">{{ rx.orderedAt }}{{ rx.orderedBy ? ' · ' + ('สั่งโดย' | tx) + ' ' + (rx.orderedBy | tx) : '' }}{{ rx.inpatient ? ' · ' + ('ให้ในวอร์ด' | tx) : '' }}</div></td>
                   <td>{{ '{n} นาที' | tx: { n: waited(rx.orderedAt) } }}</td>
                   <td><span class="chip ok">{{ 'CDS ผ่าน' | tx }}</span></td>
                   <td>
@@ -161,6 +161,6 @@ export class DispenseComponent {
   protected readonly ui = inject(ClinicUi);
   protected readonly columns = computed(() => {
     const prescriptions = this.store.data().prescriptions.filter(rx => !rx.verbal);
-    return ['Verify', 'Prepare', 'Counsel', 'Ready'].map(name => ({ name, list: prescriptions.filter(rx => rx.col === name) }));
+    return ['Verify', 'Prepare', 'Counsel', 'Dispensed'].map(name => ({ name, list: prescriptions.filter(rx => rx.col === name) }));
   });
 }

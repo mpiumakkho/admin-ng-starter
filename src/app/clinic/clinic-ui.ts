@@ -9,7 +9,7 @@ import { ClinicI18n } from './i18n/clinic-i18n';
  */
 export type SheetKind =
   | 'visit' | 'patient' | 'owner' | 'notes' | 'results' | 'estimate' | 'billing'
-  | 'result' | 'order' | 'appointment' | 'prescription' | 'newOrder'
+  | 'result' | 'order' | 'appointment' | 'prescription' | 'newOrder' | 'prescribe' | 'consent'
   /** One of the selected patient's past visits or documents: its id is "<patient id>/<date or index>" */
   | 'pastVisit' | 'document';
 

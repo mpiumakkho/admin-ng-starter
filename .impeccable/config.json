@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/app/clinic/sheets/care-sheets.ts"
+        ],
+        "createdAt": "2026-10-29T19:30:09.637Z",
+        "reason": "Claude: the img binds [src] to the saved signature and only renders when one exists"
+      }
+    ]
+  }
+}

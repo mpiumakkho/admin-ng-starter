@@ -1,6 +1,6 @@
 /* The workspace's icons, one registry as in the design (components/icons.tsx); Lucide, no emoji */
 import {
-  lucideBaby, lucideBadgeAlert, lucideCalculator, lucideCalendarDays, lucideCat, lucideCircleDot, lucideClipboardCheck, lucideClipboardList,
+  lucideBaby, lucideBadgeAlert, lucideBedDouble, lucideCalculator, lucideCalendarDays, lucideCat, lucideCircleDot, lucideClipboardCheck, lucideClipboardList,
   lucideDog, lucideFlaskConical, lucideHand, lucideHeartOff, lucideHistory, lucideListOrdered, lucideNotebookPen, lucidePawPrint, lucidePill,
   lucideReceipt, lucideScrollText, lucideShieldHalf, lucideStethoscope, lucideSyringe, lucideTriangleAlert, lucideUserPlus, lucideUserRound,
 } from '@ng-icons/lucide';
@@ -14,6 +14,7 @@ export const NAV_ICONS = {
   orders: lucideClipboardList,
   results: lucideFlaskConical,
   dispense: lucidePill,
+  ward: lucideBedDouble,
   register: lucideUserPlus,
 };
 

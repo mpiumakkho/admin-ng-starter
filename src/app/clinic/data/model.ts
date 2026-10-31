@@ -102,6 +102,13 @@ export function defaultHandoff(p: Staged): Handoff {
 export function syncHandoff(p: Patient) {
   const next = defaultHandoff(p);
   HANDOFF.forEach(h => { if (p.handoff[h.key].state === 'done') { next[h.key] = p.handoff[h.key]; } });
+  // An estimate and a consent have records of their own: moving on does not approve or sign them
+  if (next.estimate.state === 'done' && !p.estimate) {
+    next.estimate = { state: 'active', note: 'รออนุมัติ' };
+  }
+  if (next.consent.state === 'done' && !p.consentForm) {
+    next.consent = p.estimate ? { state: 'active', note: 'รอเจ้าของลงนาม' } : { state: 'todo', note: 'ยังไม่เริ่ม' };
+  }
   p.handoff = next;
 }
 
@@ -190,12 +197,6 @@ export const ACK_METHODS: { value: AckMethod; label: string }[] = [
 ];
 export const CRITICAL_RULE = 'ค่าวิกฤต — ต้องโทรศัพท์ + ยืนยัน read-back (ห้าม LINE/SMS อย่างเดียว)';
 
-/* Dispense: Verify > Prepare > Counsel > Ready */
-export const RX_FLOW: Record<string, { next: string; label: string } | undefined> = {
-  Verify: { next: 'Prepare', label: 'ตรวจสอบแล้ว · ส่งจัดยา' },
-  Prepare: { next: 'Counsel', label: 'จัดยาแล้ว · รอให้คำแนะนำ' },
-};
-
 /* The encounter note */
 export const ENCOUNTER_STEPS = ['Intake', 'Vitals', 'SOAP', 'Assessment & Plan', 'Orders', 'Medication', 'Discharge'];
 /** Steps a signature locks (S/O/A/P) */
@@ -227,7 +228,7 @@ export function defaultNote(p: Patient): EncounterNote {
     weight: blank(p.weight).replace(/\s*kg$/, ''), temp: '', hr: '', rr: '', mm: '', bcs: '5/9 — เหมาะสม', pain: '0',
     chief: p.chief, hpi: '', duration: '', progression: 'Stable', ros: [],
     general: '', msk: '', cardio: '', remark: '',
-    ddx: '', dx: '', plan: '', summary: '', home: '', followup: 'ไม่ต้องนัด',
+    ddx: '', dx: '', plan: '', summary: '', home: '', followup: 'ไม่ต้องนัด', warning: '', restrict: '',
     templates: [],
   };
   if (p.id !== 5) {
@@ -245,6 +246,8 @@ export function defaultNote(p: Patient): EncounterNote {
     plan: 'จำกัดการออกกำลัง 5–7 วัน · ให้ยาแก้ปวดกลุ่ม NSAID · X-ray ยืนยัน · นัดติดตาม 7 วัน',
     summary: 'Suspected mild soft-tissue injury of right hind limb',
     home: 'จำกัดการออกกำลัง 5–7 วัน ให้ยาพร้อมอาหาร และกลับมาพบสัตวแพทย์หากอาการแย่ลง', followup: 'นัดติดตาม 7 วัน',
+    warning: 'ไม่ลงน้ำหนักขาหลังขวาเลย ขาบวมหรือร้อน อาเจียนหรือถ่ายดำหลังให้ยา',
+    restrict: 'เดินจูงสั้นๆ วันละ 2–3 ครั้ง งดวิ่งและกระโดด 7 วัน · อาหารเดิม',
   };
 }
 
@@ -330,25 +333,37 @@ export const TEMPLATE_FIELD_LABELS: Partial<Record<keyof EncounterNote, string>>
 };
 
 /* Prescribing: the drugs the order form can pick, with the class the safety check uses (a subset of the design's
-   formulary, data/model.ts and data/cds.ts) */
-export interface DrugItem { name: string; cls?: string; route: string; stock: string }
+   formulary, data/model.ts and data/cds.ts). Doses are mg per kg per dose, by species, from common veterinary
+   references; mg is what one unit holds (a tablet, a mL), and a drug dosed by the unit has none. */
+export interface DrugItem {
+  name: string; cls?: string; route: string; stock: string;
+  /** What one unit is: a tablet, a mL, a drop */
+  unit: string;
+  mg?: number;
+  dog?: [min: number, max: number];
+  cat?: [min: number, max: number];
+  /** Baht for one unit; a drug dosed by the drop is sold by the bottle */
+  price: number;
+}
 export const FORMULARY: DrugItem[] = [
-  { name: 'Amoxicillin-clavulanate 250 mg', cls: 'penicillin', route: 'รับประทาน', stock: 'ตู้ A1' },
-  { name: 'Amoxicillin 250 mg', cls: 'penicillin', route: 'รับประทาน', stock: 'ตู้ A1' },
-  { name: 'Cefalexin 250 mg', cls: 'cephalosporin', route: 'รับประทาน', stock: 'ตู้ A1' },
-  { name: 'Doxycycline 100 mg', route: 'รับประทาน', stock: 'ตู้ A2' },
-  { name: 'Metronidazole 250 mg', route: 'รับประทาน', stock: 'ตู้ A2' },
-  { name: 'Carprofen 25 mg', cls: 'nsaid', route: 'รับประทาน', stock: 'ตู้ A2' },
-  { name: 'Meloxicam 1.5 mg/mL', cls: 'nsaid', route: 'รับประทาน', stock: 'ตู้ A3' },
-  { name: 'Tramadol 50 mg', cls: 'opioid', route: 'รับประทาน', stock: 'ตู้ล็อก C' },
-  { name: 'Prednisolone 5 mg', cls: 'corticosteroid', route: 'รับประทาน', stock: 'ตู้ A3' },
-  { name: 'Gentamicin 40 mg/mL (inj)', cls: 'aminoglycoside', route: 'ฉีดเข้ากล้าม', stock: 'ตู้เย็น 1' },
-  { name: 'Ondansetron 2 mg', route: 'รับประทาน', stock: 'ตู้ B3' },
-  { name: 'Maropitant 16 mg', route: 'รับประทาน', stock: 'ตู้ B3' },
-  { name: 'Omeprazole 10 mg', route: 'รับประทาน', stock: 'ตู้ B3' },
-  { name: 'Mirtazapine 1.88 mg', route: 'รับประทาน', stock: 'ตู้ B2' },
-  { name: 'Apoquel 3.6 mg', route: 'รับประทาน', stock: 'ตู้ B2' },
-  { name: 'Otic drops (ear)', route: 'หยอดหู', stock: 'ตู้ C1' },
+  { name: 'Amoxicillin-clavulanate 250 mg', cls: 'penicillin', route: 'รับประทาน', stock: 'ตู้ A1', unit: 'เม็ด', mg: 250, dog: [12.5, 25], cat: [12.5, 25], price: 18 },
+  { name: 'Amoxicillin 250 mg', cls: 'penicillin', route: 'รับประทาน', stock: 'ตู้ A1', unit: 'เม็ด', mg: 250, dog: [10, 20], cat: [10, 20], price: 8 },
+  { name: 'Cefalexin 250 mg', cls: 'cephalosporin', route: 'รับประทาน', stock: 'ตู้ A1', unit: 'เม็ด', mg: 250, dog: [15, 30], cat: [15, 30], price: 10 },
+  { name: 'Doxycycline 100 mg', cls: 'tetracycline', route: 'รับประทาน', stock: 'ตู้ A2', unit: 'เม็ด', mg: 100, dog: [5, 10], cat: [5, 10], price: 12 },
+  { name: 'Metronidazole 250 mg', cls: 'nitroimidazole', route: 'รับประทาน', stock: 'ตู้ A2', unit: 'เม็ด', mg: 250, dog: [10, 15], cat: [10, 15], price: 6 },
+  { name: 'Carprofen 25 mg', cls: 'nsaid', route: 'รับประทาน', stock: 'ตู้ A2', unit: 'เม็ด', mg: 25, dog: [2, 4.4], cat: [1, 2], price: 32 },
+  { name: 'Meloxicam 1.5 mg/mL', cls: 'nsaid', route: 'รับประทาน', stock: 'ตู้ A3', unit: 'mL', mg: 1.5, dog: [0.05, 0.2], cat: [0.025, 0.1], price: 25 },
+  { name: 'Paracetamol 500 mg', cls: 'paracetamol', route: 'รับประทาน', stock: 'ตู้ A3', unit: 'เม็ด', mg: 500, dog: [10, 15], price: 3 },
+  { name: 'Tramadol 50 mg', cls: 'opioid', route: 'รับประทาน', stock: 'ตู้ล็อก C', unit: 'เม็ด', mg: 50, dog: [2, 5], cat: [1, 4], price: 15 },
+  { name: 'Buprenorphine 0.3 mg/mL (inj)', cls: 'opioid', route: 'ฉีดเข้ากล้าม', stock: 'ตู้ล็อก C', unit: 'mL', mg: 0.3, dog: [0.01, 0.02], cat: [0.01, 0.02], price: 120 },
+  { name: 'Prednisolone 5 mg', cls: 'corticosteroid', route: 'รับประทาน', stock: 'ตู้ A3', unit: 'เม็ด', mg: 5, dog: [0.5, 2], cat: [1, 2], price: 4 },
+  { name: 'Gentamicin 40 mg/mL (inj)', cls: 'aminoglycoside', route: 'ฉีดเข้ากล้าม', stock: 'ตู้เย็น 1', unit: 'mL', mg: 40, dog: [6, 9], cat: [5, 8], price: 60 },
+  { name: 'Ondansetron 2 mg', cls: 'antiemetic', route: 'รับประทาน', stock: 'ตู้ B3', unit: 'เม็ด', mg: 2, dog: [0.1, 1], cat: [0.1, 1], price: 20 },
+  { name: 'Maropitant 16 mg', cls: 'antiemetic', route: 'รับประทาน', stock: 'ตู้ B3', unit: 'เม็ด', mg: 16, dog: [2, 8], cat: [1, 2], price: 95 },
+  { name: 'Omeprazole 10 mg', route: 'รับประทาน', stock: 'ตู้ B3', unit: 'เม็ด', mg: 10, dog: [0.5, 1.5], cat: [0.5, 1.5], price: 12 },
+  { name: 'Mirtazapine 1.88 mg', route: 'รับประทาน', stock: 'ตู้ B2', unit: 'เม็ด', mg: 1.88, dog: [0.5, 1], cat: [0.3, 0.6], price: 35 },
+  { name: 'Apoquel 3.6 mg', cls: 'jak-inhibitor', route: 'รับประทาน', stock: 'ตู้ B2', unit: 'เม็ด', mg: 3.6, dog: [0.4, 0.6], price: 55 },
+  { name: 'Otic drops (ear)', route: 'หยอดหู', stock: 'ตู้ C1', unit: 'หยด', price: 380 },
 ];
 export const RX_FREQS = ['วันละ 1 ครั้ง', 'วันละ 2 ครั้ง', 'วันละ 3 ครั้ง', 'ทุก 8 ชม.', 'ทุก 12 ชม.', 'วันเว้นวัน', 'ครั้งเดียว'];
 export const RX_DAYS = ['3 วัน', '5 วัน', '7 วัน', '10 วัน', '14 วัน', '30 วัน', '—'];

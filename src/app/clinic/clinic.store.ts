@@ -3,11 +3,25 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { fullName, Session } from '../user-management';
 
 import {
-  advanceStage, defaultNote, ENCOUNTER_ORDERS, LAB_VALUES, NOW, nextSeq, ORDER_FLOW, RX_FLOW, SOAP_FIELDS, stageKey, TODAY,
+  advanceStage, defaultNote, ENCOUNTER_ORDERS, LAB_VALUES, NOW, nextSeq, ORDER_FLOW, SOAP_FIELDS, stageKey, TODAY,
 } from './data/model';
 import { type PetRecord, registerPet, type RegistrationDraft, sendToQueue } from './data/registration';
+import { fefo, stockFor, syncDispense, takeFrom } from './data/dispense';
+import { followUpAppointment, visitInvoice } from './data/discharge';
+import { estimateFor } from './data/estimate';
+import { reading } from './data/record';
+import { baht, consentState } from './data/rail';
+import {
+  admit, bedCleaned, infusionEvent, leaveWard, marTimes, recordDose, startInfusion, stopOrder, takeObs, verbalOrder, type VerbalOrderInput, wardLoad,
+} from './data/ward';
 import { createSeed } from './data/seed';
-import type { AckMethod, ClinicData, EncounterNote, LabResult, Order, Owner, Patient, Prescription, StageKey } from './data/types';
+import type {
+  AckMethod, Appointment, ClinicData, ConsentRecord, DoseOutcome, EncounterNote, EstimateLine, Infusion, Invoice, LabResult, Order, Owner, Patient,
+  Prescription, StageKey, VitalSigns,
+} from './data/types';
+
+/** A prescription as the prescribing sheet writes it */
+export type PrescriptionInput = Pick<Prescription, 'drug' | 'dose' | 'route' | 'freq' | 'days' | 'qty' | 'advice' | 'mgPerKg' | 'cds' | 'inpatient'>;
 
 /** What an order is made from: a catalog item or one of the encounter's suggestions */
 export interface CatalogItemLike { name: string; kind: string; dept: string; price: string }
@@ -51,7 +65,9 @@ export class ClinicStore {
       encounter: d.patients.filter(p => ['room', 'treatment'].includes(stageKey(p))).length,
       orders: d.orders.filter(o => o.col !== 'Completed' && o.col !== 'Cancelled').length,
       results: d.results.filter(r => !r.ack).length,
-      dispense: d.prescriptions.filter(r => !r.verbal && r.col !== 'Ready').length,
+      dispense: d.prescriptions.filter(r => !r.verbal && r.col !== 'Dispensed').length,
+      // The doses the wards are waiting on
+      ward: wardLoad(d).due + wardLoad(d).late,
       // Nothing waits on the registration tab
       register: 0,
     };
@@ -132,11 +148,26 @@ export class ClinicStore {
     });
   }
 
-  approveEstimate(p: Patient) {
-    this.mutate(() => {
-      p.handoff.estimate = { state: 'done', note: `อนุมัติ ${NOW}` };
-      if (p.handoff.consent.state === 'todo') {
+  /** The owner approves the estimate as it stands; it is kept as approved, and the consent waits to be signed */
+  approveEstimate(p: Patient, approver: string, via: string) {
+    this.mutate(d => {
+      const now = estimateFor(d, p);
+      p.estimate = { ...now, lines: now.lines.map(l => [...l] as EstimateLine), approvedBy: approver, approvedAt: NOW, via };
+      p.handoff.estimate = { state: 'done', note: `อนุมัติ ${NOW} · ${via}` };
+      if (p.handoff.consent.state !== 'done') {
         p.handoff.consent = { state: 'active', note: 'รอเจ้าของลงนาม' };
+      }
+    });
+  }
+
+  /** The owner's signed consent to today's treatment; an owner whose general consent was waiting now has one */
+  signConsent(p: Patient, record: ConsentRecord) {
+    this.mutate(() => {
+      p.consentForm = record;
+      p.handoff.consent = { state: 'done', note: `ลงนามแล้ว ${record.at}` };
+      const o = this.owner(p);
+      if (consentState(o) !== 'valid') {
+        o.consent = `ครบถ้วน · ลงนาม ${TODAY}`;
       }
     });
   }
@@ -163,11 +194,71 @@ export class ClinicStore {
     });
   }
 
-  closeEncounter(p: Patient) {
-    this.mutate(() => {
+  /**
+   * Closes the encounter and sends the pet home: the record locks, the pet moves to discharge, and the day's bill goes
+   * to the owner (data/discharge.ts). Returns the invoice.
+   */
+  closeEncounter(p: Patient): Invoice {
+    let invoice!: Invoice;
+    this.mutate(d => {
       const n = this.noteFor(p);
       n.closedBy = this.userName();
       n.closedAt = NOW;
+      advanceStage(p, 'discharge', 'Discharge desk', this.userName());
+      invoice = d.invoices.find(i => i.id === p.invoiceId) ?? visitInvoice(d, p);
+      if (!p.invoiceId) {
+        d.invoices.push(invoice);
+        p.invoiceId = invoice.id;
+      }
+      p.handoff.discharge = { state: 'done', note: `จำหน่าย ${NOW}` };
+      p.handoff.billing = invoice.paid >= invoice.total ? { state: 'done', note: 'ชำระแล้ว' } : { state: 'active', note: `รอรับชำระ ${baht(invoice.total - invoice.paid)}` };
+    });
+    return invoice;
+  }
+
+  /** A follow-up visit booked from the encounter; it goes on the appointment board and in the owner's history */
+  bookFollowUp(p: Patient, date: string, slot: string, reason: string): Appointment {
+    let appointment!: Appointment;
+    this.mutate(d => {
+      appointment = followUpAppointment(d, p, date, slot, reason);
+      d.appointments.push(appointment);
+      this.owner(p).appts.unshift([date, `Recheck · ${reason}`, 'Confirmed']);
+      this.noteFor(p).followupAt = appointment.id;
+    });
+    return appointment;
+  }
+
+  /** A payment on an invoice; the visit's bill paid in full settles the pet's billing */
+  pay(invoice: Invoice, amount: number, method: string) {
+    this.mutate(d => {
+      invoice.paid = Math.min(invoice.total, invoice.paid + amount);
+      (invoice.payments ??= []).push([`${TODAY} ${NOW}`, amount, method, this.userName()]);
+      const p = d.patients.find(x => x.invoiceId === invoice.id);
+      if (p) {
+        p.handoff.billing = invoice.paid >= invoice.total
+          ? { state: 'done', note: `ชำระแล้ว ${NOW}` }
+          : { state: 'active', note: `รอรับชำระ ${baht(invoice.total - invoice.paid)}` };
+      }
+    });
+  }
+
+  /** A note after the signature: S/O/A/P stay as signed, and the addendum is kept below them with who and when */
+  addAddendum(p: Patient, text: string) {
+    this.mutate(() => {
+      const n = this.noteFor(p);
+      (n.addenda ??= []).push([`${TODAY} ${NOW}`, this.userName(), text]);
+    });
+  }
+
+  /** The vitals in the note as one timed set, for the trend */
+  logVitals(p: Patient) {
+    this.mutate(() => {
+      const n = this.noteFor(p);
+      (p.vitals ??= []).push({ at: `${TODAY} ${NOW}`, weight: n.weight, temp: n.temp, hr: n.hr, rr: n.rr, pain: n.pain, by: this.userName() });
+      if (reading(n.weight) !== null) {
+        p.weight = `${n.weight} kg`;
+        p.weightAt = `${TODAY} ${NOW}`;
+      }
     });
   }
 
@@ -324,28 +415,32 @@ export class ClinicStore {
 
   /* Prescriptions */
 
-  /** A new prescription from the encounter; it goes to the pharmacy to verify */
-  prescribe(p: Patient, drug: string, route: string, dose: string, freq: string, days: string, qty: string, advice: string): Prescription {
+  /** A new prescription from the encounter; it goes to the pharmacy to verify, with what the safety check found */
+  prescribe(p: Patient, input: PrescriptionInput): Prescription {
     let rx!: Prescription;
+    const { drug, dose, freq, days } = input;
     this.mutate(d => {
       rx = {
         id: nextSeq(d.prescriptions.map(x => x.id), 'X'), col: 'Verify', state: 'Verify', code: nextSeq(d.prescriptions.map(x => x.code), 'RX-260924-'),
-        pet: p.pet, owner: this.owner(p).name, by: this.userName(), drug, dose, route, freq, days, qty, advice,
-        stock: [], history: [[`${TODAY} ${NOW}`, `สั่งยา · ${this.userName()}`]],
+        pet: p.pet, owner: this.owner(p).name, by: this.userName(), drug, dose, route: input.route, freq, days, qty: input.qty, advice: input.advice,
+        stock: stockFor(d, drug), history: [[`${TODAY} ${NOW}`, `สั่งยา · ${this.userName()}`]],
+        mgPerKg: input.mgPerKg, cds: input.cds,
+        inpatient: input.inpatient || undefined, marTimes: input.inpatient ? marTimes(freq) : undefined,
       };
+      if (input.cds?.override) {
+        rx.history.unshift([`${TODAY} ${NOW}`, `override CDS · ${input.cds.override}${input.cds.approvedBy ? ` — อนุมัติโดย ${input.cds.approvedBy}` : ''}`]);
+      }
       d.prescriptions.push(rx);
       if (!p.meds.some(m => m[0] === drug)) {
         p.meds.push([drug, `${dose} · ${freq} · ${days} · เริ่มวันนี้`]);
       }
-      if (p.handoff.dispense.state === 'todo') {
-        p.handoff.dispense = { state: 'active', note: 'รอตรวจสอบใบสั่งยา' };
-      }
+      syncDispense(d, p, NOW);
     });
     return rx;
   }
 
   cosign(rx: Prescription) {
-    this.mutate(() => {
+    this.mutate(d => {
       rx.cosignedBy = this.userName();
       rx.cosignedAt = NOW;
       rx.verbal = false;
@@ -355,16 +450,112 @@ export class ClinicStore {
       if (p && !p.meds.some(m => m[0] === rx.drug)) {
         p.meds.push([rx.drug, `${rx.dose} · ${rx.freq} · ${rx.days}`]);
       }
+      if (p) {
+        syncDispense(d, p, NOW);
+      }
     });
   }
 
-  advanceRx(rx: Prescription) {
-    const step = RX_FLOW[rx.col];
-    if (step) {
-      this.mutate(() => {
-        rx.col = rx.state = step.next;
-        rx.history.unshift([`${TODAY} ${NOW}`, `${step.label} · ${this.userName()}`]);
-      });
-    }
+  /* Dispense: Verify > Prepare > Counsel > Ready (data/dispense.ts) */
+
+  /** The pharmacist has checked the prescription against the pet: it goes to be prepared */
+  verifyRx(rx: Prescription) {
+    this.mutate(() => {
+      rx.col = rx.state = 'Prepare';
+      rx.verifiedBy = this.userName();
+      rx.verifiedAt = NOW;
+      rx.history.unshift([`${TODAY} ${NOW}`, `ตรวจสอบใบสั่งยาแล้ว · ${this.userName()}`]);
+    });
+  }
+
+  /** Prepared from a batch (first to expire unless another is named), which gives up the quantity; a controlled drug names its witness */
+  prepareRx(rx: Prescription, batchNo: string, witness?: string) {
+    this.mutate(() => {
+      const batch = rx.stock.find(b => b[0] === batchNo) ?? fefo(rx);
+      if (batch) {
+        takeFrom(batch, rx.qty);
+      }
+      rx.col = rx.state = rx.inpatient ? 'Dispensed' : 'Counsel';
+      rx.batch = batch?.[0] ?? (batchNo.trim() || undefined);
+      rx.preparedBy = this.userName();
+      rx.preparedAt = NOW;
+      rx.witness = witness || undefined;
+      rx.history.unshift([`${TODAY} ${NOW}`, `จัดยา · batch ${rx.batch ?? '—'} · ${this.userName()}${witness ? ` — พยาน ${witness}` : ''}`]);
+      if (rx.inpatient) {
+        const p = this.patientByPet(rx.pet);
+        rx.dispensedTo = p?.admission ? p.stages[3].loc ?? 'Ward' : 'Ward';
+        rx.dispensedBy = this.userName();
+        rx.dispensedAt = NOW;
+        rx.history.unshift([`${TODAY} ${NOW}`, `ส่งยาไปวอร์ด ${rx.dispensedTo} · ${this.userName()}`]);
+      }
+    });
+  }
+
+  /** Counselled and handed over: the pet's hand-off shows dispensing done once nothing else is waiting */
+  handOverRx(rx: Prescription, receiver: string) {
+    this.mutate(d => {
+      rx.col = rx.state = 'Dispensed';
+      rx.dispensedTo = receiver;
+      rx.dispensedBy = this.userName();
+      rx.dispensedAt = NOW;
+      rx.history.unshift([`${TODAY} ${NOW}`, `ให้คำแนะนำและส่งมอบให้ ${receiver} · ${this.userName()}`]);
+      const p = d.patients.find(x => x.pet === rx.pet && d.owners[x.ownerKey]?.name === rx.owner);
+      if (p) {
+        syncDispense(d, p, NOW);
+      }
+    });
+  }
+
+  labelPrinted(rx: Prescription) {
+    this.mutate(() => {
+      rx.labelPrintedAt = NOW;
+      rx.history.unshift([`${TODAY} ${NOW}`, `พิมพ์ฉลากยาแล้ว · ${this.userName()}`]);
+    });
+  }
+
+  /* The ward (data/ward.ts) */
+
+  admit(p: Patient, bed: string, vet: string, reason: string, obsEvery: number) {
+    this.mutate(() => admit(p, bed, vet, reason, obsEvery, this.userName()));
+  }
+
+  /** What became of a dose at its time on the treatment sheet */
+  recordDose(rx: Prescription, slot: string, outcome: DoseOutcome, reason?: string, witness?: string) {
+    this.mutate(() => recordDose(rx, slot, outcome, this.userName(), reason, witness));
+  }
+
+  /** The vet ends an order on the sheet */
+  stopOrder(rx: Prescription, reason: string) {
+    this.mutate(() => stopOrder(rx, reason, this.userName()));
+  }
+
+  startInfusion(p: Patient, fluid: string, rate: number): Infusion {
+    let line!: Infusion;
+    this.mutate(() => { line = startInfusion(p.admission!, fluid, rate, this.userName()); });
+    return line;
+  }
+
+  infusionEvent(line: Infusion, kind: 'rate' | 'pause' | 'resume' | 'stop', rate?: number) {
+    this.mutate(() => infusionEvent(line, kind, this.userName(), rate));
+  }
+
+  takeObs(p: Patient, obs: Pick<VitalSigns, 'temp' | 'hr' | 'rr' | 'pain'>) {
+    this.mutate(() => takeObs(p, obs, this.userName()));
+  }
+
+  /** An order a vet gave by word of mouth, written down by the nurse: a draft for the vet to co-sign */
+  verbalOrder(p: Patient, input: VerbalOrderInput): Prescription {
+    let rx!: Prescription;
+    this.mutate(d => { rx = verbalOrder(d, p, input, this.userName(), stockFor(d, input.drug)); });
+    return rx;
+  }
+
+  /** The pet leaves its bed for the discharge desk */
+  leaveWard(p: Patient) {
+    this.mutate(d => leaveWard(d, p, this.userName()));
+  }
+
+  bedCleaned(bed: string) {
+    this.mutate(d => bedCleaned(d, bed));
   }
 }

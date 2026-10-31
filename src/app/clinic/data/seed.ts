@@ -1,4 +1,5 @@
 /* The morning of 24 September 2026 at a veterinary hospital: sample data from the design (seph1-vet-erp-rc, data/seed.ts) */
+import { consentItems, estimateFor, isDnr } from './estimate';
 import { defaultHandoff } from './model';
 import type { Appointment, ClinicData, Invoice, LabResult, Order, Owner, Patient, Prescription } from './types';
 
@@ -60,6 +61,13 @@ const OWNERS: Record<string, Owner> = {
     pets: ['Khao Niao · แมว · V123463', 'Nam Khing · แมว · V123470'], note: 'เคยร้องเรียนเรื่องเวลารอ — แจ้งเวลารอทุก 15 นาที', insurance: '—',
     appts: [['2026-09-01', 'URI treatment', 'Completed']],
   },
+  'Kanokwan R.': {
+    name: 'Kanokwan R.', phone: '084-556-2210', phone2: '02-234-9090', email: 'kanokwan.r@example.com', line: '@kanokwanr',
+    coOwner: '—', address: '120/4 ถ.ประดิษฐ์มนูธรรม แขวงลาดพร้าว กทม. 10230',
+    consent: 'ครบถ้วน · ลงนาม 2026-09-23', pdpa: 'ยินยอม · 2026-09-23', prefer: 'โทรศัพท์', badges: [],
+    pets: ['Mali · สุนัข · V123450'], note: 'ขอให้โทรแจ้งอาการทุกเช้า', insurance: 'Pet insurance · PI-44821',
+    appts: [['2026-09-23', 'Acute pancreatitis · admitted', 'Completed']],
+  },
 };
 
 type PatientSeed = Omit<Patient, 'handoff' | 'tasksDone'>;
@@ -97,9 +105,13 @@ const PATIENTS: PatientSeed[] = [
       { key: 'arrival', at: '09:14', by: 'พ.ส. กมล', loc: 'Reception' },
       { key: 'checkin', at: '09:22', by: 'พ.ส. กมล', loc: 'Check-in counter' },
       { key: 'room', at: '09:40', by: 'สพ.ญ. ลลิตา', loc: 'Exam Room 2' },
-      { key: 'treatment', at: '10:58', by: 'พ.ส. กมล', loc: 'Treatment room 1' },
+      { key: 'treatment', at: '10:58', by: 'พ.ส. กมล', loc: 'Cat ward · C-02' },
       { key: 'discharge', at: null },
     ],
+    admission: {
+      bed: 'C-02', at: '2026-09-24 10:58', by: 'พ.ส. กมล', vet: 'สพ.ญ. ลลิตา', reason: 'Vomiting · IV fluids and antiemetics', obsEvery: 4,
+      lines: [{ id: 'L1', fluid: 'LRS', route: 'IV', rate: 10, status: 'running', events: [['11:05', 'start', 10, 'พ.ส. กมล']] }],
+    },
     alerts: [{ type: 'drug', label: 'Drug caution · NSAIDs', detail: 'CKD stage 2 — ห้ามใช้ NSAIDs ทุกชนิด' }],
     allergyReview: { at: '2026-09-24 09:22', by: 'พ.ส. กมล' },
     tasks: ['เก็บปัสสาวะ', 'ให้สารน้ำ LRS'],
@@ -184,8 +196,12 @@ const PATIENTS: PatientSeed[] = [
       { key: 'arrival', at: '10:32', by: 'พ.ส. กมล', loc: 'Reception' },
       { key: 'checkin', at: '10:38', by: 'พ.ส. กมล', loc: 'Check-in counter' },
       { key: 'room', at: '10:49', by: 'สพ.ญ. ลลิตา', loc: 'Exam Room 4' },
-      { key: 'treatment', at: null }, { key: 'discharge', at: null },
+      { key: 'treatment', at: '11:10', by: 'พ.ส. กมล', loc: 'ICU · I-02' }, { key: 'discharge', at: null },
     ],
+    admission: {
+      bed: 'I-02', at: '2026-09-24 11:10', by: 'พ.ส. กมล', vet: 'สพ.ญ. ลลิตา', reason: 'Hypokalemia · CKD stage 3 · IV fluids with potassium', obsEvery: 2,
+      lines: [{ id: 'L1', fluid: 'LRS + KCl 20 mEq/L', route: 'IV', rate: 9, status: 'running', events: [['11:15', 'start', 9, 'พ.ส. กมล']] }],
+    },
     alerts: [
       { type: 'dnr', label: 'DNR / BLS only', detail: 'เจ้าของยืนยัน 2026-09-12 — ห้าม CPR ขั้นสูง' },
       { type: 'drug', label: 'Drug caution · Aminoglycoside', detail: 'CKD stage 3 — ปรับขนาดยาตาม GFR' },
@@ -238,6 +254,33 @@ const PATIENTS: PatientSeed[] = [
     vaccines: [['FVRCP', 'Dose 2 · Due today', 'warn'], ['Rabies', 'ยังไม่เคยฉีด', 'warn']],
     visits: [['2026-09-01', 'URI treatment · น.สพ. นรินทร์']],
     docs: [], note: 'เจ้าของรอนอกอาคาร',
+  },
+  {
+    id: 9, time: '16:10', pet: 'Mali', kind: 'dog', code: 'V123450', hn: 'HN-180533',
+    species: 'สุนัข', breed: 'Labrador Retriever', sex: 'เมีย (ทำหมัน)', age: '8 ปี 3 เดือน', weight: '24.5 kg', weightAt: '2026-09-24 06:00',
+    microchip: '900182000115599', blood: 'DEA 1.1 negative', ownerKey: 'Kanokwan R.',
+    reason: 'Acute pancreatitis · Day 2 in ward', chief: 'อาเจียนและปวดท้องรุนแรง รับไว้ในโรงพยาบาลเมื่อวาน', triage: 'Urgent', triageCls: 'warn',
+    vet: 'น.สพ. นรินทร์', nurse: 'พ.ส. ณิชา',
+    stages: [
+      { key: 'arrival', at: '16:10', by: 'พ.ส. ณิชา', loc: 'Reception' },
+      { key: 'checkin', at: '16:18', by: 'พ.ส. ณิชา', loc: 'Check-in counter' },
+      { key: 'room', at: '16:25', by: 'น.สพ. นรินทร์', loc: 'Exam Room 1' },
+      { key: 'treatment', at: '16:40', by: 'พ.ส. ณิชา', loc: 'Dog ward · D-03' },
+      { key: 'discharge', at: null },
+    ],
+    admission: {
+      bed: 'D-03', at: '2026-09-23 16:40', by: 'พ.ส. ณิชา', vet: 'น.สพ. นรินทร์', reason: 'Acute pancreatitis · IV fluids, analgesia, antiemetics', obsEvery: 4,
+      lines: [{ id: 'L1', fluid: 'LRS', route: 'IV', rate: 40, status: 'running', events: [['06:00', 'start', 51, 'พ.ส. ณิชา'], ['09:30', 'rate', 40, 'พ.ส. ณิชา']] }],
+    },
+    alerts: [],
+    allergyReview: { at: '2026-09-23 16:18', by: 'พ.ส. ณิชา' },
+    tasks: ['อัลตราซาวด์ช่องท้องซ้ำ 10:00', 'ลองให้อาหารไขมันต่ำปริมาณน้อย'],
+    problems: [['Acute pancreatitis', 'Active · ตั้งแต่ 2026-09-23', 'danger'], ['Obesity · BCS 7/9', 'Active · ตั้งแต่ 2025', 'warn']],
+    meds: [['Maropitant 16 mg', '3 เม็ด · วันละ 1 ครั้ง'], ['Buprenorphine 0.3 mg/mL (inj)', '1.2 mL · ทุก 8 ชม.'], ['Metronidazole 250 mg', '1 เม็ด · วันละ 2 ครั้ง'], ['Omeprazole 10 mg', '2 เม็ด · วันละ 1 ครั้ง']],
+    vaccines: [['DHPPiL', 'Current · ครบ 2026-04-10', 'ok'], ['Rabies', 'Current · ครบ 2026-04-10', 'ok']],
+    visits: [['2026-09-23', 'Acute pancreatitis · admitted · น.สพ. นรินทร์'], ['2026-04-10', 'Vaccination · สพ.ญ. พิชญา']],
+    docs: [['IPD consent 2026-09-23', 'PDF · 2 หน้า'], ['Abdominal ultrasound 2026-09-23', 'PDF · 1 หน้า']],
+    note: 'กินเก่ง — ห้ามเจ้าของให้ขนม',
   },
 ];
 
@@ -342,23 +385,65 @@ const PRESCRIPTIONS: Prescription[] = [
   { id: 'X2', col: 'Prepare', state: 'Prepare', code: 'RX-260924-17', pet: 'Pumpkin', owner: 'Thanawat P.', by: 'สพ.ญ. พิชญา',
     drug: 'Otic drops (ear)', dose: '5 หยด', route: 'หยอดหู', freq: 'วันละ 2 ครั้ง', days: '7 วัน', qty: '1 ขวด',
     advice: 'ทำความสะอาดหูก่อนหยอดทุกครั้ง', stock: [['E-2405-02', '09/2027', '14 ขวด', 'ตู้ C1']],
-    history: [['2026-08-30', 'Otic drops · 1 ขวด · สพ.ญ. พิชญา']] },
+    history: [['2026-08-30', 'Otic drops · 1 ขวด · สพ.ญ. พิชญา']], verifiedBy: 'ภก. ธนพร', verifiedAt: '11:12' },
   { id: 'X3', col: 'Counsel', state: 'Counsel', code: 'RX-260924-12', pet: 'Mochi', owner: 'Napat T.', by: 'สพ.ญ. ลลิตา',
     drug: 'Ondansetron 2 mg', dose: '1/2 เม็ด', route: 'รับประทาน', freq: 'วันละ 2 ครั้ง', days: '3 วัน', qty: '6 เม็ด',
-    advice: 'ให้ก่อนอาหาร 30 นาที · หากยังอาเจียนให้ติดต่อกลับ', stock: [['O-2501-07', '03/2028', '60 เม็ด', 'ตู้ B3']], history: [] },
-  { id: 'X4', col: 'Ready', state: 'Ready', code: 'RX-260924-10', pet: 'Luna', owner: 'Somsak W.', by: 'น.สพ. นรินทร์',
+    advice: 'ให้ก่อนอาหาร 30 นาที · หากยังอาเจียนให้ติดต่อกลับ', stock: [['O-2501-07', '03/2028', '54 เม็ด', 'ตู้ B3']], history: [],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '10:41', batch: 'O-2501-07', preparedBy: 'ภก. ธนพร', preparedAt: '10:52' },
+  { id: 'X4', col: 'Dispensed', state: 'Dispensed', code: 'RX-260924-10', pet: 'Luna', owner: 'Somsak W.', by: 'น.สพ. นรินทร์',
     drug: 'Bravecto 1000 mg', dose: '1 เม็ด', route: 'รับประทาน', freq: 'ทุก 12 สัปดาห์', days: '—', qty: '1 เม็ด',
     advice: 'ให้พร้อมอาหารเพื่อการดูดซึมที่ดี', stock: [['BR-2406-09', '05/2028', '22 เม็ด', 'ตู้ D1']],
-    history: [['2026-06-22', 'Bravecto 1000 mg · 1 เม็ด']] },
-  // A verbal order a nurse took by phone: a draft until the vet co-signs it, so it is not on the dispense board
-  { id: 'X5', col: 'Draft', state: 'Draft', verbal: true, orderedAt: '11:05', code: 'RX-260924-19', pet: 'Nala', owner: 'Waraporn D.', by: 'พ.ส. กมล',
+    history: [['2026-06-22', 'Bravecto 1000 mg · 1 เม็ด']],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '10:20', batch: 'BR-2406-09', preparedBy: 'ภก. ธนพร', preparedAt: '10:26',
+    dispensedTo: 'Somsak W.', dispensedBy: 'ภก. ธนพร', dispensedAt: '10:58', labelPrintedAt: '10:26' },
+  // A verbal order a nurse took by phone: a draft until the vet co-signs it, so it is not on the dispense board; for the ICU
+  { id: 'X5', col: 'Draft', state: 'Draft', verbal: true, orderedAt: '11:05', orderedBy: 'สพ.ญ. ลลิตา', code: 'RX-260924-19', pet: 'Nala', owner: 'Waraporn D.', by: 'พ.ส. กมล',
     drug: 'Potassium gluconate 2 mEq', dose: '2 mEq', route: 'รับประทาน', freq: 'วันละ 2 ครั้ง', days: '7 วัน', qty: '14 โดส',
-    advice: 'ผสมกับอาหาร · ตรวจค่า Potassium ซ้ำใน 3 วัน', stock: [['K-2503-01', '02/2028', '80 โดส', 'ตู้ B1']], history: [] },
+    advice: 'ผสมกับอาหาร · ตรวจค่า Potassium ซ้ำใน 3 วัน', stock: [['K-2503-01', '02/2028', '80 โดส', 'ตู้ B1']],
+    history: [['2026-09-24 11:05', 'คำสั่งวาจาจาก สพ.ญ. ลลิตา · รับไว้โดย พ.ส. กมล · ทวนคำสั่งแล้ว']], inpatient: true, marTimes: ['20:00'] },
+  // The ward's treatment sheets (data/ward.ts): the pharmacy sent these to the ward, and the nurses record each dose at its time
+  { id: 'X6', col: 'Dispensed', state: 'Dispensed', code: 'RX-260923-41', pet: 'Mali', owner: 'Kanokwan R.', by: 'น.สพ. นรินทร์',
+    drug: 'Maropitant 16 mg', dose: '3 เม็ด', route: 'รับประทาน', freq: 'วันละ 1 ครั้ง', days: '5 วัน', qty: '15 เม็ด', advice: '',
+    stock: [['M-2502-03', '01/2028', '36 เม็ด', 'ตู้ B3']], history: [['2026-09-23 17:10', 'สั่งยา · น.สพ. นรินทร์']],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '17:20', batch: 'M-2502-03', preparedBy: 'ภก. ธนพร', preparedAt: '17:30', dispensedTo: 'Dog ward', dispensedBy: 'ภก. ธนพร', dispensedAt: '17:40',
+    inpatient: true, marTimes: ['08:00'], doses: [{ slot: '08:00', outcome: 'given', at: '08:05', by: 'พ.ส. ณิชา' }] },
+  { id: 'X7', col: 'Dispensed', state: 'Dispensed', code: 'RX-260923-42', pet: 'Mali', owner: 'Kanokwan R.', by: 'น.สพ. นรินทร์',
+    drug: 'Buprenorphine 0.3 mg/mL (inj)', dose: '1.2 mL', route: 'ฉีดเข้ากล้าม', freq: 'ทุก 8 ชม.', days: '3 วัน', qty: '12 mL', advice: '',
+    stock: [['BU-2411-02', '11/2027', '6 mL', 'ตู้ล็อก C']], history: [['2026-09-23 17:10', 'สั่งยา · น.สพ. นรินทร์']],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '17:20', batch: 'BU-2411-02', preparedBy: 'ภก. ธนพร', preparedAt: '17:30', witness: 'พ.ส. ณิชา', dispensedTo: 'Dog ward', dispensedBy: 'ภก. ธนพร', dispensedAt: '17:40',
+    inpatient: true, marTimes: ['06:00', '14:00', '22:00'], doses: [{ slot: '06:00', outcome: 'given', at: '06:10', by: 'พ.ส. ณิชา', witness: 'พ.ส. กมล' }] },
+  { id: 'X8', col: 'Dispensed', state: 'Dispensed', code: 'RX-260923-43', pet: 'Mali', owner: 'Kanokwan R.', by: 'น.สพ. นรินทร์',
+    drug: 'Metronidazole 250 mg', dose: '1 เม็ด', route: 'รับประทาน', freq: 'วันละ 2 ครั้ง', days: '7 วัน', qty: '14 เม็ด', advice: '',
+    stock: [['MT-2501-05', '04/2028', '90 เม็ด', 'ตู้ A2']], history: [['2026-09-23 17:10', 'สั่งยา · น.สพ. นรินทร์']],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '17:20', batch: 'MT-2501-05', preparedBy: 'ภก. ธนพร', preparedAt: '17:30', dispensedTo: 'Dog ward', dispensedBy: 'ภก. ธนพร', dispensedAt: '17:40',
+    inpatient: true, marTimes: ['08:00', '20:00'], doses: [] },
+  { id: 'X9', col: 'Dispensed', state: 'Dispensed', code: 'RX-260923-44', pet: 'Mali', owner: 'Kanokwan R.', by: 'น.สพ. นรินทร์',
+    drug: 'Omeprazole 10 mg', dose: '2 เม็ด', route: 'รับประทาน', freq: 'วันละ 1 ครั้ง', days: '7 วัน', qty: '14 เม็ด', advice: '',
+    stock: [['OM-2504-02', '06/2028', '120 เม็ด', 'ตู้ B3']], history: [['2026-09-23 17:10', 'สั่งยา · น.สพ. นรินทร์']],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '17:20', batch: 'OM-2504-02', preparedBy: 'ภก. ธนพร', preparedAt: '17:30', dispensedTo: 'Dog ward', dispensedBy: 'ภก. ธนพร', dispensedAt: '17:40',
+    inpatient: true, marTimes: ['08:00'], doses: [{ slot: '08:00', outcome: 'held', at: '08:05', by: 'พ.ส. ณิชา', reason: 'NPO ก่อนทำหัตถการ' }] },
+  { id: 'X10', col: 'Dispensed', state: 'Dispensed', code: 'RX-260924-20', pet: 'Mochi', owner: 'Napat T.', by: 'สพ.ญ. ลลิตา',
+    drug: 'Maropitant 16 mg', dose: '1/4 เม็ด', route: 'รับประทาน', freq: 'วันละ 1 ครั้ง', days: '3 วัน', qty: '1 เม็ด', advice: '',
+    stock: [['M-2502-03', '01/2028', '36 เม็ด', 'ตู้ B3']], history: [['2026-09-24 10:50', 'สั่งยา · สพ.ญ. ลลิตา']],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '10:55', batch: 'M-2502-03', preparedBy: 'ภก. ธนพร', preparedAt: '10:58', dispensedTo: 'Cat ward', dispensedBy: 'ภก. ธนพร', dispensedAt: '11:00',
+    inpatient: true, marTimes: ['11:00'], doses: [{ slot: '11:00', outcome: 'given', at: '11:04', by: 'พ.ส. กมล' }] },
+  { id: 'X11', col: 'Dispensed', state: 'Dispensed', code: 'RX-260924-21', pet: 'Mochi', owner: 'Napat T.', by: 'สพ.ญ. ลลิตา',
+    drug: 'Omeprazole 10 mg', dose: '1/2 เม็ด', route: 'รับประทาน', freq: 'วันละ 1 ครั้ง', days: '5 วัน', qty: '3 เม็ด', advice: '',
+    stock: [['OM-2504-02', '06/2028', '120 เม็ด', 'ตู้ B3']], history: [['2026-09-24 10:50', 'สั่งยา · สพ.ญ. ลลิตา']],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '10:55', batch: 'OM-2504-02', preparedBy: 'ภก. ธนพร', preparedAt: '10:58', dispensedTo: 'Cat ward', dispensedBy: 'ภก. ธนพร', dispensedAt: '11:00',
+    inpatient: true, marTimes: ['11:00'], doses: [] },
+  { id: 'X12', col: 'Dispensed', state: 'Dispensed', code: 'RX-260924-22', pet: 'Nala', owner: 'Waraporn D.', by: 'สพ.ญ. ลลิตา',
+    drug: 'Mirtazapine 1.88 mg', dose: '1 เม็ด', route: 'รับประทาน', freq: 'วันเว้นวัน', days: '7 วัน', qty: '4 เม็ด', advice: '',
+    stock: [['MZ-2503-01', '03/2028', '40 เม็ด', 'ตู้ B2']], history: [['2026-09-24 11:12', 'สั่งยา · สพ.ญ. ลลิตา']],
+    verifiedBy: 'ภก. ธนพร', verifiedAt: '11:18', batch: 'MZ-2503-01', preparedBy: 'ภก. ธนพร', preparedAt: '11:22', dispensedTo: 'ICU', dispensedBy: 'ภก. ธนพร', dispensedAt: '11:25',
+    inpatient: true, marTimes: ['12:00'], doses: [] },
 ];
 
 /** A fresh copy of all the sample data, for the store to change */
+const pet = (data: ClinicData, name: string) => data.patients.find(p => p.pet === name)!;
+
 export function createSeed(): ClinicData {
-  return {
+  const data: ClinicData = {
     owners: structuredClone(OWNERS),
     patients: structuredClone(PATIENTS).map(p => ({ ...p, tasksDone: [], handoff: defaultHandoff(p) })),
     appointments: structuredClone(APPOINTMENTS),
@@ -368,4 +453,35 @@ export function createSeed(): ClinicData {
     encounters: {},
     invoices: structuredClone(INVOICES),
   };
+  // Vital signs of earlier visits, for the trend: Bolt's lameness rechecks and Nala's kidney visits
+  pet(data, 'Bolt').vitals = [
+    { at: '2026-06-12 10:05', weight: '9.4', temp: '38.4', hr: '104', rr: '24', pain: '0', by: 'พ.ส. ณิชา' },
+    { at: '2026-09-11 14:20', weight: '9.6', temp: '38.7', hr: '112', rr: '28', pain: '2', by: 'พ.ส. ณิชา' },
+  ];
+  pet(data, 'Mali').vitals = [
+    { at: '2026-09-23 16:30', weight: '24.8', temp: '39.6', hr: '132', rr: '36', pain: '6', by: 'พ.ส. ณิชา' },
+    { at: '2026-09-23 22:00', weight: '24.8', temp: '39.1', hr: '120', rr: '30', pain: '4', by: 'พ.ส. ณิชา' },
+    { at: '2026-09-24 02:00', weight: '24.8', temp: '38.9', hr: '112', rr: '28', pain: '3', by: 'พ.ส. ณิชา' },
+    { at: '2026-09-24 06:00', weight: '24.5', temp: '38.7', hr: '104', rr: '26', pain: '3', by: 'พ.ส. ณิชา' },
+  ];
+  pet(data, 'Nala').vitals = [
+    { at: '2026-05-20 09:40', weight: '4.6', temp: '38.3', hr: '176', rr: '26', pain: '0', by: 'พ.ส. กมล' },
+    { at: '2026-07-15 10:10', weight: '4.4', temp: '38.5', hr: '182', rr: '28', pain: '1', by: 'พ.ส. กมล' },
+    { at: '2026-09-12 11:30', weight: '4.2', temp: '38.2', hr: '188', rr: '30', pain: '1', by: 'พ.ส. กมล' },
+  ];
+  // Pets further along have their estimate approved and their consent signed at check-in, on paper
+  for (const p of data.patients) {
+    const owner = data.owners[p.ownerKey];
+    const at = p.stages.find(s => s.key === 'checkin')?.at ?? p.time;
+    if (p.handoff.estimate.state === 'done') {
+      p.estimate = { ...estimateFor(data, p), approvedBy: owner.name, approvedAt: at, via: 'ที่โรงพยาบาล' };
+    }
+    if (p.handoff.consent.state === 'done' && p.estimate) {
+      p.consentForm = {
+        at, signer: owner.name, relation: 'เจ้าของ', witness: p.nurse, cpr: !isDnr(p),
+        estimateNo: p.estimate.no, min: p.estimate.min, max: p.estimate.max, items: consentItems(p.estimate),
+      };
+    }
+  }
+  return data;
 }

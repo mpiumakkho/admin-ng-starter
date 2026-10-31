@@ -10,6 +10,7 @@ const TABS = [
   { link: 'Orders', heading: 'Orders' },
   { link: 'Results', heading: 'Results Inbox' },
   { link: 'Dispense', heading: 'Dispense' },
+  { link: 'Ward', heading: 'Ward' },
 ];
 
 async function openClinic(page: Page) {
@@ -21,6 +22,8 @@ async function openClinic(page: Page) {
 }
 
 test('the clinical workspace opens from the account menu, fills the page, and every tab works', async ({ page }) => {
+  // Eight tabs, each checked with axe: more than the usual half minute when the suite runs in parallel
+  test.slow();
   await openClinic(page);
   // Its own shell bar and tabs instead of the admin navbar and sidebar
   await expect(page.locator('app-navbar')).toHaveCount(0);
@@ -52,7 +55,7 @@ test('the queue: a row opens the quick view, the context rail opens the patient,
   await page.locator('.steps button', { hasText: 'Arrival' }).click();
   await expect(page.locator('.queue-table tbody tr')).toHaveCount(1);
   await page.locator('.steps button', { hasText: 'Arrival' }).click();
-  await expect(page.locator('.queue-table tbody tr')).toHaveCount(8);
+  await expect(page.locator('.queue-table tbody tr')).toHaveCount(9);
 
   await page.locator('.rail-btn').first().click();
   await expect(page.locator('.sheet.open .sheet-tabs button[aria-pressed="true"]')).toHaveText('Clinical alerts');
@@ -99,18 +102,34 @@ test('the encounter: steps, a signature that locks S/O/A/P, and no drug the pet 
   await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Encounter/ }).click();
   await expect(page.locator('.patient-banner')).toContainText('Bolt');
 
-  // Prescribing: Bolt is allergic to amoxicillin (penicillins), so it cannot be ordered
+  // Prescribing beside the safety check: Bolt is allergic to amoxicillin (penicillins), so it needs a senior vet's
+  // override; carprofen's dose is worked out from his 9.8 kg; tramadol passes
   await page.locator('.step-btn', { hasText: 'Medication' }).click();
   await page.getByRole('button', { name: 'New prescription' }).click();
-  const dialog = page.locator('dialog[open]');
-  await dialog.locator('select').first().selectOption('Amoxicillin 250 mg');
-  await expect(dialog.getByRole('alert')).toContainText('Runs into a clinical alert');
-  await dialog.locator('select').first().selectOption('Tramadol 50 mg');
-  await dialog.getByLabel('Dose').fill('1 tablet');
-  await dialog.getByLabel('Dispense quantity').fill('10 tablets');
-  await dialog.getByRole('button', { name: 'Prescribe' }).click();
+  const sheet = page.locator('.sheet.open');
+  const prescribe = sheet.locator('.sheet-foot button').last();
+  await sheet.locator('#rx-drug').selectOption('Amoxicillin 250 mg');
+  await expect(sheet).toContainText('Runs into a clinical alert');
+  await expect(prescribe).toHaveText('Override and prescribe');
+  await expect(prescribe).toBeDisabled();
+  await sheet.locator('#rx-reason').fill('No other option, the owner was told');
+  await expect(prescribe).toBeDisabled();
+  await sheet.locator('#rx-senior').selectOption({ index: 1 });
+  await sheet.getByRole('checkbox').check();
+  await expect(prescribe).toBeEnabled();
+
+  await sheet.locator('#rx-drug').selectOption('Tramadol 50 mg');
+  await expect(sheet.locator('#rx-dose')).toHaveValue('0.75');
+  await expect(sheet.locator('#rx-qty')).toHaveValue('8 tablets');
+  await expect(sheet).toContainText('Passed the CDS check');
+  await sheet.locator('#rx-dose').fill('3');
+  await expect(sheet).toContainText('More than twice the reference range');
+  await sheet.locator('#rx-dose').fill('0.75');
+  await expect(sheet).toContainText('In range');
+  await prescribe.click();
   await expect(page.locator('ui-toaster')).toContainText('Tramadol 50 mg prescribed for Bolt');
   await expect(page.locator('.form-panel')).toContainText('Tramadol 50 mg');
+  const dialog = page.locator('dialog[open]');
 
   // Signing locks S/O/A/P
   await page.locator('.step-btn', { hasText: 'SOAP' }).click();
@@ -155,6 +174,238 @@ test('orders: a verbal order is co-signed, and a new order goes on the board', a
   await expect(page.locator('.column', { hasText: 'Accepted' })).toContainText('Urinalysis');
 });
 
+test('dispense: a prescription is verified, prepared from the batch that expires first, and handed over', async ({ page }) => {
+  await openClinic(page);
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Dispense/ }).click();
+  await page.locator('.column', { hasText: 'Verify' }).locator('.task', { hasText: 'Bolt' }).click();
+  const foot = page.locator('.sheet.open .sheet-foot');
+  const dialog = page.locator('dialog[open]');
+
+  // Verify: every right ticked before it goes on
+  await foot.getByRole('button', { name: 'Verify prescription' }).click();
+  const verified = dialog.getByRole('button', { name: 'Verified · send to prepare' });
+  await expect(verified).toBeDisabled();
+  for (const box of await dialog.getByRole('checkbox').all()) {
+    await box.check();
+  }
+  await verified.click();
+  await expect(page.locator('.column', { hasText: 'Prepare' })).toContainText('Bolt');
+
+  // Prepare: the batch that expires first (11/2026) is picked, and its stock goes down by the 10 tablets
+  await foot.getByRole('button', { name: 'Prepare' }).click();
+  await expect(dialog.locator('select')).toHaveValue('B-2312-04');
+  await dialog.getByRole('checkbox', { name: 'Print the label now' }).uncheck();
+  await dialog.getByRole('button', { name: 'Prepared' }).click();
+  await expect(page.locator('.sheet.open')).toContainText('Dispensed from this batch');
+  await expect(page.locator('.sheet.open tr', { hasText: 'B-2312-04' })).toContainText('30 tablets');
+
+  // Counsel and hand over: told and said back, then it leaves the board and Bolt's dispensing is done
+  await foot.getByRole('button', { name: 'Counsel and hand over' }).click();
+  await expect(dialog.getByLabel('Received by')).toHaveValue('Patcharee L.');
+  await dialog.getByRole('checkbox').first().check();
+  await dialog.getByRole('checkbox').last().check();
+  await dialog.getByRole('button', { name: 'Hand over' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('handed over to Patcharee L.');
+  await expect(page.locator('.column', { hasText: 'Dispensed' })).toContainText('Bolt');
+});
+
+test('estimate and consent: signed on the screen before a witness, and approved again once the visit grows', async ({ page }) => {
+  await openClinic(page);
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Encounter/ }).click();
+  await page.locator('.step-btn', { hasText: 'Orders' }).click();
+  await page.getByRole('button', { name: 'Consent', exact: true }).click();
+
+  // Bolt's estimate was approved at check-in; the consent waits for the owner's signature and a witness
+  const sheet = page.locator('.sheet.open');
+  const save = sheet.getByRole('button', { name: 'Record the signature' });
+  await sheet.getByRole('checkbox').nth(0).check();
+  await sheet.getByRole('checkbox').nth(1).check();
+  await sheet.locator('#consent-witness').selectOption({ index: 1 });
+  await expect(save).toBeDisabled();
+  const box = (await sheet.locator('canvas').boundingBox())!;
+  await page.mouse.move(box.x + 30, box.y + 70);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 140, box.y + 100, { steps: 8 });
+  await page.mouse.move(box.x + 240, box.y + 50, { steps: 8 });
+  await page.mouse.up();
+  await save.click();
+  await expect(sheet).toContainText('Signed 11:32 · Patcharee L. (Owner)');
+  await expect(sheet.locator('img.sig-image')).toBeVisible();
+  await expect(page.locator('.handoff')).toContainText('Signed 11:32');
+
+  // A new drug takes the visit past what was approved: the owner approves again
+  await page.keyboard.press('Escape');
+  await page.locator('.step-btn', { hasText: 'Medication' }).click();
+  await page.getByRole('button', { name: 'New prescription' }).click();
+  await sheet.locator('#rx-drug').selectOption('Omeprazole 10 mg');
+  await sheet.locator('.sheet-foot button').last().click();
+  await page.locator('.step-btn', { hasText: 'Orders' }).click();
+  await page.getByRole('button', { name: 'Estimate', exact: true }).click();
+  await expect(sheet).toContainText('The cost is past what the owner approved');
+  await expect(sheet).toContainText('Omeprazole 10 mg');
+  await sheet.getByRole('button', { name: 'Approve again' }).click();
+  const dialog = page.locator('dialog[open]');
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Record the approval' }).click();
+  await expect(sheet.getByRole('button', { name: 'View consent' })).toBeVisible();
+  await expect(sheet).not.toContainText('The cost is past what the owner approved');
+});
+
+test('discharge: held until the follow-up is booked, then the pet goes home with a bill the owner pays', async ({ page }) => {
+  await openClinic(page);
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Encounter/ }).click();
+  const dialog = page.locator('dialog[open]');
+  await page.getByRole('button', { name: 'Sign SOAP' }).click();
+  await dialog.getByRole('button', { name: 'Sign' }).click();
+  await page.locator('.step-btn', { hasText: 'Discharge' }).click();
+  await expect(page.locator('.discharge-checks li.req')).toContainText('Follow-up booked');
+
+  // The plan says a week: booked for 1 October with Bolt's vet
+  await page.getByRole('button', { name: 'Book', exact: true }).click();
+  await expect(dialog.getByLabel('Date (YYYY-MM-DD)')).toHaveValue('2026-10-01');
+  await dialog.getByRole('button', { name: 'Book', exact: true }).click();
+  await expect(page.locator('.row-card.followup')).toContainText('Booked');
+  await expect(page.locator('.discharge-checks li.req')).toHaveCount(0);
+
+  // Discharge: the record locks, Bolt moves to the discharge stage, and the day's bill is issued
+  await page.locator('.handoff').getByRole('button', { name: 'Discharge' }).click();
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Close the encounter and discharge' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Bolt discharged · invoice INV-2609-0159 ฿1,670');
+  await expect(page.locator('.readonly-banner')).toBeVisible();
+  await expect(page.locator('.handoff')).toContainText('Waiting for payment ฿1,670');
+
+  // The owner pays at the desk
+  await page.getByRole('button', { name: /^Billing/ }).first().click();
+  const invoice = page.locator('.sheet.open details', { hasText: 'INV-2609-0159' });
+  await invoice.locator('summary').click();
+  await invoice.getByRole('button', { name: 'Take payment' }).click();
+  await dialog.getByRole('checkbox', { name: 'Print receipt' }).uncheck();
+  await dialog.getByRole('button', { name: 'Take payment' }).click();
+  await expect(page.locator('.handoff')).toContainText('Paid 11:32');
+});
+
+test('the record kept up: steps by what is filled in, vitals over time, an addendum, a resolved problem and a vaccine given', async ({ page }) => {
+  await openClinic(page);
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Encounter/ }).click();
+  const dialog = page.locator('dialog[open]');
+
+  // The steps say what is filled in, not where they sit: Bolt's vitals are taken
+  await expect(page.locator('.step-btn', { hasText: 'Vitals' })).toContainText('Complete');
+
+  // Vitals: the two earlier visits and today's, and today's kept as a timed set
+  await page.locator('.step-btn', { hasText: 'Vitals' }).click();
+  await expect(page.locator('.vitals-table tbody tr')).toHaveCount(3);
+  await expect(page.locator('.vitals-table .spark').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Record this set of vitals' }).click();
+  await expect(page.locator('ui-toaster')).toContainText("Bolt's vitals recorded");
+
+  // After the signature, a change is an addendum below the note
+  await page.getByRole('button', { name: 'Sign SOAP' }).click();
+  await dialog.getByRole('button', { name: 'Sign' }).click();
+  await page.locator('.step-btn', { hasText: 'SOAP' }).click();
+  await page.getByRole('button', { name: 'Add addendum' }).click();
+  await dialog.getByLabel('Addendum').fill('X-ray shows no fracture; soft-tissue injury confirmed');
+  await dialog.getByRole('button', { name: 'Save addendum' }).click();
+  await expect(page.locator('.addendum')).toContainText('X-ray shows no fracture');
+
+  // A problem resolved stays on the list; a due vaccine is given with its lot
+  await page.getByRole('button', { name: /^Problem list/ }).click();
+  const sheet = page.locator('.sheet.open');
+  await sheet.locator('.row-card', { hasText: 'Right hind limb lameness' }).getByRole('button', { name: 'Edit' }).click();
+  await dialog.getByLabel('Status').selectOption('ok');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(sheet.locator('.row-card', { hasText: 'Right hind limb lameness' })).toContainText('Resolved');
+  await sheet.locator('.sheet-tabs').getByRole('button', { name: 'Vaccines / reminders' }).click();
+  await sheet.locator('.row-card', { hasText: 'Leptospirosis' }).getByRole('button', { name: 'Give today' }).click();
+  await dialog.getByLabel('Lot / Batch').fill('LP-2608-02');
+  await dialog.getByRole('button', { name: 'Record dose' }).click();
+  await expect(sheet.locator('.row-card', { hasText: 'Leptospirosis' })).toContainText('Current');
+  await expect(sheet).toContainText('Lot LP-2608-02');
+});
+
+test('the ward: a late dose recorded as refused, a due one given at the cage, a drip changed and stopped, a verbal order co-signed, and the pet leaves its bed', async ({ page }) => {
+  await openClinic(page);
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Ward/ }).click();
+  const dialog = page.locator('dialog[open]');
+  const sheet = page.locator('.treatment-sheet');
+
+  // The bed map: Mali's bed says a dose is late; her sheet opens from it
+  const mali = page.locator('.bed.taken', { hasText: 'Mali' });
+  await expect(mali).toContainText('1 late');
+  await mali.click();
+  await expect(sheet).toContainText('Treatment sheet · Mali');
+  await expect(sheet.locator('.mar-table tr', { hasText: 'Omeprazole' })).toContainText('Held');
+  await expectAccessible(page, 'ward');
+
+  // The late metronidazole: refused, with why; a dose not given needs a reason
+  await sheet.locator('.mar-table button.chip', { hasText: 'min late' }).click();
+  await dialog.getByLabel('Outcome').selectOption({ label: 'Refused / vomited' });
+  const save = dialog.getByRole('button', { name: 'Save' });
+  await expect(save).toBeDisabled();
+  await dialog.getByLabel('Why it was not given').selectOption({ label: 'Vomited after the dose' });
+  await save.click();
+  await expect(sheet.locator('.mar-table tr', { hasText: 'Metronidazole' })).toContainText('Refused');
+  await expect(sheet.locator('.dose-log')).toContainText('Vomited after the dose');
+  await expect(mali).not.toContainText('late');
+
+  // Mochi's omeprazole is due: the five rights, then given
+  await page.locator('.bed.taken', { hasText: 'Mochi' }).click();
+  await sheet.locator('.mar-table tr', { hasText: 'Omeprazole' }).getByRole('button', { name: 'Give' }).click();
+  await expect(save).toBeDisabled();
+  for (const box of await dialog.getByRole('checkbox').all()) {
+    await box.check();
+  }
+  await save.click();
+  await expect(sheet.locator('.mar-table tr', { hasText: 'Omeprazole' })).toContainText('11:32');
+
+  // The drip: a new rate, paused, then stopped for good
+  const line = sheet.locator('.lines-table tr', { hasText: 'LRS' });
+  await line.getByRole('button', { name: 'Rate' }).click();
+  await dialog.getByLabel('New rate (mL/hr)').fill('15');
+  await dialog.getByRole('button', { name: 'Rate' }).click();
+  await expect(line).toContainText('15');
+  await line.getByRole('button', { name: 'Pause' }).click();
+  await expect(line).toContainText('Paused');
+  await line.getByRole('button', { name: 'Resume' }).click();
+  await expect(line).toContainText('Running');
+
+  // A verbal order the nurse writes down: a draft the vet co-signs on the orders board, then on the sheet awaiting the pharmacy
+  await sheet.getByRole('button', { name: 'Take a verbal order' }).click();
+  await dialog.getByLabel('Drug').selectOption({ label: 'Ondansetron 2 mg' });
+  await dialog.getByLabel('Dose').fill('1/2 tablet');
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Record the verbal order' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Verbal order RX-260924-23 recorded');
+  await expect(sheet.locator('.mar-table')).not.toContainText('Ondansetron');
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Orders/ }).click();
+  const cosign = page.locator('.cosign-panel tr', { hasText: 'Mochi' });
+  await expect(cosign).toContainText('Given on the ward');
+  await cosign.getByRole('button', { name: 'Co-sign' }).click();
+  await dialog.getByRole('button', { name: 'Co-sign' }).click();
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Ward/ }).click();
+  await expect(sheet.locator('.mar-table tr', { hasText: 'Ondansetron' })).toContainText('Awaiting pharmacy check');
+
+  // Leaving the ward waits for the drip to be stopped; then the bed waits to be cleaned, and the pet is at the discharge desk
+  await sheet.getByRole('button', { name: 'Leave the ward' }).click();
+  await expect(dialog).toContainText('1 lines still running');
+  await expect(dialog.getByRole('button', { name: 'Leave the ward' })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await line.getByRole('button', { name: 'Stop', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Stop the line' }).click();
+  await expect(line).toContainText('Stopped');
+  await sheet.getByRole('button', { name: 'Leave the ward' }).click();
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Leave the ward' }).click();
+  await expect(page.locator('ui-toaster')).toContainText('Mochi has left C-02');
+  const bed = page.locator('.bed', { hasText: 'C-02' });
+  await expect(bed).toContainText('To be cleaned');
+  await bed.getByRole('button', { name: 'Cleaned' }).click();
+  await expect(bed).toContainText('Free');
+  await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Queue/ }).click();
+  await expect(page.locator('.queue-table tbody tr', { hasText: 'Mochi' })).toContainText('Discharge');
+});
+
 test('registration: a new pet and owner go to the queue, a pet on file loads read-only, and a duplicate is stopped', async ({ page }) => {
   await openClinic(page);
   await page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: /^Register/ }).click();
@@ -190,7 +441,7 @@ test('registration: a new pet and owner go to the queue, a pet on file loads rea
   await queue.click();
   await expect(page).toHaveURL('/clinic/queue');
   await expect(page.locator('ui-toaster')).toContainText("Taohu sent to today's queue");
-  await expect(page.locator('.queue-table tbody tr')).toHaveCount(9);
+  await expect(page.locator('.queue-table tbody tr')).toHaveCount(10);
   await expect(page.locator('.queue-table tbody tr', { hasText: 'Taohu' })).toContainText('Emergency room');
 
   // A pet on file loads read-only; one in today's queue already does not go again

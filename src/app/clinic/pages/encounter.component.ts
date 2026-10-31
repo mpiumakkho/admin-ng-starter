@@ -2,7 +2,9 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
-import { lucideArrowRight, lucideCheck, lucideChevronRight, lucideCopy, lucideFileText, lucideLock, lucidePenLine, lucidePlus, lucideSparkles } from '@ng-icons/lucide';
+import {
+  lucideArrowRight, lucideCheck, lucideChevronRight, lucideCopy, lucideFileText, lucideLock, lucidePenLine, lucidePlus, lucideSparkles, lucideTriangleAlert,
+} from '@ng-icons/lucide';
 
 import { UiButton, UiDialog, UiDialogFooter } from '../../user-management/ui';
 import { ClinicActions } from '../clinic-actions';
@@ -10,14 +12,17 @@ import { ClinicUi } from '../clinic-ui';
 import { ClinicStore } from '../clinic.store';
 import {
   ALERT_META, ENCOUNTER_ORDERS, ENCOUNTER_STEPS, HANDOFF, locOf, NoteTemplate, OPTIONS, SIGNED_STEPS, STAGES, stageIndex, stageMinutes,
-  suggestTemplate, TEMPLATE_FIELD_LABELS, TEMPLATES, TRIAGE,
+  formatDate, suggestTemplate, TEMPLATE_FIELD_LABELS, TEMPLATES, TRIAGE,
 } from '../data/model';
+import { DISCHARGE_CHANNELS, dischargeChecks, encounterNo, followUpDate, followUpOf, needsFollowUp } from '../data/discharge';
+import { outOfRange, reading, sparkline, STEP_FILL_TEXT, stepFill, VITAL_COLUMNS, vitalsSeries, weightChange } from '../data/record';
+import { inWard } from '../data/ward';
 import type { EncounterNote } from '../data/types';
 import { ClinicI18n, TxPipe } from '../i18n/clinic-i18n';
 import { ALERT_ICONS } from '../shared/icons';
 import { PatientBanner } from '../shared/parts';
 
-type TextField = Exclude<keyof EncounterNote, 'ros' | 'templates' | 'savedAt' | 'status' | 'signedBy' | 'signedAt' | 'closedBy' | 'closedAt'>;
+type TextField = Exclude<keyof EncounterNote, 'ros' | 'templates' | 'savedAt' | 'status' | 'signedBy' | 'signedAt' | 'closedBy' | 'closedAt' | 'followupAt' | 'channel' | 'addenda'>;
 
 /**
  * The encounter of the selected patient (L2): the patient banner, the note step by step on the left, and along the
@@ -39,7 +44,7 @@ export class EncounterComponent {
 
   protected readonly icons = {
     template: lucideFileText, ai: lucideSparkles, sign: lucidePenLine, lock: lucideLock, next: lucideArrowRight, check: lucideCheck,
-    chevron: lucideChevronRight, plus: lucidePlus, copy: lucideCopy,
+    chevron: lucideChevronRight, plus: lucidePlus, copy: lucideCopy, alert: lucideTriangleAlert,
   };
   protected readonly steps = ENCOUNTER_STEPS;
   protected readonly options = OPTIONS;
@@ -81,6 +86,54 @@ export class EncounterComponent {
   protected readonly olderMeds = computed(() => this.patient().meds.filter(m => !this.prescriptions().some(rx => rx.drug === m[0])));
   protected readonly drugAlerts = computed(() => this.patient().alerts.filter(a => a.type === 'allergy' || a.type === 'drug'));
 
+  /* How far each step is filled in, and the vitals over time (data/record.ts) */
+  protected readonly fillText = STEP_FILL_TEXT;
+  protected readonly fills = computed(() => ENCOUNTER_STEPS.map((_, i) => stepFill(this.store.data(), this.patient(), this.note(), i)), { equal: () => false });
+  protected readonly vitalColumns = VITAL_COLUMNS;
+  protected readonly outOfRange = outOfRange;
+  protected readonly vitals = computed(() => vitalsSeries(this.patient(), this.note()), { equal: () => false });
+  protected readonly sparks = computed(() => {
+    const series = this.vitals();
+    return Object.fromEntries(VITAL_COLUMNS.map(c => [c.key, sparkline(series.map(v => reading(v[c.key])))])) as Record<string, ReturnType<typeof sparkline>>;
+  });
+  /** A weight change of more than 10%, in percent */
+  protected readonly weightShift = computed(() => {
+    const change = weightChange(this.vitals());
+    return change !== null && Math.abs(change) > 0.1 ? `${change > 0 ? '+' : ''}${Math.round(change * 100)}` : null;
+  });
+
+  protected polyline(points: [number, number, number][]) {
+    return points.map(pt => `${pt[0]},${pt[1]}`).join(' ');
+  }
+
+  protected logVitals() {
+    this.store.logVitals(this.patient());
+    this.ui.toast('บันทึกชุดสัญญาณชีพของ {pet} แล้ว', { pet: this.patient().pet });
+  }
+
+  /* Discharge step (data/discharge.ts) */
+  protected readonly channels = DISCHARGE_CHANNELS;
+  protected readonly needsFollowUp = needsFollowUp;
+  protected readonly inWard = inWard;
+  protected readonly followUpDate = followUpDate;
+  protected readonly encounterNo = computed(() => encounterNo(this.patient()));
+  protected readonly followUp = computed(() => followUpOf(this.store.data(), this.note()), { equal: () => false });
+  protected readonly checks = computed(() => dischargeChecks(this.store.data(), this.patient(), this.note()), { equal: () => false });
+  /** How the papers go: what was picked, else the owner's channel when it is one, else on paper */
+  protected readonly channel = computed(() => {
+    const prefer = this.store.owner(this.patient()).prefer;
+    return this.note().channel ?? (DISCHARGE_CHANNELS.includes(prefer) ? prefer : 'พิมพ์อย่างเดียว');
+  });
+
+  protected setChannel(value: string) {
+    this.note().channel = value;
+    this.commit();
+  }
+
+  protected longDate(iso: string) {
+    return formatDate(iso, 'long', this.i18n.lang());
+  }
+
   /* Templates and the AI summary */
   protected readonly templatesOpen = signal(false);
   protected readonly templates = TEMPLATES;
@@ -117,7 +170,7 @@ export class EncounterComponent {
     this.ui.toast('บันทึก Encounter ของ {pet} แล้ว', { pet: this.patient().pet });
   }
 
-  /** Saves, then the next step; from the last one the visit goes on to the pharmacy */
+  /** Saves, then the next step; the last one discharges the pet instead (closeEncounter) */
   protected next() {
     if (this.canEdit()) {
       this.store.saveNote(this.patient());
@@ -125,9 +178,6 @@ export class EncounterComponent {
     if (!this.last()) {
       this.step.update(s => s + 1);
       this.ui.toast('บันทึกและไปขั้นตอนถัดไป');
-    } else {
-      this.router.navigate(['/clinic/dispense']);
-      this.ui.toast('ส่งต่อไปยัง Dispense แล้ว');
     }
   }
 
@@ -215,13 +265,19 @@ export class EncounterComponent {
     }
   }
 
+  /** The discharge summary to the owner, by the channel picked; the visit is discharged only when it is closed */
   protected share() {
     const p = this.patient();
     const n = this.note();
     const o = this.store.owner(p);
-    this.actions.sendMessage(p, 'เอกสารจำหน่าย', `เรียนคุณ ${o.name}\n${p.pet}: ${n.summary || n.dx || '—'}\n${n.home}\n${n.followup}`, () => this.store.mutate(() => {
-      p.handoff.discharge = { state: 'done', note: 'ส่งเอกสารจำหน่ายแล้ว' };
-    }));
+    const fu = this.followUp();
+    const next = fu ? this.i18n.t('นัดติดตาม {0} · {1}', { 0: this.longDate(fu.date), 1: fu.slot }) : this.i18n.t(n.followup);
+    const warning = n.warning ? `${this.i18n.t('กลับมาพบสัตวแพทย์ทันทีหาก')} ${n.warning}\n` : '';
+    this.actions.sendMessage(p, 'เอกสารจำหน่าย', `เรียนคุณ ${o.name}\n${p.pet}: ${n.summary || n.dx || '—'}\n${n.home}\n${warning}${next}`);
+  }
+
+  protected openWard() {
+    this.router.navigate(['/clinic/ward']);
   }
 
   protected openDispense() {

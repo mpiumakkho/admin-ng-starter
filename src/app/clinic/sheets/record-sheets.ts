@@ -7,6 +7,7 @@ import { UiButton, UiSegmented } from '../../user-management/ui';
 import { ClinicActions } from '../clinic-actions';
 import { ClinicUi } from '../clinic-ui';
 import { ClinicStore } from '../clinic.store';
+import { isControlled, isExpired } from '../data/dispense';
 import { ACK_METHODS, ALERT_META, isOpenOrder, ORDER_CATALOG, ORDER_FLOW, timeOf } from '../data/model';
 import type { Badge, LabResult } from '../data/types';
 import { ClinicI18n, TxPipe } from '../i18n/clinic-i18n';
@@ -235,7 +236,7 @@ export class AppointmentSheet {
   }, { equal: () => false });
 }
 
-/* ---- One prescription; a vet reads it and co-signs a verbal order, the pharmacy dispenses it ---- */
+/* ---- One prescription; a vet co-signs a verbal order, the pharmacy verifies, prepares and hands it over ---- */
 @Component({
   selector: 'cl-prescription-sheet',
   imports: [...SHARED, NgIcon],
@@ -243,9 +244,15 @@ export class AppointmentSheet {
     @if (prescription(); as rx) {
       @let draft = rx.verbal && !rx.cosignedBy;
       <cl-sheet-head [heading]="('ใบสั่งยา' | tx) + ' · ' + rx.code"
-        [status]="draft ? { text: 'Verbal · รอเซ็นกำกับ', cls: 'waiting' } : { text: rx.state, cls: rx.state === 'Ready' ? 'checked' : rx.state === 'Verify' ? 'waiting' : 'room' }"
+        [status]="draft ? { text: 'Verbal · รอเซ็นกำกับ', cls: 'waiting' } : { text: rx.state, cls: rx.state === 'Dispensed' ? 'checked' : rx.state === 'Verify' ? 'waiting' : 'room' }"
         [sub]="rx.pet + ' · ' + rx.owner + ' · ' + ((draft ? 'รับไว้โดย' : 'สั่งโดย') | tx) + ' ' + (rx.by | tx)" />
       <div class="sheet-body">
+        @if (controlled(rx.drug)) {
+          <div class="safety warn">
+            <b><ng-icon [svg]="icons.alert" aria-hidden="true" />{{ 'ยาควบคุม' | tx }}</b>
+            <div class="secondary">{{ 'จัดยาต้องมีพยานอีกหนึ่งคน และบันทึก batch ลงทะเบียนยาควบคุม' | tx }}</div>
+          </div>
+        }
         @if (draft) {
           <div class="safety warn">
             <b><ng-icon [svg]="icons.alert" aria-hidden="true" />{{ 'คำสั่งวาจา — ยังไม่มีผล' | tx }}</b>
@@ -261,17 +268,50 @@ export class AppointmentSheet {
             <dt>{{ 'ความถี่' | tx }}</dt><dd>{{ rx.freq | tx }}</dd>
             <dt>{{ 'ระยะเวลา' | tx }}</dt><dd>{{ rx.days | tx }}</dd>
             <dt>{{ 'จำนวนจ่าย' | tx }}</dt><dd>{{ rx.qty | tx }}</dd>
-            <dt>{{ 'คำแนะนำสำหรับเจ้าของ' | tx }}</dt><dd>{{ rx.advice | tx }}</dd>
+            <dt>{{ 'คำแนะนำสำหรับเจ้าของ' | tx }}</dt><dd>{{ (rx.advice || '—') | tx }}</dd>
+            @if (rx.mgPerKg) {
+              <dt>{{ 'ขนาดต่อน้ำหนัก' | tx }}</dt><dd>{{ rx.mgPerKg }} mg/kg</dd>
+            }
+            @if (rx.inpatient) {
+              <dt>{{ 'ตารางให้ยาของวอร์ด' | tx }}</dt>
+              <dd>{{ rx.stoppedAt ? (('หยุดแล้ว' | tx) + ' ' + rx.stoppedAt + ' · ' + ((rx.stoppedBy ?? '') | tx)) : (rx.marTimes ?? []).join(', ') }}</dd>
+            }
           </dl>
-          <p class="secondary">{{ 'ห้องยาเป็นผู้ตรวจสอบและจ่ายยา · สัตวแพทย์ดูได้อย่างเดียว' | tx }}</p>
         </div>
+        @if (rx.cds; as cds) {
+          <div class="section">
+            <div class="section-title"><h3>{{ 'ผลตรวจ CDS ตอนสั่งยา' | tx }}</h3></div>
+            @for (finding of cds.findings; track $index) {
+              <div class="safety" [class.warn]="!cds.override"><div class="secondary">{{ finding | tx }}</div></div>
+            }
+            @if (cds.override) {
+              <p class="sheet-text"><b>{{ 'Override' | tx }}:</b> {{ cds.override }}@if (cds.approvedBy) { · {{ 'อนุมัติโดย' | tx }} {{ cds.approvedBy | tx }}}</p>
+            }
+          </div>
+        }
+        @if (!draft) {
+          <div class="section">
+            <div class="section-title"><h3>{{ 'การจ่ายยา' | tx }}</h3></div>
+            <dl class="data-grid">
+              <dt>{{ 'ตรวจสอบใบสั่งยา' | tx }}</dt><dd>{{ rx.verifiedBy ? (rx.verifiedAt + ' · ' + (rx.verifiedBy | tx)) : ('ยังไม่ตรวจสอบ' | tx) }}</dd>
+              <dt>{{ 'จัดยา' | tx }}</dt>
+              <dd>{{ rx.preparedBy ? (rx.preparedAt + ' · ' + (rx.preparedBy | tx) + ' · batch ' + (rx.batch ?? '—')) : ('ยังไม่จัดยา' | tx) }}@if (rx.witness) {<div class="secondary">{{ 'พยาน' | tx }} {{ rx.witness | tx }}</div>}</dd>
+              <dt>{{ 'ส่งมอบ' | tx }}</dt><dd>{{ rx.dispensedTo ? (rx.dispensedAt + ' · ' + rx.dispensedTo + ' · ' + ((rx.dispensedBy ?? '') | tx)) : ('ยังไม่ส่งมอบ' | tx) }}</dd>
+              <dt>{{ 'ฉลากยา' | tx }}</dt><dd>{{ rx.labelPrintedAt ? (('พิมพ์แล้ว' | tx) + ' ' + rx.labelPrintedAt) : ('ยังไม่พิมพ์' | tx) }}</dd>
+            </dl>
+          </div>
+        }
         <div class="section">
           <div class="section-title"><h3>{{ 'สต็อกตาม batch' | tx }}</h3></div>
           <table class="mini-table">
             <thead><tr><th scope="col">Batch</th><th scope="col">{{ 'หมดอายุ' | tx }}</th><th scope="col">{{ 'คงเหลือ' | tx }}</th><th scope="col">{{ 'ตำแหน่ง' | tx }}</th></tr></thead>
             <tbody>
               @for (batch of rx.stock; track batch[0]) {
-                <tr><td>{{ batch[0] }}</td><td>{{ batch[1] }}</td><td>{{ batch[2] | tx }}</td><td>{{ batch[3] | tx }}</td></tr>
+                <tr>
+                  <td>{{ batch[0] }}@if (batch[0] === rx.batch) {<span class="chip ok">{{ 'จ่ายจาก batch นี้' | tx }}</span>}</td>
+                  <td [class.text-danger]="expired(batch)">{{ batch[1] }}@if (expired(batch)) {<span class="visually-hidden"> {{ 'หมดอายุแล้ว' | tx }}</span>}</td>
+                  <td>{{ batch[2] | tx }}</td><td>{{ batch[3] | tx }}</td>
+                </tr>
               }
             </tbody>
           </table>
@@ -292,6 +332,15 @@ export class AppointmentSheet {
         <span class="grow"></span>
         @if (draft) {
           <button uiButton size="sm" type="button" (click)="actions.cosign(rx)">{{ 'เซ็นกำกับ' | tx }}</button>
+        } @else {
+          @if (rx.col !== 'Verify') {
+            <button uiButton variant="secondary" size="sm" type="button" (click)="actions.printLabel(rx)">{{ 'พิมพ์ฉลากยา' | tx }}</button>
+          }
+          @switch (rx.col) {
+            @case ('Verify') { <button uiButton size="sm" type="button" (click)="actions.verifyRx(rx)">{{ 'ตรวจสอบใบสั่งยา' | tx }}</button> }
+            @case ('Prepare') { <button uiButton size="sm" type="button" (click)="actions.prepareRx(rx)">{{ (rx.inpatient ? 'จัดยาส่งวอร์ด' : 'จัดยา') | tx }}</button> }
+            @case ('Counsel') { <button uiButton size="sm" type="button" (click)="actions.handOverRx(rx)">{{ 'ให้คำแนะนำและส่งมอบ' | tx }}</button> }
+          }
         }
       </div>
     }
@@ -304,6 +353,8 @@ export class PrescriptionSheet {
   private readonly ui = inject(ClinicUi);
   protected readonly actions = inject(ClinicActions);
   protected readonly icons = { alert: lucideTriangleAlert };
+  protected readonly controlled = isControlled;
+  protected readonly expired = isExpired;
   protected readonly prescription = computed(() => this.store.data().prescriptions.find(rx => rx.id === this.id()), { equal: () => false });
 
   protected profile(pet: string) {
