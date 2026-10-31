@@ -147,6 +147,21 @@ export function printTreatmentSheet(p: Patient, owner: Owner, data: ClinicData, 
   printDocument(`MAR ${p.pet}`, body, { paper: 'a4', lang, css: '@page { size: A4 landscape; }' });
 }
 
+/** The invoice as the owner receives it, on A4: its lines, what it comes to, and what is paid and owed */
+export function printInvoice(i: Invoice, owner: Owner | undefined, t: Translate, lang: 'th' | 'en') {
+  const lines = i.lines ?? i.items.map(([name, amount]) => ({ source: '—', name, qty: 1, unitPrice: amount, discount: 0, taxRate: 0 }));
+  const rows = lines.map(l => `<tr><td>${esc(t(l.name))}<br><span class="muted">${esc(l.source)}</span></td><td class="num">${esc(l.qty)}</td><td class="num">${esc(baht(l.unitPrice))}</td><td class="num">${l.discount ? esc(baht(l.discount)) : '—'}</td><td class="num">${l.taxRate ? `${l.taxRate}%` : '—'}</td><td class="num">${esc(baht(Math.round((l.qty * l.unitPrice - l.discount) * (1 + l.taxRate / 100) * 100) / 100))}</td></tr>`).join('');
+  const body = `
+    <div class="head"><div><h1>${esc(t(HOSPITAL))}</h1><p class="muted">${esc(t(i.no ? 'ใบแจ้งหนี้' : 'ใบแจ้งหนี้ (ฉบับร่าง)'))}</p></div>
+      <div style="text-align: right"><b>${esc(i.no || i.id)}</b><p class="muted">${esc(i.issuedAt ?? formatDate(TODAY, 'long', lang))}</p>${i.dueAt ? `<p class="muted">${esc(t('ครบกำหนด'))} ${esc(i.dueAt)}</p>` : ''}</div></div>
+    <p>${esc(t('เจ้าของ'))}: ${esc(owner?.name ?? i.ownerKey)}${owner ? ` · ${esc(owner.phone)}` : ''} · ${esc(i.pet)} · ${esc(t(i.title))}</p>
+    <table><thead><tr><th>${esc(t('รายการ'))}</th><th class="num">${esc(t('จำนวน'))}</th><th class="num">${esc(t('ราคาต่อหน่วย'))}</th><th class="num">${esc(t('ส่วนลด'))}</th><th class="num">${esc(t('ภาษี'))}</th><th class="num">${esc(t('รวม'))}</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr><th colspan="5">${esc(t('ยอดรวม'))}</th><th class="num">${esc(baht(i.total))}</th></tr><tr><th colspan="5">${esc(t('ชำระแล้ว'))}</th><th class="num">${esc(baht(i.paid))}</th></tr><tr><th colspan="5">${esc(t('คงค้าง'))}</th><th class="num">${esc(baht(Math.max(0, i.total - i.paid)))}</th></tr></tfoot></table>
+    ${i.status === 'cancelled' ? `<p class="warn">${esc(t('ยกเลิก'))} · ${esc(i.cancelledAt ?? '')} · ${esc(t(i.cancelReason ?? ''))}</p>` : ''}
+    <div class="sign"><div>${esc(t('ผู้ออกเอกสาร'))}</div><div>${esc(t('ผู้รับเอกสาร'))}</div></div>`;
+  printDocument(`${t('ใบแจ้งหนี้')} ${i.no || i.id}`, body, { paper: 'a4', lang });
+}
+
 /** The receipt for what has been paid on an invoice, on A5 */
 export function printReceipt(i: Invoice, owner: Owner | undefined, t: Translate, lang: 'th' | 'en') {
   const rows = i.items.map(item => `<tr><td>${esc(t(item[0]))}</td><td class="num">${esc(baht(item[1]))}</td></tr>`).join('');

@@ -359,21 +359,46 @@ const RESULTS: LabResult[] = [
     ackMethod: 'in_person', ackBy: 'น.สพ. นรินทร์', ackAt: '15:20' },
 ];
 
-/* Bills given to owners before today, in baht: paid, part paid, or not paid yet */
+/* Bills given to owners before today, in baht: paid, part paid, or not paid yet; with what the back office keeps of them (status, due date, lines, payments) */
 const INVOICES: Invoice[] = [
-  { id: 'I1', no: 'INV-2609-0112', ownerKey: 'Patcharee L.', pet: 'Bolt', date: '2026-09-11', title: 'Lameness recheck',
+  { id: 'I1', no: 'INV-2609-0112', ownerKey: 'Patcharee L.', pet: 'Bolt', date: '2026-09-11', title: 'Lameness recheck', encounter: 'E-260911-02',
     items: [['Consultation — General', 450], ['Right hind limb X-ray (2 views)', 1200], ['Carprofen 25 mg × 14', 480], ['Joint supplement 30 caps', 320]],
-    total: 2450, paid: 1000 },
+    total: 2450, paid: 1000, status: 'partial', issuedAt: '2026-09-11 15:30', dueAt: '2026-09-26',
+    payments: [['2026-09-11 15:40', 1000, 'เงินสด', 'นัทธมน (แคชเชียร์)', '', 'completed']],
+    lines: [
+      { source: 'ADT · E-260911-02', name: 'Consultation — General', qty: 1, unitPrice: 450, discount: 0, taxRate: 0 },
+      { source: 'CPOE · ORD-260911-14', name: 'Right hind limb X-ray (2 views)', qty: 1, unitPrice: 1200, discount: 0, taxRate: 0 },
+      { source: 'MMU · RX-260911-07', name: 'Carprofen 25 mg', qty: 14, unitPrice: 34.29, discount: 0, taxRate: 0 },
+      { source: 'Retail · SKU-4410', name: 'Joint supplement 30 caps', qty: 1, unitPrice: 320, discount: 0, taxRate: 0 },
+    ] },
   { id: 'I2', no: 'INV-2607-0045', ownerKey: 'Patcharee L.', pet: 'Bolt', date: '2026-07-02', title: 'Vaccination',
-    items: [['Consultation — General', 450], ['DHPPiL booster', 700]], total: 1150, paid: 1150 },
+    items: [['Consultation — General', 450], ['DHPPiL booster', 700]], total: 1150, paid: 1150, status: 'paid', issuedAt: '2026-07-02 10:20', dueAt: '2026-07-17',
+    payments: [['2026-07-02 10:25', 1150, 'QR PromptPay', 'นัทธมน (แคชเชียร์)', 'PP-7702-11', 'completed']] },
   { id: 'I3', no: 'INV-2609-0031', ownerKey: 'Sirinya M.', pet: 'Khao Niao', date: '2026-09-01', title: 'URI treatment',
-    items: [['Consultation — General', 450], ['Doxycycline 50 mg × 10', 280], ['Nebulization', 250]], total: 980, paid: 0 },
-  { id: 'I4', no: 'INV-2609-0158', ownerKey: 'Waraporn D.', pet: 'Nala', date: '2026-09-12', title: 'CKD recheck',
-    items: [['Consultation — General', 450], ['Renal panel', 1250], ['Subcutaneous fluids', 650]], total: 2350, paid: 2350 },
+    items: [['Consultation — General', 450], ['Doxycycline 50 mg × 10', 280], ['Nebulization', 250]], total: 980, paid: 0, status: 'issued', issuedAt: '2026-09-01 16:05', dueAt: '2026-09-16',
+    payments: [],
+    refunds: [{ id: 'RF-2609-002', paymentIndex: -1, amount: 280, reason: 'ยา Doxycycline ไม่ได้จ่ายเพราะสต็อกหมด', by: 'นัทธมน (แคชเชียร์)', at: '2026-09-22 15:10', status: 'rejected', approvalId: 'AP6', decidedBy: 'วรรณา (ผู้จัดการการเงิน)', decidedAt: '2026-09-23 09:02' }] },
+  { id: 'I4', no: 'INV-2609-0158', ownerKey: 'Waraporn D.', pet: 'Nala', date: '2026-09-12', title: 'CKD recheck', encounter: 'E-260912-06',
+    items: [['Consultation — General', 450], ['Renal panel', 1250], ['Subcutaneous fluids', 650]], total: 2350, paid: 2350, status: 'paid', issuedAt: '2026-09-12 12:10', dueAt: '2026-09-27',
+    payments: [['2026-09-12 12:15', 2350, 'QR PromptPay', 'นัทธมน (แคชเชียร์)', 'PP-9912-04', 'completed']],
+    refunds: [{ id: 'RF-2609-003', paymentIndex: 0, amount: 650, reason: 'รายการ Subcutaneous fluids ถูกยกเลิกหลังออกใบแจ้งหนี้ เจ้าของชำระไปแล้ว', by: 'นัทธมน (แคชเชียร์)', at: '2026-09-24 09:48', status: 'requested', approvalId: 'AP1' }] },
   { id: 'I5', no: 'INV-2608-0007', ownerKey: 'Napat T.', pet: 'Mochi', date: '2026-08-02', title: 'Vomiting',
-    items: [['Consultation — General', 450], ['Renal panel', 1250], ['Maropitant injection', 180]], total: 1880, paid: 1880 },
+    items: [['Consultation — General', 450], ['Renal panel', 1250], ['Maropitant injection', 180]], total: 1880, paid: 1880, status: 'paid', issuedAt: '2026-08-02 11:00', dueAt: '2026-08-17',
+    payments: [['2026-08-02 11:05', 1880, 'บัตรเครดิต', 'นัทธมน (แคชเชียร์)', 'KB-4471', 'completed']] },
   { id: 'I6', no: 'INV-2606-0090', ownerKey: 'Somsak W.', pet: 'Luna', date: '2026-06-12', title: 'Wellness exam',
-    items: [['Consultation — General', 450], ['Wellness panel', 1200]], total: 1650, paid: 1650 },
+    items: [['Consultation — General', 450], ['Wellness panel', 1200]], total: 1650, paid: 1650, status: 'paid', issuedAt: '2026-06-12 10:40', dueAt: '2026-06-27',
+    payments: [['2026-06-12 10:45', 1650, 'เงินสด', 'นัทธมน (แคชเชียร์)', '', 'completed']] },
+  // A draft the desk is still writing, a bill cancelled as a duplicate, and one given back in full
+  { id: 'I7', no: '', ownerKey: 'Somsak W.', pet: 'Kiki', date: '2026-09-24', title: 'Retail · Renal diet 2 kg',
+    items: [['Renal diet dry food 2 kg', 890]], total: 890, paid: 0, status: 'draft', payments: [],
+    lines: [{ source: 'Retail · SKU-2201', name: 'Renal diet dry food 2 kg', qty: 1, unitPrice: 890, discount: 0, taxRate: 7 }] },
+  { id: 'I8', no: 'INV-2609-0140', ownerKey: 'Arisa K.', pet: 'Coco', date: '2026-09-23', title: 'Skin recheck',
+    items: [['Consultation — General', 450]], total: 450, paid: 0, status: 'cancelled', issuedAt: '2026-09-23 14:05', dueAt: '2026-10-08', payments: [],
+    cancelledAt: '2026-09-23 14:20', cancelReason: 'ออกซ้ำกับ INV-2609-0141 ที่รวมค่ายาแล้ว' },
+  { id: 'I9', no: 'INV-2609-0102', ownerKey: 'Napat T.', pet: 'Mochi', date: '2026-09-08', title: 'Grooming package',
+    items: [['Grooming · full package', 1200]], total: 1200, paid: 0, status: 'refunded', issuedAt: '2026-09-08 09:30', dueAt: '2026-09-23',
+    payments: [['2026-09-08 09:35', 1200, 'โอนเงิน', 'นัทธมน (แคชเชียร์)', 'TR-220908', 'reversed']],
+    refunds: [{ id: 'RF-2609-001', paymentIndex: 0, amount: 1200, reason: 'เจ้าของยกเลิกบริการก่อนเริ่ม ช่างอาบน้ำป่วย', by: 'วรรณา (ผู้จัดการการเงิน)', at: '2026-09-08 10:10', status: 'done', decidedBy: 'วรรณา (ผู้จัดการการเงิน)', decidedAt: '2026-09-08 10:10' }] },
 ];
 
 const PRESCRIPTIONS: Prescription[] = [

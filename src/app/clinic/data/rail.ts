@@ -25,9 +25,12 @@ export function resultsToReview(data: ClinicData, p: Patient): LabResult[] {
 
 export const balanceOf = (i: Invoice): number => Math.max(0, i.total - i.paid);
 
+/** A bill that can still be collected: issued, and not cancelled or given back */
+export const collectible = (i: Invoice): boolean => !i.status || i.status === 'issued' || i.status === 'partial';
+
 /** The owner's bills not fully paid, oldest first */
 export function openInvoices(data: ClinicData, ownerKey: string): Invoice[] {
-  return data.invoices.filter(i => i.ownerKey === ownerKey && balanceOf(i) > 0).sort((a, b) => a.date.localeCompare(b.date));
+  return data.invoices.filter(i => i.ownerKey === ownerKey && collectible(i) && balanceOf(i) > 0).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /** What the owner still owes, in baht */

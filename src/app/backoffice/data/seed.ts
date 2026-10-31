@@ -1,5 +1,5 @@
 /* The morning of 24 September 2026 in the hospital's back office: what waits for the people who run it */
-import type { ActivityEntry, Approval, BackofficeData, BoException, WorkItem } from './types';
+import type { AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, WorkItem } from './types';
 
 /* Work the modules without a page of their own yet hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
 const WORK_ITEMS: WorkItem[] = [
@@ -86,7 +86,34 @@ const ACTIVITY: ActivityEntry[] = [
   { id: 'A12', at: '2026-09-22 11:30', by: 'ปรีดา (DPO)', module: 'M31', action: 'ยืนยันตัวตนผู้ขอ', target: 'DSAR-2609-004', ref: 'Kanokwan R.', detail: 'บัตรประชาชนตรงกับทะเบียนเจ้าของ', before: 'รอยืนยันตัวตน', after: 'กำลังดำเนินการ' },
 ];
 
+/* What went to the accounting system (PEAK): every bill and receipt, and the batch of 23 September that it refused */
+const ok = (id: string, invoiceId: string, document: string, docType: AccountingExport['docType'], amount: number, at: string, ref: string): AccountingExport => ({
+  id, invoiceId, document, docType, amount, businessDate: at.slice(0, 10), adapter: 'PEAK', status: 'delivered', attempts: 1, firstAt: at, lastAt: at, deliveredAt: at,
+  externalRef: ref, retryable: true, idempotencyKey: `${invoiceId}:${docType}:1`,
+});
+const ACCOUNTING_EXPORTS: AccountingExport[] = [
+  ok('XP-0061', 'I6', 'INV-2606-0090', 'invoice', 1650, '2026-06-12 23:00', 'PEAK-INV-060090'),
+  ok('XP-0062', 'I6', 'INV-2606-0090', 'receipt', 1650, '2026-06-12 23:00', 'PEAK-RC-060090'),
+  ok('XP-0071', 'I2', 'INV-2607-0045', 'invoice', 1150, '2026-07-02 23:00', 'PEAK-INV-070045'),
+  ok('XP-0072', 'I2', 'INV-2607-0045', 'receipt', 1150, '2026-07-02 23:00', 'PEAK-RC-070045'),
+  ok('XP-0081', 'I5', 'INV-2608-0007', 'invoice', 1880, '2026-08-02 23:00', 'PEAK-INV-080007'),
+  ok('XP-0082', 'I5', 'INV-2608-0007', 'receipt', 1880, '2026-08-02 23:00', 'PEAK-RC-080007'),
+  ok('XP-0091', 'I3', 'INV-2609-0031', 'invoice', 980, '2026-09-01 23:00', 'PEAK-INV-090031'),
+  ok('XP-0092', 'I9', 'INV-2609-0102', 'invoice', 1200, '2026-09-08 23:00', 'PEAK-INV-090102'),
+  ok('XP-0093', 'I9', 'INV-2609-0102', 'receipt', 1200, '2026-09-08 23:00', 'PEAK-RC-090102'),
+  ok('XP-0094', 'I9', 'INV-2609-0102', 'credit-note', 1200, '2026-09-08 23:00', 'PEAK-CN-090102'),
+  ok('XP-0095', 'I1', 'INV-2609-0112', 'invoice', 2450, '2026-09-11 23:00', 'PEAK-INV-090112'),
+  ok('XP-0097', 'I4', 'INV-2609-0158', 'invoice', 2350, '2026-09-12 23:00', 'PEAK-INV-090158'),
+  ok('XP-0098', 'I4', 'INV-2609-0158', 'receipt', 2350, '2026-09-12 23:00', 'PEAK-RC-090158'),
+  { id: 'XP-0096', invoiceId: 'I1', document: 'INV-2609-0112', docType: 'receipt', amount: 1000, businessDate: '2026-09-23', adapter: 'PEAK', status: 'failed', attempts: 3,
+    firstAt: '2026-09-11 23:00', lastAt: '2026-09-24 06:00', retryable: true, idempotencyKey: 'I1:receipt:1', errorCode: 'AUTH_401', errorText: 'PEAK ตอบ 401 — token หมดอายุ' },
+  { id: 'XP-0101', invoiceId: 'I8', document: 'INV-2609-0140', docType: 'invoice', amount: 450, businessDate: '2026-09-23', adapter: 'PEAK', status: 'failed', attempts: 2,
+    firstAt: '2026-09-23 23:00', lastAt: '2026-09-24 06:00', retryable: true, idempotencyKey: 'I8:invoice:1', errorCode: 'AUTH_401', errorText: 'PEAK ตอบ 401 — token หมดอายุ' },
+  { id: 'XP-0102', invoiceId: 'I8', document: 'INV-2609-0140', docType: 'credit-note', amount: 450, businessDate: '2026-09-23', adapter: 'PEAK', status: 'failed', attempts: 2,
+    firstAt: '2026-09-23 23:00', lastAt: '2026-09-24 06:00', retryable: true, idempotencyKey: 'I8:credit-note:1', errorCode: 'AUTH_401', errorText: 'PEAK ตอบ 401 — token หมดอายุ' },
+];
+
 /** A fresh copy of the sample, for the store to change */
 export function createBackofficeSeed(): BackofficeData {
-  return structuredClone({ workItems: WORK_ITEMS, approvals: APPROVALS, exceptions: EXCEPTIONS, activity: ACTIVITY });
+  return structuredClone({ workItems: WORK_ITEMS, approvals: APPROVALS, exceptions: EXCEPTIONS, activity: ACTIVITY, accountingExports: ACCOUNTING_EXPORTS, reconciliations: [] });
 }

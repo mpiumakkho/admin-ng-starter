@@ -14,8 +14,8 @@ test('the back office opens from the account menu with the spec\'s menu, and eve
   await openBackoffice(page);
   await expect(page.locator('app-navbar')).toHaveCount(0);
   const menu = page.getByRole('navigation', { name: 'Main menu' });
-  // Only the groups with a page: the reserved groups never, the others once their pages land
-  await expect(menu.getByRole('button')).toHaveCount(1);
+  // Only the groups with a page (home and finance so far): the reserved groups never, the others once their pages land
+  await expect(menu.getByRole('button')).toHaveCount(2);
   for (const [link, heading] of [['Work Overview', 'Work Overview'], ['Pending Approvals', 'Pending Approvals'], ['Alerts & Exceptions', 'Alerts & Exceptions'], ['Recent Activity', 'Recent Activity']]) {
     await menu.getByRole('link', { name: new RegExp(`^${link}`) }).click();
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();

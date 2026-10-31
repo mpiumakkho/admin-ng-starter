@@ -186,13 +186,41 @@ export interface EncounterNote {
   closedBy?: string; closedAt?: string;
 }
 
+/** Where an invoice is in its life (M11): a draft has no number yet; issued, it is collected; cancelled or refunded, it is only read */
+export type InvoiceStatus = 'draft' | 'issued' | 'partial' | 'paid' | 'cancelled' | 'refunded';
+
+/** A line of an invoice as the back office shows it: where it came from, how many at what price, less what discount, plus tax */
+export interface InvoiceLine { source: string; name: string; qty: number; unitPrice: number; discount: number; taxRate: number }
+
+/** Money given back against one payment: asked for, and then done or refused */
+export interface Refund {
+  id: string; paymentIndex: number; amount: number; reason: string; by: string; at: string;
+  status: 'requested' | 'done' | 'rejected';
+  /** The approval it waited on, when it was above the threshold */
+  approvalId?: string;
+  decidedBy?: string; decidedAt?: string;
+}
+
+/** A discount on an invoice: why, by whom, and the approval it rested on */
+export interface DiscountRecord { id: string; amount: number; reason: string; by: string; at: string; status: 'requested' | 'applied' | 'rejected'; approvalId?: string }
+
 /** A bill given to an owner, in baht: what it was for, what it came to and how much is paid */
 export interface Invoice {
   id: string; no: string; ownerKey: string; pet: string; date: string; title: string;
   items: [name: string, amount: number][];
   total: number; paid: number;
-  /** Each payment taken: when, how much, how, and by whom */
-  payments?: [at: string, amount: number, method: string, by: string][];
+  /** Each payment taken: when, how much, how, and by whom; the back office adds the reference and, once refunded in full, 'reversed' */
+  payments?: [at: string, amount: number, method: string, by: string, reference?: string, status?: 'completed' | 'reversed'][];
+  /** The back office's view of the bill (data/finance.ts): the state it is in, when it is due, its lines, refunds and discounts */
+  status?: InvoiceStatus;
+  dueAt?: string;
+  issuedAt?: string;
+  cancelledAt?: string; cancelReason?: string;
+  lines?: InvoiceLine[];
+  refunds?: Refund[];
+  discounts?: DiscountRecord[];
+  /** The visit it bills, when it bills one */
+  encounter?: string;
 }
 
 export interface ClinicData {

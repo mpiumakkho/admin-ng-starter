@@ -92,9 +92,37 @@ export interface ActivityEntry {
   after?: string;
 }
 
+/** One delivery of a bill, receipt or credit note to the accounting system (M11 accounting_export_log; ux/pages/integrations/02) */
+export interface AccountingExport {
+  id: string;
+  invoiceId: string;
+  /** The document delivered, by its number */
+  document: string;
+  docType: 'invoice' | 'receipt' | 'credit-note';
+  amount: number;
+  businessDate: string;
+  adapter: 'PEAK';
+  status: 'queued' | 'delivered' | 'failed';
+  attempts: number;
+  firstAt: string;
+  lastAt: string;
+  deliveredAt?: string;
+  /** The accounting system's own reference once it has the document; never an e-Tax state */
+  externalRef?: string;
+  errorCode?: string;
+  errorText?: string;
+  retryable: boolean;
+  idempotencyKey: string;
+}
+
+/** The day's reconciliation as someone signed it off: what was found and what was done about it */
+export interface Reconciliation { date: string; by: string; at: string; variances: number; note: string }
+
 export interface BackofficeData {
   workItems: WorkItem[];
   approvals: Approval[];
   exceptions: BoException[];
   activity: ActivityEntry[];
+  accountingExports: AccountingExport[];
+  reconciliations: Reconciliation[];
 }

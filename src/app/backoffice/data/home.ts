@@ -6,7 +6,7 @@
  */
 import { expiryMonths, isExpired } from '../../clinic/data/dispense';
 import { TODAY } from '../../clinic/data/model';
-import { balanceOf } from '../../clinic/data/rail';
+import { balanceOf, collectible } from '../../clinic/data/rail';
 import type { ClinicData } from '../../clinic/data/types';
 import type { Approval, BackofficeData, BoException, Module, Priority, Severity, WorkItem } from './types';
 
@@ -54,7 +54,7 @@ const monthsLeft = (exp: string) => expiryMonths(exp) - expiryMonths(TODAY.slice
 
 /** Bills the hospital waits to be paid for (M11), from the clinic's records */
 export function billingWork(clinic: ClinicData): WorkItem[] {
-  return clinic.invoices.filter(i => balanceOf(i) > 0).map(i => {
+  return clinic.invoices.filter(i => i.status !== 'draft' && collectible(i) && balanceOf(i) > 0).map(i => {
     const days = ageDays(i.date);
     return {
       id: 'inv-' + i.id, module: 'M11', kind: 'ลูกหนี้', title: `เก็บเงินค้าง ${i.no} · ${i.ownerKey}`, detail: `${i.pet} · ${i.title} · ค้าง ฿${balanceOf(i).toLocaleString('en-US')} · ${days} วัน`,
