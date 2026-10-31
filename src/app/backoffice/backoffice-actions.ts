@@ -3,13 +3,14 @@ import { Router } from '@angular/router';
 
 import { balanceOf } from '../clinic/data/rail';
 import type { Invoice } from '../clinic/data/types';
-import { printInvoice, printReceipt } from '../clinic/shared/documents';
+import { printClaim, printInvoice, printReceipt } from '../clinic/shared/documents';
 import { BackofficeUi, type DialogField } from './backoffice-ui';
 import { BackofficeStore } from './backoffice.store';
 import { DISCOUNT_THRESHOLD, methodOf, PAYMENT_METHODS, refundable, REFUND_THRESHOLD, statusOf } from './data/finance';
 import { APPROVAL_KIND, canDecide } from './data/home';
 import { canResolve, INVESTIGATION, type LedgerDispenseInput, RECALL_NEXT, RECALL_SEVERITY, RECALL_STATUS, type ReceiptInput, type WasteInput, wasteReason } from './data/inventory';
-import type { AccountingExport, Approval, BoException, CountRecord, Recall, RecallStatus, StockReceipt } from './data/types';
+import { CLAIM_KIND, CLAIM_STATUS, type ClaimInput, linkOf, MESSAGE_KIND, type OutboxItem, policyOf, PURPOSE_LABEL } from './data/sales';
+import type { AccountingExport, Approval, BoException, Claim, CountRecord, Recall, RecallStatus, StockReceipt } from './data/types';
 import { BoI18n } from './i18n/bo-i18n';
 
 const baht = (n: number) => `฿${n.toLocaleString('en-US')}`;
@@ -356,6 +357,134 @@ export class BackofficeActions {
       onConfirm: () => {
         this.store.quarantine(lot, `${recall.id} · ${recall.reason}`);
         this.ui.toast('กัน lot {lot} แล้ว · ห้องยาจ่ายจาก lot นี้ไม่ได้', { lot });
+      },
+    });
+  }
+
+  /* Sales and customer service (data/sales.ts) */
+
+  /** One LINE message, previewed with the consent it rests on */
+  sendMessage(item: OutboxItem) {
+    const link = linkOf(this.store.data(), item.ownerKey);
+    if (item.block || !link) {
+      this.ui.toast(item.block ?? 'ไม่ได้เชื่อม LINE กับโรงพยาบาล', undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: `ส่งข้อความ LINE · ${MESSAGE_KIND[item.kind].label}`,
+      facts: [['ถึง', `${item.ownerKey} · LINE ${link.displayName}`], ['สัตว์', item.pet], ['ข้อความ', item.text], ['ความยินยอม', `${PURPOSE_LABEL[MESSAGE_KIND[item.kind].purpose]} · ${link.consent.version} · ${link.consent.at}`]],
+      intro: [item.retry ? `ครั้งก่อนส่งไม่สำเร็จ (${item.retry.at} · ${item.retry.error ?? ''}) — ส่งใหม่เป็นข้อความใหม่` : 'ข้อความบริการส่งผ่าน LINE Official Account ของโรงพยาบาล ไม่มีข้อมูลการรักษาในข้อความ'],
+      confirmLabel: 'ส่งข้อความ',
+      onConfirm: () => {
+        const message = this.store.sendMessage(item);
+        this.ui.toast('ส่ง {id} ถึง {owner} แล้ว', { id: message.id, owner: item.ownerKey });
+      },
+    });
+  }
+
+  /** Every message that may go, in one confirmation; the blocked ones stay */
+  sendAll(items: OutboxItem[]) {
+    const ready = items.filter(i => !i.block);
+    if (!ready.length) {
+      this.ui.toast('ไม่มีข้อความที่ส่งได้', undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: this.t('ส่งข้อความที่ส่งได้ {n} รายการ', { n: ready.length }),
+      facts: ready.map(i => [this.t(MESSAGE_KIND[i.kind].label), `${i.ownerKey} · ${i.text}`] as [string, string]),
+      intro: [this.t('{n} รายการที่ไม่มีความยินยอมหรือไม่ได้เชื่อม LINE จะไม่ถูกส่ง', { n: items.length - ready.length })],
+      confirmLabel: 'ส่งทั้งหมด',
+      onConfirm: () => {
+        ready.forEach(i => this.store.sendMessage(i));
+        this.ui.toast('ส่งข้อความ LINE {n} รายการแล้ว', { n: ready.length });
+      },
+    });
+  }
+
+  /** A claim or pre-authorisation written from the form on the page */
+  createClaim(input: ClaimInput, onDone?: (claim: Claim) => void) {
+    const policy = policyOf(this.store.data(), input.policyId)!;
+    const invoice = this.store.clinic.data().invoices.find(i => i.id === input.invoiceId);
+    this.ui.ask({
+      title: `${CLAIM_KIND[input.kind]} · ${policy.insurer}`,
+      facts: [['กรมธรรม์', `${policy.policyNo} · ${policy.ownerKey} · ${policy.pet}`], ...(invoice ? [['ใบแจ้งหนี้', `${invoice.no} · ${baht(invoice.total)}`] as [string, string]] : []), ['การวินิจฉัย', input.diagnosis], ['จำนวนเงิน', baht(input.amount)]],
+      intro: ['ยอดที่เคลมเป็นค่าประมาณตามเงื่อนไขกรมธรรม์ — บริษัทประกันเป็นผู้พิจารณา · การส่งผ่าน API ของบริษัทประกันเป็น P4 ตอนนี้ส่งเองแล้วบันทึกสถานะ'],
+      confirmLabel: 'สร้างฉบับร่าง',
+      onConfirm: () => {
+        const claim = this.store.createClaim(input);
+        this.ui.toast('สร้าง {id} แล้ว', { id: claim.id });
+        onDone?.(claim);
+      },
+    });
+  }
+
+  /** The insurer's form printed; a draft becomes ready to send */
+  printClaim(c: Claim) {
+    const d = this.store.data();
+    const policy = policyOf(d, c.policyId)!;
+    const invoice = this.store.clinic.data().invoices.find(i => i.id === c.invoiceId);
+    printClaim({ ...c, policyNo: policy.policyNo, deductible: policy.deductible, copay: policy.copay, remaining: policy.remaining }, invoice, this.store.clinic.data().owners[c.ownerKey], this.t, this.i18n.lang());
+    if (c.status === 'draft') {
+      this.store.claimDocuments(c);
+      this.ui.toast('ออกเอกสาร {id} แล้ว · พร้อมส่ง', { id: c.id });
+    }
+  }
+
+  submitClaim(c: Claim) {
+    this.ui.ask({
+      title: `บันทึกการส่งเคลม · ${c.id}`,
+      facts: [['บริษัทประกัน', c.insurer], ['จำนวนเงิน', baht(c.amount)]],
+      intro: ['บันทึกว่าส่งเอกสารไปทางใดและเลขรับเรื่องที่บริษัทประกันให้ · สถานะต่อจากนี้บันทึกตามที่บริษัทประกันแจ้ง'],
+      fields: [
+        { name: 'via', label: 'ช่องทางที่ส่ง', type: 'select', value: `อีเมลฝ่ายสินไหม ${c.insurer}`, options: [`อีเมลฝ่ายสินไหม ${c.insurer}`, `พอร์ทัล ${c.insurer}`, 'ไปรษณีย์', 'เจ้าของส่งเอง'].map(v => ({ value: v, label: v })) },
+        { name: 'ref', label: 'เลขรับเรื่องของบริษัทประกัน', type: 'input', optional: true, placeholder: 'เช่น FAL-CL-551300' },
+      ],
+      confirmLabel: 'บันทึกการส่ง',
+      onConfirm: v => {
+        this.store.submitClaim(c, v['via'], v['ref']);
+        this.ui.toast('{id} → {status}', { id: c.id, status: this.t(CLAIM_STATUS.submitted.label) });
+      },
+    });
+  }
+
+  /** The insurer's answer, as it came */
+  decideClaim(c: Claim) {
+    this.ui.ask({
+      title: `บันทึกผลพิจารณา · ${c.id}`,
+      facts: [['บริษัทประกัน', `${c.insurer} · ${c.insurerRef ?? '—'}`], ['ยอดที่เคลม', baht(c.amount)]],
+      intro: ['บันทึกตามหนังสือแจ้งผลของบริษัทประกัน · ผลที่อนุมัติใช้วงเงินของกรมธรรม์'],
+      fields: [
+        { name: 'decision', label: 'ผลพิจารณา', type: 'select', value: 'approved', options: (['approved', 'partially-approved', 'rejected'] as const).map(s => ({ value: s, label: CLAIM_STATUS[s].label })) },
+        { name: 'amount', label: 'ยอดอนุมัติ (บาท) — เฉพาะอนุมัติบางส่วน', type: 'input', optional: true,
+          validate: (v, all) => (all['decision'] === 'partially-approved' && !(Number(v) > 0 && Number(v) < c.amount) ? 'ยอดอนุมัติบางส่วนต้องมากกว่า 0 และน้อยกว่ายอดที่เคลม' : null) },
+        { name: 'note', label: this.t('เหตุผลหรือรายละเอียด (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: 'เช่น อนุมัติค่าผ่าตัด ไม่รวมค่าห้องวันที่ 3', validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null) },
+      ],
+      confirmLabel: 'บันทึกผล',
+      onConfirm: v => {
+        const decision = v['decision'] as 'approved' | 'partially-approved' | 'rejected';
+        this.store.decideClaim(c, decision, Number(v['amount']) || 0, v['note'].trim());
+        this.ui.toast('{id} → {status}', { id: c.id, status: this.t(CLAIM_STATUS[decision].label) });
+      },
+    });
+  }
+
+  /** The money from the insurer: paid to the hospital it settles the bill; paid to the owner it is only recorded */
+  reimburse(c: Claim) {
+    const invoice = this.store.clinic.data().invoices.find(i => i.id === c.invoiceId);
+    const owed = invoice ? balanceOf(invoice) : 0;
+    this.ui.ask({
+      title: `บันทึกรับเงินชดเชย · ${c.id}`,
+      facts: [['ยอดอนุมัติ', baht(c.approvedAmount ?? 0)], ...(invoice ? [['ใบแจ้งหนี้', `${invoice.no} · ${this.t('คงค้าง')} ${baht(owed)}`] as [string, string]] : [])],
+      intro: ['ยอดที่ได้รับจริงต่างจากยอดอนุมัติได้ (EOB) — ส่วนต่างจะถูกบันทึกไว้ · ถ้าจ่ายให้โรงพยาบาลและใบแจ้งหนี้ยังค้าง จะบันทึกเป็นการรับชำระช่องทาง "ประกัน"'],
+      fields: [
+        { name: 'amount', label: 'ยอดที่ได้รับ (บาท)', type: 'input', value: String(c.approvedAmount ?? ''), validate: v => money(v) },
+        { name: 'payee', label: 'จ่ายให้', type: 'select', value: owed > 0 ? 'hospital' : 'owner', options: [{ value: 'hospital', label: 'โรงพยาบาล' }, { value: 'owner', label: 'เจ้าของโดยตรง' }] },
+        { name: 'ref', label: 'เลขอ้างอิงการโอน / EOB', type: 'input', optional: true },
+      ],
+      confirmLabel: 'บันทึกรับเงิน',
+      onConfirm: v => {
+        this.store.reimburse(c, Number(v['amount']), v['payee'] as 'hospital' | 'owner', v['ref'].trim());
+        this.ui.toast('{id} → {status}', { id: c.id, status: this.t(CLAIM_STATUS.reimbursed.label) });
       },
     });
   }

@@ -21,6 +21,9 @@ import { RecallComponent } from './pages/inventory/recall.component';
 import { ReceiptsComponent } from './pages/inventory/receipts.component';
 import { ReorderComponent } from './pages/inventory/reorder.component';
 import { StockComponent } from './pages/inventory/stock.component';
+import { ClaimsComponent } from './pages/sales/claims.component';
+import { LineCrmComponent } from './pages/sales/line-crm.component';
+import { RevenueOverviewComponent } from './pages/sales/revenue-overview.component';
 import { BackofficeShellComponent } from './shell/backoffice-shell.component';
 
 /** The back office's pages, under /backoffice, by the spec's menu groups (shell/nav.ts) */
@@ -54,6 +57,10 @@ export const BACKOFFICE_ROUTES: Routes = [
       { path: 'inventory/reorder', component: ReorderComponent },
       { path: 'inventory/controlled', component: ControlledComponent },
       { path: 'inventory/recall', component: RecallComponent },
+      { path: 'sales', pathMatch: 'full', redirectTo: 'sales/overview' },
+      { path: 'sales/overview', component: RevenueOverviewComponent },
+      { path: 'sales/line', component: LineCrmComponent },
+      { path: 'sales/claims', component: ClaimsComponent },
       { path: '**', redirectTo: 'home/overview' },
     ],
   },

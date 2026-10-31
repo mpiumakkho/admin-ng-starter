@@ -3,15 +3,19 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { ClinicStore } from '../clinic/clinic.store';
 import { NOW, TODAY } from '../clinic/data/model';
 import { fullName, Session } from '../user-management';
-import { DISCOUNT_THRESHOLD, issue, newInvoice, queueExport, REFUND_THRESHOLD, retryExport, settle, statusOf } from './data/finance';
+import { DISCOUNT_THRESHOLD, issue, newInvoice, outstanding, queueExport, REFUND_THRESHOLD, retryExport, settle, statusOf } from './data/finance';
 import { approvalAging, severityCounts, worklist } from './data/home';
 import {
   INVESTIGATION, ledgerDispense, type LedgerDispenseInput, openRecall, quarantine, RECALL_STATUS, receive, type ReceiptInput, recordCount, recordWaste, resolveInvestigation, stockItems, updateRecall,
   type WasteInput, wasteReason,
 } from './data/inventory';
+import { CLAIM_STATUS, type ClaimInput, decideClaim, markDocuments, MESSAGE_KIND, newClaim, type OutboxItem, reimburse, sendMessage, submitClaim } from './data/sales';
 import { createBackofficeSeed } from './data/seed';
+import { balanceOf } from '../clinic/data/rail';
 import type { Invoice, InvoiceLine, Refund } from '../clinic/data/types';
-import type { AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, CountRecord, LedgerDispense, Module, Recall, RecallStatus, StockReceipt, WasteRecord } from './data/types';
+import type {
+  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, Claim, CountRecord, LedgerDispense, Module, Recall, RecallStatus, ServiceMessage, StockReceipt, WasteRecord,
+} from './data/types';
 
 /** Who works in the back office when nobody is signed in, as in tests: the finance manager the sample is drawn for */
 const SAMPLE_USER = 'วรรณา (ผู้จัดการการเงิน)';
@@ -303,6 +307,61 @@ export class BackofficeStore {
   quarantine(lot: string, reason: string) {
     this.clinic.mutate(c => quarantine(c, lot, reason));
     this.mutate(d => this.log(d, 'M06', 'กันของคงคลัง', lot, reason));
+  }
+
+  /* Sales and customer service (data/sales.ts) */
+
+  /** A LINE message sent, when the owner's consent allows it */
+  sendMessage(item: OutboxItem): ServiceMessage {
+    let message!: ServiceMessage;
+    this.mutate(d => {
+      message = sendMessage(d, item, this.userName());
+      this.log(d, 'M15', 'ส่งข้อความ LINE', message.id, `${item.ownerKey} · ${item.pet}`, `${MESSAGE_KIND[item.kind].label} · ${item.text}`);
+    });
+    return message;
+  }
+
+  createClaim(input: ClaimInput): Claim {
+    let claim!: Claim;
+    this.mutate(d => {
+      claim = newClaim(this.clinic.data(), d, input, this.userName());
+      this.log(d, 'M16', claim.kind === 'claim' ? 'สร้างเคลม' : 'สร้างคำขออนุมัติล่วงหน้า', claim.id, `${claim.insurer} · ${claim.pet}`, `${baht(claim.amount)} · ${claim.diagnosis}`);
+    });
+    return claim;
+  }
+
+  claimDocuments(c: Claim) {
+    const before = c.status;
+    this.mutate(d => {
+      markDocuments(c, this.userName());
+      this.log(d, 'M16', 'ออกเอกสารเคลม', c.id, c.insurer, undefined, CLAIM_STATUS[before].label, CLAIM_STATUS[c.status].label);
+    });
+  }
+
+  submitClaim(c: Claim, via: string, ref: string) {
+    this.mutate(d => {
+      submitClaim(c, via, ref, this.userName());
+      this.log(d, 'M16', 'บันทึกการส่งเคลม', c.id, c.insurer, `${via}${ref ? ` · ${ref}` : ''}`, CLAIM_STATUS['documents-ready'].label, CLAIM_STATUS.submitted.label);
+    });
+  }
+
+  decideClaim(c: Claim, decision: 'approved' | 'partially-approved' | 'rejected', amount: number, note: string) {
+    this.mutate(d => {
+      decideClaim(d, c, decision, amount, note, this.userName());
+      this.log(d, 'M16', 'บันทึกผลพิจารณาเคลม', c.id, c.insurer, note, CLAIM_STATUS.submitted.label, CLAIM_STATUS[decision].label);
+    });
+  }
+
+  /** The insurer's money: to the hospital it is a payment on the bill (M11), to the owner it is only recorded */
+  reimburse(c: Claim, amount: number, payee: 'hospital' | 'owner', ref: string) {
+    const invoice = c.invoiceId ? this.clinic.data().invoices.find(i => i.id === c.invoiceId) : undefined;
+    this.mutate(d => {
+      reimburse(c, amount, payee, ref, this.userName());
+      this.log(d, 'M16', 'บันทึกรับเงินชดเชย', c.id, c.insurer, `${baht(amount)} → ${payee === 'hospital' ? 'โรงพยาบาล' : 'เจ้าของ'}${ref ? ` · ${ref}` : ''}`, CLAIM_STATUS[c.log[c.log.length - 2][2]].label, CLAIM_STATUS.reimbursed.label);
+    });
+    if (payee === 'hospital' && invoice && outstanding(invoice)) {
+      this.collect(invoice, Math.min(amount, balanceOf(invoice)), 'ประกัน', ref || c.id);
+    }
   }
 
   /** Seen, and what was done about it or where it went; the exception is settled in its own workflow */

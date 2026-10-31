@@ -1,6 +1,7 @@
 /* The morning of 24 September 2026 in the hospital's back office: what waits for the people who run it */
 import type {
-  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, ControlSystem, CountRecord, DrugRecord, LedgerDispense, Recall, StockReceipt, WasteRecord, WorkItem,
+  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, Claim, ControlSystem, CountRecord, DrugRecord, LedgerDispense, LineLink, Policy, Recall, ServiceMessage,
+  StockReceipt, VaccineDue, WasteRecord, WorkItem,
 } from './types';
 
 /* Work the modules without a page of their own yet hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
@@ -166,10 +167,58 @@ const RECALLS: Recall[] = [
     updates: [['2026-09-23 09:00', 'ภก. ธนพร', 'open', 'รับประกาศจากผู้ผลิต เริ่มตรวจสอบ lot ในคลังและที่จ่ายไปแล้ว']] },
 ];
 
+/* Sales and customer service: who is on LINE and what they agreed to, what was sent, what comes due, and the insurance on file */
+const consent = (at: string, reminder = true, marketing = false) => ({ service: true, reminder, marketing, version: 'v3', at });
+const LINE_LINKS: LineLink[] = [
+  { ownerKey: 'Somsak W.', displayName: 'Somsak W.', linkedAt: '2026-01-12 10:20', consent: consent('2026-01-12 10:20', true, true) },
+  { ownerKey: 'Napat T.', displayName: 'Napat', linkedAt: '2026-03-03 15:02', consent: consent('2026-03-03 15:02') },
+  { ownerKey: 'Arisa K.', displayName: 'Arisa K', linkedAt: '2026-05-09 11:40', consent: { ...consent('2026-05-09 11:40'), reminder: false }, withdrawn: { purpose: 'reminder', at: '2026-09-10 20:15' } },
+  { ownerKey: 'Patcharee L.', displayName: 'Patcharee', linkedAt: '2026-02-01 09:00', consent: consent('2026-09-18 10:05', true, true) },
+  { ownerKey: 'Waraporn D.', displayName: 'Waraporn', linkedAt: '2026-04-20 13:10', consent: consent('2026-09-12 12:00') },
+  { ownerKey: 'Thanawat P.', displayName: 'Thanawat P.', linkedAt: '2026-08-30 17:30', consent: consent('2026-08-30 17:30') },
+  { ownerKey: 'Sirinya M.', displayName: 'Sirinya', linkedAt: '2026-09-01 16:30', consent: consent('2026-09-01 16:30') },
+  { ownerKey: 'Kanokwan R.', displayName: 'Kanokwan R', linkedAt: '2026-09-23 16:40', consent: consent('2026-09-23 16:40', false) },
+];
+const MESSAGES: ServiceMessage[] = [
+  { id: 'MSG-2609-118', ownerKey: 'Somsak W.', pet: 'Luna', kind: 'appointment-reminder', text: 'แจ้งเตือนนัด Luna 2026-09-24 09:00 · Annual exam', ref: 'A1', at: '2026-09-23 09:00', by: 'ระบบ', status: 'read' },
+  { id: 'MSG-2609-119', ownerKey: 'Patcharee L.', pet: 'Bolt', kind: 'appointment-reminder', text: 'แจ้งเตือนนัด Bolt 2026-09-24 10:20 · Lameness', ref: 'A3', at: '2026-09-23 09:00', by: 'ระบบ', status: 'read' },
+  { id: 'MSG-2609-121', ownerKey: 'Napat T.', pet: 'Mochi', kind: 'visit-status', text: 'Mochi เข้าห้องตรวจแล้ว · Exam Room 2', ref: 'A2', at: '2026-09-24 09:31', by: 'ระบบ', status: 'delivered' },
+  { id: 'MSG-2609-120', ownerKey: 'Sirinya M.', pet: 'Khao Niao', kind: 'bill-link', text: 'ลิงก์ชำระ INV-2609-0031 · ฿980 (PromptPay)', ref: 'I3', at: '2026-09-17 10:00', by: 'นัทธมน (แคชเชียร์)', status: 'failed', error: 'LINE ตอบ 400 — ผู้ใช้บล็อกบัญชีชั่วคราว' },
+  { id: 'MSG-2609-117', ownerKey: 'Waraporn D.', pet: 'Nala', kind: 'follow-up', text: 'ติดตามอาการ Nala หลังให้สารน้ำ · ตอบกลับได้ในแชท', ref: 'E-260912-06', at: '2026-09-14 10:00', by: 'พ.ส. ณิชา', status: 'read' },
+];
+const VACCINES_DUE: VaccineDue[] = [
+  { ownerKey: 'Somsak W.', pet: 'Kiki', vaccine: 'FVRCP booster', due: '2026-10-02' },
+  { ownerKey: 'Thanawat P.', pet: 'Pumpkin', vaccine: 'Rabies', due: '2026-10-10' },
+  { ownerKey: 'Arisa K.', pet: 'Coco', vaccine: 'DHPPiL booster', due: '2026-10-05' },
+  { ownerKey: 'Kittikun S.', pet: 'Milo', vaccine: 'FVRCP booster', due: '2026-10-08' },
+  { ownerKey: 'Patcharee L.', pet: 'Bolt', vaccine: 'Leptospirosis', due: '2026-12-20' },
+];
+const POLICIES: Policy[] = [
+  { id: 'PL1', ownerKey: 'Patcharee L.', pet: 'Bolt', insurer: 'Falcon', policyNo: 'FC-88120', limit: 30000, remaining: 18000, deductible: 500, copay: 0.2, validTo: '2027-02-28' },
+  { id: 'PL2', ownerKey: 'Kanokwan R.', pet: 'Mali', insurer: 'MSIG', policyNo: 'MS-44821', limit: 50000, remaining: 50000, deductible: 1000, copay: 0.1, validTo: '2027-06-30' },
+  { id: 'PL3', ownerKey: 'Waraporn D.', pet: 'Nala', insurer: 'Roojai', policyNo: 'RJ-20931', limit: 20000, remaining: 12350, deductible: 0, copay: 0.3, validTo: '2026-12-31' },
+];
+const CASHIER = 'นัทธมน (แคชเชียร์)';
+const CLAIMS: Claim[] = [
+  { id: 'CLM-2609-007', kind: 'claim', policyId: 'PL1', invoiceId: 'I1', ownerKey: 'Patcharee L.', pet: 'Bolt', insurer: 'Falcon', diagnosis: 'ขาหลังขวาเจ็บ · สงสัยเอ็นไขว้หน้าฉีกบางส่วน',
+    amount: 1560, createdAt: '2026-09-12 09:10', createdBy: CASHIER, status: 'submitted', documentsAt: '2026-09-12 09:15', submittedVia: 'อีเมลฝ่ายสินไหม Falcon', insurerRef: 'FAL-CL-551207',
+    log: [['2026-09-12 09:10', CASHIER, 'draft', 'สร้างจาก INV-2609-0112'], ['2026-09-12 09:15', CASHIER, 'documents-ready', 'ออกแบบฟอร์มเคลม Falcon'], ['2026-09-12 11:00', CASHIER, 'submitted', 'ส่งอีเมลพร้อมเอกสาร · เลขรับเรื่อง FAL-CL-551207']] },
+  { id: 'CLM-2609-005', kind: 'claim', policyId: 'PL3', invoiceId: 'I4', ownerKey: 'Waraporn D.', pet: 'Nala', insurer: 'Roojai', diagnosis: 'ไตเรื้อรังระยะ 2 · ติดตามค่าไต',
+    amount: 1645, createdAt: '2026-09-12 12:30', createdBy: CASHIER, status: 'approved', documentsAt: '2026-09-12 12:32', submittedVia: 'พอร์ทัล Roojai', insurerRef: 'RJ-CL-90233', approvedAmount: 1645, decisionNote: 'อนุมัติเต็มจำนวน · โอนให้เจ้าของ',
+    log: [['2026-09-12 12:30', CASHIER, 'draft', 'สร้างจาก INV-2609-0158'], ['2026-09-12 12:32', CASHIER, 'documents-ready', 'ออกแบบฟอร์มเคลม Roojai'], ['2026-09-12 13:00', CASHIER, 'submitted', 'อัปโหลดในพอร์ทัล Roojai'], ['2026-09-20 10:00', CASHIER, 'approved', 'อนุมัติเต็มจำนวน · โอนให้เจ้าของ']] },
+  { id: 'CLM-2609-008', kind: 'pre-auth', policyId: 'PL2', ownerKey: 'Kanokwan R.', pet: 'Mali', insurer: 'MSIG', diagnosis: 'Pyometra · ผ่าตัดมดลูกและนอนโรงพยาบาล 3 วัน',
+    amount: 18500, createdAt: '2026-09-23 17:00', createdBy: CASHIER, status: 'draft',
+    log: [['2026-09-23 17:00', CASHIER, 'draft', 'ขออนุมัติล่วงหน้าตามประมาณการ ฿18,500']] },
+  { id: 'CLM-2607-012', kind: 'claim', policyId: 'PL1', invoiceId: 'I2', ownerKey: 'Patcharee L.', pet: 'Bolt', insurer: 'Falcon', diagnosis: 'วัคซีนประจำปี',
+    amount: 520, createdAt: '2026-07-03 09:00', createdBy: CASHIER, status: 'rejected', documentsAt: '2026-07-03 09:05', submittedVia: 'อีเมลฝ่ายสินไหม Falcon', insurerRef: 'FAL-CL-540118', decisionNote: 'วัคซีนป้องกันไม่อยู่ในความคุ้มครองของแผน',
+    log: [['2026-07-03 09:00', CASHIER, 'draft', 'สร้างจาก INV-2607-0045'], ['2026-07-03 09:05', CASHIER, 'documents-ready', 'ออกแบบฟอร์มเคลม Falcon'], ['2026-07-03 10:00', CASHIER, 'submitted', 'ส่งอีเมลพร้อมเอกสาร'], ['2026-07-15 14:00', CASHIER, 'rejected', 'วัคซีนป้องกันไม่อยู่ในความคุ้มครองของแผน']] },
+];
+
 /** A fresh copy of the sample, for the store to change */
 export function createBackofficeSeed(): BackofficeData {
   return structuredClone({
     workItems: WORK_ITEMS, approvals: APPROVALS, exceptions: EXCEPTIONS, activity: ACTIVITY, accountingExports: ACCOUNTING_EXPORTS, reconciliations: [],
     drugs: DRUGS, receipts: RECEIPTS, ledgerDispenses: LEDGER_DISPENSES, wastes: WASTES, counts: COUNTS, recalls: RECALLS,
+    lineLinks: LINE_LINKS, messages: MESSAGES, vaccinesDue: VACCINES_DUE, policies: POLICIES, claims: CLAIMS,
   });
 }

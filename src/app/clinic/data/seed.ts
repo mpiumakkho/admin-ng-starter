@@ -36,7 +36,7 @@ const OWNERS: Record<string, Owner> = {
     coOwner: 'Wichai L. (คู่สมรส) · 081-445-2211 · อนุญาตให้ตัดสินใจแทนได้', address: '120/45 ถ.สุขุมวิท 71 แขวงพระโขนงเหนือ กทม. 10110',
     consent: 'ครบถ้วน · ลงนาม 2026-09-18', pdpa: 'ยินยอม · 2026-09-18', prefer: 'LINE', badges: ['VIP', 'Staff referral'],
     pets: ['Bolt · สุนัข · V123460', 'Mochi Jr. · แมว · V123488'], note: 'ขอใบเสนอราคาก่อนทุกครั้งที่มีค่าใช้จ่ายเกิน ฿2,000',
-    insurance: 'PetSure · กรมธรรม์ PS-88120 · เหลือวงเงิน ฿18,000',
+    insurance: 'Falcon · กรมธรรม์ FC-88120 · เหลือวงเงิน ฿18,000',
     // The deposit paid for Bolt's appointment on 2026-09-26, not used yet
     credit: 500,
     appts: [['2026-09-11', 'Lameness recheck', 'Completed'], ['2026-07-02', 'Vaccination', 'Completed'], ['2026-09-24', 'Limping', 'Today']],
@@ -65,7 +65,7 @@ const OWNERS: Record<string, Owner> = {
     name: 'Kanokwan R.', phone: '084-556-2210', phone2: '02-234-9090', email: 'kanokwan.r@example.com', line: '@kanokwanr',
     coOwner: '—', address: '120/4 ถ.ประดิษฐ์มนูธรรม แขวงลาดพร้าว กทม. 10230',
     consent: 'ครบถ้วน · ลงนาม 2026-09-23', pdpa: 'ยินยอม · 2026-09-23', prefer: 'โทรศัพท์', badges: [],
-    pets: ['Mali · สุนัข · V123450'], note: 'ขอให้โทรแจ้งอาการทุกเช้า', insurance: 'Pet insurance · PI-44821',
+    pets: ['Mali · สุนัข · V123450'], note: 'ขอให้โทรแจ้งอาการทุกเช้า', insurance: 'MSIG · กรมธรรม์ MS-44821',
     appts: [['2026-09-23', 'Acute pancreatitis · admitted', 'Completed']],
   },
 };

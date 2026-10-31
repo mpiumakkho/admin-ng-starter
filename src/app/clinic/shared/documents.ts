@@ -176,3 +176,31 @@ export function printReceipt(i: Invoice, owner: Owner | undefined, t: Translate,
     <div class="sign"><div>${esc(t('ผู้รับเงิน'))}</div></div>`;
   printDocument(`${t('ใบเสร็จรับเงิน')} ${i.no}`, body, { paper: 'a5', lang });
 }
+
+/** What a claim form needs to know, without depending on the back office's types */
+export interface ClaimDocument {
+  id: string; kind: 'claim' | 'pre-auth'; insurer: string; policyNo: string; pet: string; diagnosis: string; amount: number; createdAt: string;
+  deductible: number; copay: number; remaining: number;
+}
+
+/** The insurer's claim or pre-authorisation form, A4, filled from the bill (M16 P1 document generation) */
+export function printClaim(c: ClaimDocument, i: Invoice | undefined, owner: Owner | undefined, t: Translate, lang: 'th' | 'en') {
+  const lines = i ? (i.lines ?? i.items.map(([name, amount]) => ({ source: '—', name, qty: 1, unitPrice: amount, discount: 0, taxRate: 0 }))) : [];
+  const rows = lines.map(l => `<tr><td>${esc(t(l.name))}</td><td class="num">${esc(l.qty)}</td><td class="num">${esc(baht(Math.round(l.qty * l.unitPrice * 100) / 100))}</td></tr>`).join('');
+  const title = c.kind === 'claim' ? 'แบบฟอร์มเรียกร้องค่าสินไหม' : 'แบบฟอร์มขออนุมัติค่ารักษาล่วงหน้า';
+  const body = `
+    <div class="head"><div><h1>${esc(c.insurer)} · ${esc(t(title))}</h1><p class="muted">${esc(t(HOSPITAL))}</p></div>
+      <div style="text-align: right"><b>${esc(c.id)}</b><p class="muted">${esc(formatDate(TODAY, 'long', lang))}</p></div></div>
+    <p>${esc(t('ผู้เอาประกัน'))}: ${esc(owner?.name ?? '—')}${owner ? ` · ${esc(owner.phone)}` : ''} · ${esc(t('กรมธรรม์'))} ${esc(c.policyNo)} · ${esc(t('สัตว์'))}: ${esc(c.pet)}</p>
+    <p>${esc(t('การวินิจฉัย'))}: ${esc(t(c.diagnosis))}</p>
+    ${i ? `<table><thead><tr><th>${esc(t('รายการ'))}</th><th class="num">${esc(t('จำนวน'))}</th><th class="num">${esc(t('รวม'))}</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr><th colspan="2">${esc(t('ใบแจ้งหนี้'))} ${esc(i.no)}</th><th class="num">${esc(baht(i.total))}</th></tr></tfoot></table>` : ''}
+    <table><tbody>
+      <tr><td>${esc(t('ค่าเสียหายส่วนแรก'))}</td><td class="num">${esc(baht(c.deductible))}</td></tr>
+      <tr><td>${esc(t('ส่วนร่วมจ่ายของเจ้าของ'))}</td><td class="num">${esc(Math.round(c.copay * 100))}%</td></tr>
+      <tr><td>${esc(t('วงเงินคงเหลือ'))}</td><td class="num">${esc(baht(c.remaining))}</td></tr>
+      <tr><th>${esc(t(c.kind === 'claim' ? 'จำนวนเงินที่เรียกร้อง' : 'จำนวนเงินที่ขออนุมัติ'))}</th><th class="num">${esc(baht(c.amount))}</th></tr>
+    </tbody></table>
+    <div class="sign"><div>${esc(t('สัตวแพทย์ผู้รักษา'))}</div><div>${esc(t('ผู้เอาประกัน'))}</div></div>`;
+  printDocument(`${c.insurer} ${c.id}`, body, { paper: 'a4', lang });
+}

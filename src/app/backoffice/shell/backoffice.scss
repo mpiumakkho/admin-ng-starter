@@ -798,6 +798,7 @@
   .w-amount { width: 100px; }
   .w-at { width: 140px; }
   .w-actions { width: 230px; }
+  .w-send { width: 150px; }
 
   .row-actions {
     display: flex;
@@ -1474,5 +1475,31 @@
 
   .backoffice .record-rail {
     position: static;
+  }
+}
+
+/* Sales (pages/sales): the outbox's blocked rows and the consent rail */
+.backoffice .bo-table tr.blocked td {
+  color: var(--ui-muted);
+}
+.backoffice .consents {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
   }
 }

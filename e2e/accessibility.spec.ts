@@ -43,6 +43,9 @@ const PAGES = [
   { path: '/backoffice/inventory/reorder', ready: '.bo-table tbody tr' },
   { path: '/backoffice/inventory/controlled', ready: '.bo-table tbody tr' },
   { path: '/backoffice/inventory/recall?lot=B-2312-04', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/sales/overview', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/sales/line', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/sales/claims', ready: '.bo-table tbody tr' },
   { path: '/error-pages/404', ready: '.error-code' },
   { path: '/error-pages/500', ready: '.error-code' },
 ];

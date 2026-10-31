@@ -47,7 +47,11 @@ export const BACKOFFICE_NAV: NavGroup[] = [
     { path: '/backoffice/inventory/controlled', label: 'ยาควบคุม' },
     { path: '/backoffice/inventory/recall', label: 'Drug Recall' },
   ] },
-  { key: 'sales', label: 'การขายและบริการลูกค้า', icon: lucideStore, links: [] },
+  { key: 'sales', label: 'การขายและบริการลูกค้า', icon: lucideStore, links: [
+    { path: '/backoffice/sales/overview', label: 'ภาพรวมรายได้' },
+    { path: '/backoffice/sales/line', label: 'LINE CRM' },
+    { path: '/backoffice/sales/claims', label: 'Insurance Claims' },
+  ] },
   { key: 'workforce', label: 'บุคลากร', icon: lucideUsersRound, links: [] },
   { key: 'assets', label: 'ทรัพย์สินและการบำรุงรักษา', icon: lucideWrench, links: [] },
   { key: 'quality', label: 'คุณภาพและกำกับดูแล', icon: lucideShieldCheck, links: [] },

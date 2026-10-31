@@ -1,10 +1,12 @@
 /* The back office's records: what the home pages compose (seph1-docs 26-backoffice-erp ux/menus/01-home.md) */
 
 /** The canonical modules the back office composes over (seph1-docs 21-module-specifications) */
-export type Module = 'M06' | 'M11' | 'M13' | 'M14' | 'M22' | 'M24' | 'M28' | 'M31';
+export type Module = 'M06' | 'M11' | 'M13' | 'M14' | 'M15' | 'M16' | 'M22' | 'M24' | 'M28' | 'M31';
 export const MODULES: Record<Module, { name: string; group: string }> = {
   M11: { name: 'Billing', group: 'การเงินและรายได้' },
   M06: { name: 'Medication inventory', group: 'คลังสินค้า' },
+  M15: { name: 'LINE CRM', group: 'การขายและบริการลูกค้า' },
+  M16: { name: 'Insurance', group: 'การขายและบริการลูกค้า' },
   M24: { name: 'Personnel', group: 'บุคลากร' },
   M22: { name: 'Equipment', group: 'ทรัพย์สินและการบำรุงรักษา' },
   M28: { name: 'Complaints', group: 'คุณภาพและกำกับดูแล' },
@@ -224,6 +226,79 @@ export interface Recall {
   updates: [at: string, by: string, status: RecallStatus, note: string][];
 }
 
+/* Sales and customer service (M15 LINE CRM, M16 Insurance; ux/menus/04-sales.md) */
+
+/** An owner's LINE account linked to the hospital, with the consents M31 keeps for it (versioned; a withdrawal stops that purpose) */
+export interface LineLink {
+  ownerKey: string;
+  displayName: string;
+  linkedAt: string;
+  consent: { service: boolean; reminder: boolean; marketing: boolean; version: string; at: string };
+  /** When a consent was withdrawn, and which */
+  withdrawn?: { purpose: 'reminder' | 'marketing' | 'service'; at: string };
+}
+
+export type MessageKind = 'appointment-reminder' | 'vaccine-reminder' | 'bill-link' | 'visit-status' | 'booking-confirm' | 'follow-up';
+/** One LINE service message (service_message_log) */
+export interface ServiceMessage {
+  id: string;
+  ownerKey: string;
+  pet?: string;
+  kind: MessageKind;
+  text: string;
+  /** The record it is about: an appointment, an invoice, a vaccine due */
+  ref: string;
+  at: string;
+  by: string;
+  status: 'delivered' | 'read' | 'failed';
+  error?: string;
+}
+
+/** A vaccine coming due, from the pet-aware journey (journey_state) */
+export interface VaccineDue { ownerKey: string; pet: string; vaccine: string; due: string }
+
+export type Insurer = 'Falcon' | 'MSIG' | 'Roojai';
+export interface Policy {
+  id: string;
+  ownerKey: string;
+  pet: string;
+  insurer: Insurer;
+  policyNo: string;
+  /** The yearly limit and what is left of it, in baht */
+  limit: number;
+  remaining: number;
+  deductible: number;
+  /** The share the owner pays after the deductible, as a fraction */
+  copay: number;
+  validTo: string;
+}
+
+export type ClaimStatus = 'draft' | 'documents-ready' | 'submitted' | 'approved' | 'partially-approved' | 'rejected' | 'reimbursed';
+/** A claim, or a pre-authorisation before treatment, tracked by hand until the insurer's API (P4) */
+export interface Claim {
+  id: string;
+  kind: 'claim' | 'pre-auth';
+  policyId: string;
+  invoiceId?: string;
+  ownerKey: string;
+  pet: string;
+  insurer: Insurer;
+  diagnosis: string;
+  amount: number;
+  createdAt: string;
+  createdBy: string;
+  status: ClaimStatus;
+  documentsAt?: string;
+  submittedVia?: string;
+  insurerRef?: string;
+  approvedAmount?: number;
+  decisionNote?: string;
+  /** What the insurer paid, to whom, and how it compares with what was approved (EOB) */
+  reimbursed?: { amount: number; payee: 'hospital' | 'owner'; ref: string; at: string };
+  /** Each change of status: when, by whom, to what, why */
+  log: [at: string, by: string, status: ClaimStatus, note: string][];
+}
+
 export interface BackofficeData {
   workItems: WorkItem[];
   approvals: Approval[];
@@ -237,4 +312,9 @@ export interface BackofficeData {
   wastes: WasteRecord[];
   counts: CountRecord[];
   recalls: Recall[];
+  lineLinks: LineLink[];
+  messages: ServiceMessage[];
+  vaccinesDue: VaccineDue[];
+  policies: Policy[];
+  claims: Claim[];
 }
