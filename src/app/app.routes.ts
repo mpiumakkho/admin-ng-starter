@@ -12,6 +12,8 @@ export const routes: Routes = [
   { path: 'ui-kit', canActivate: [signedIn], loadComponent: () => import('./ui-kit/ui-kit.component').then(m => m.UiKitComponent) },
   // A sample clinical workspace (งานตรวจรักษา) in the app's own colors, full page; opened from the account menu
   { path: 'clinic', canActivate: [signedIn], loadChildren: () => import('./clinic/clinic.routes').then(m => m.CLINIC_ROUTES) },
+  // A sample back office (seph1-docs 26-backoffice-erp): the hospital's administration, full page, from the account menu too
+  { path: 'backoffice', canActivate: [signedIn], loadChildren: () => import('./backoffice/backoffice.routes').then(m => m.BACKOFFICE_ROUTES) },
   { path: 'login', canActivate: [signedOut], loadComponent: () => import('./auth/login/login.component').then(m => m.LoginComponent) },
   { path: 'forgot-password', canActivate: [signedOut], loadComponent: () => import('./auth/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent) },
   // Where the links in emails lead (API.md, "Links in emails"); they work whether or not someone is signed in here

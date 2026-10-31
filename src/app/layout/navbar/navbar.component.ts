@@ -12,6 +12,7 @@ import {
   lucideActivity,
   lucideBell,
   lucideBlocks,
+  lucideBriefcase,
   lucideStethoscope,
   lucideHistory,
   lucideLogOut,
@@ -121,7 +122,7 @@ export class NavbarComponent {
   /** Menu item icons, as SVG for ui-menu */
   protected readonly icons = {
     user: lucideUser, activity: lucideActivity, blocks: lucideBlocks, history: lucideHistory, security: lucideShieldCheck, signOut: lucideLogOut,
-    clinic: lucideStethoscope,
+    clinic: lucideStethoscope, backoffice: lucideBriefcase,
     accessible: lucideAccessibility,
   };
   /** Menus open under their button, lined up with its right edge, or above it when there is no room below */

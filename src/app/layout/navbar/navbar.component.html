@@ -161,6 +161,7 @@
               <button uiMenuItemCheckbox [icon]="icons.accessible" [checked]="accessibleView.on()" (triggered)="accessibleView.toggle()">{{ 'Accessible view' | translate }}</button>
               <a uiMenuItem [icon]="icons.blocks" routerLink="/ui-kit">{{ 'Component gallery' | translate }}</a>
               <a uiMenuItem [icon]="icons.clinic" routerLink="/clinic">{{ 'Clinical work' | translate }}</a>
+              <a uiMenuItem [icon]="icons.backoffice" routerLink="/backoffice">{{ 'BackOffice' | translate }}</a>
               <hr uiMenuDivider />
               <button uiMenuItem tone="danger" [icon]="icons.signOut" (triggered)="signOut()">{{ 'Sign Out' | translate }}</button>
             </ui-menu>

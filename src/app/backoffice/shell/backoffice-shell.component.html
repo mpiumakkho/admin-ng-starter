@@ -1,0 +1,117 @@
+<a class="skip-link" href="#backoffice-main" (click)="skipToContent($event)">{{ 'ข้ามไปเนื้อหาหลัก' | tx }}</a>
+
+<!-- The bar along the top, built as the admin navbar is -->
+<header class="navbar">
+  <div class="navbar-brand-wrapper">
+    <button type="button" class="icon-button menu-button" [attr.aria-label]="'เปิดเมนู' | tx" [attr.aria-expanded]="menuOpen()" aria-controls="backoffice-sidebar" (click)="menuOpen.set(!menuOpen())">
+      <ng-icon [svg]="icons.menu" aria-hidden="true" />
+    </button>
+    <a class="brand" routerLink="/backoffice">
+      <span class="logo" aria-hidden="true"><ng-icon [svg]="icons.brand" /></span>
+      <span class="brand-name">SLV <span class="brand-sub">BackOffice</span></span>
+    </a>
+  </div>
+
+  <!-- The tenant and hospital the work is in -->
+  <div class="context" [attr.title]="'บริบท: tenant และโรงพยาบาลตาม M14' | tx">
+    <span class="context-label">{{ 'บริบท' | tx }}</span>
+    <span class="context-value">{{ context.tenant }} · {{ context.hospital | tx }}</span>
+  </div>
+
+  <div class="navbar-menu-wrapper">
+    <ul class="navbar-actions">
+      <li>
+        <a class="icon-button count-indicator" routerLink="/backoffice/home/alerts"
+          [attr.aria-label]="store.counts().alerts ? ('การแจ้งเตือน {n} รายการที่ยังไม่รับทราบ' | tx: { n: store.counts().alerts }) : ('การแจ้งเตือน' | tx)"
+          [attr.title]="'การแจ้งเตือนและข้อยกเว้น' | tx">
+          <ng-icon [svg]="icons.bell" aria-hidden="true" />
+          @if (store.counts().critical) {<span class="count" aria-hidden="true"></span>}
+        </a>
+      </li>
+      <li>
+        <button type="button" class="icon-button" [attr.title]="themeLabel() | tx" [attr.aria-label]="themeLabel() | tx" (click)="theme.toggle()">
+          <ng-icon [svg]="theme.isDark() ? icons.sun : icons.moon" aria-hidden="true" />
+        </button>
+      </li>
+      <li class="scale-item" (mouseleave)="uiScale.release()">
+        <ui-tooltip [text]="scaleNow()" [detail]="scaleHint()" align="end">
+          <button type="button" class="icon-button" [attr.aria-label]="scaleNow() + ' · ' + scaleHint()" (click)="stepScale($event)">
+            <ng-icon [svg]="uiScale.atLargest() ? icons.smaller : icons.larger" aria-hidden="true" />
+          </button>
+        </ui-tooltip>
+      </li>
+      <li>
+        <button type="button" class="icon-button language-button" [attr.aria-label]="languageLabel()" [attr.title]="languageLabel()" (click)="switchLanguage()">
+          <span class="language-code">{{ language.current().toUpperCase() }}</span>
+        </button>
+      </li>
+      <li class="navbar-divider" aria-hidden="true"></li>
+      @if (session.user(); as me) {
+        <li>
+          <button type="button" class="user-button" [uiMenuTrigger]="accountMenu" [uiMenuPosition]="menuPosition"
+            [attr.aria-label]="('เมนูผู้ใช้' | tx) + ' · ' + accountText(me, session.role()?.name, session.roles().length)">
+            <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="sm" />
+            <span class="user-text" aria-hidden="true">
+              <span class="user-name">{{ fullName(me) }}</span>{{ ' ' }}
+              <span class="user-role">{{ session.role()?.name }}@if (session.roles().length > 1) { +{{ session.roles().length - 1 }}}</span>
+            </span>
+          </button>
+          <ng-template #accountMenu>
+            <ui-menu class="backoffice-account-menu" [attr.aria-label]="('เมนูผู้ใช้' | tx) + ' · ' + fullName(me)" aria-describedby="backoffice-account-card">
+              <div class="account-card" id="backoffice-account-card" aria-hidden="true">
+                <ui-avatar [name]="fullName(me)" [src]="me.avatar" size="md" />
+                <div class="account-text">
+                  <span class="account-name">{{ fullName(me) }}</span>
+                  <span class="account-email">{{ me.email }}</span>
+                  <app-role-badges class="account-role" [user]="me" [max]="3" />
+                </div>
+              </div>
+              <hr uiMenuDivider />
+              <a uiMenuItem [icon]="icons.back" routerLink="/">{{ 'กลับหน้าผู้ดูแลระบบ' | tx }}</a>
+              <a uiMenuItem [icon]="icons.clinic" routerLink="/clinic">{{ 'งานตรวจรักษา' | tx }}</a>
+              <button uiMenuItemCheckbox [icon]="icons.accessible" [checked]="accessibleView.on()" (triggered)="accessibleView.toggle()">{{ 'มุมมองเข้าถึงง่าย' | tx }}</button>
+              <button uiMenuItem [icon]="icons.reset" (triggered)="resetSample()">{{ 'รีเซ็ตข้อมูลตัวอย่าง' | tx }}</button>
+              <hr uiMenuDivider />
+              <button uiMenuItem tone="danger" [icon]="icons.signOut" (triggered)="signOut()">{{ 'ออกจากระบบ' | tx }}</button>
+            </ui-menu>
+          </ng-template>
+        </li>
+      }
+    </ul>
+  </div>
+</header>
+
+<div class="body">
+  @if (menuOpen()) {
+    <div class="sidebar-backdrop" (click)="menuOpen.set(false)" aria-hidden="true"></div>
+  }
+  <!-- The spec's menu groups, those with a page -->
+  <nav class="sidebar" id="backoffice-sidebar" [class.open]="menuOpen()" [attr.aria-label]="'เมนูหลัก' | tx">
+    @for (group of groups; track group.key) {
+      <div class="nav-group" [class.open]="openGroups().has(group.key)">
+        <button type="button" class="nav-group-button" (click)="toggleGroup(group.key)" [attr.aria-expanded]="openGroups().has(group.key)" [attr.aria-controls]="'nav-' + group.key">
+          <ng-icon [svg]="group.icon" class="nav-icon" aria-hidden="true" />
+          <span class="nav-title">{{ group.label | tx }}</span>
+          <ng-icon [svg]="icons.chevron" class="nav-arrow" aria-hidden="true" />
+        </button>
+        <ul class="nav-links" [id]="'nav-' + group.key" [inert]="!openGroups().has(group.key)">
+          @for (link of group.links; track link.path) {
+            <li>
+              <a [routerLink]="link.path" routerLinkActive="active" ariaCurrentWhenActive="page">
+                <span>{{ link.label | tx }}</span>
+                @if (link.count && store.counts()[link.count]; as n) {<span class="count">{{ n }}</span>}
+              </a>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+    <p class="nav-note">{{ 'เมนูอื่นจะเปิดเมื่อมีหน้าตามสัญญาของ spec · กลุ่มสงวน (จัดซื้อ งบประมาณ CAPEX payroll) ไม่มีในเมนู' | tx }}</p>
+  </nav>
+
+  <main #main class="main" id="backoffice-main" tabindex="-1">
+    <router-outlet />
+  </main>
+</div>
+
+<bo-dialog-host />

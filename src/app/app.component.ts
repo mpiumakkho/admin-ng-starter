@@ -27,7 +27,7 @@ import { SpinnerComponent } from './layout/spinner/spinner.component';
 const AUTH_PAGES = ['/login', '/forgot-password', '/activate', '/reset-password', '/setup-two-factor'];
 const ERROR_PAGES = ['/error-pages/404', '/error-pages/500'];
 /** Workspaces with their own shell bar and menu, which fill the window */
-const WORKSPACES = ['/clinic'];
+const WORKSPACES = ['/clinic', '/backoffice'];
 /** Read by public/theme.js: someone was signed in when the app last ran */
 const SIGNED_IN_KEY = 'app-signed-in';
 

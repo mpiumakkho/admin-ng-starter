@@ -21,6 +21,11 @@ const PAGES = [
   { path: '/clinic/orders', ready: '.board .task' },
   { path: '/clinic/results', ready: '.board .task' },
   { path: '/clinic/dispense', ready: '.board .task' },
+  { path: '/clinic/ward', ready: '.bed.taken' },
+  { path: '/backoffice/home/overview', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/home/approvals', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/home/alerts', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/home/activity', ready: '.bo-table tbody tr' },
   { path: '/error-pages/404', ready: '.error-code' },
   { path: '/error-pages/500', ready: '.error-code' },
 ];
