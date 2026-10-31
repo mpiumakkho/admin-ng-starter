@@ -234,4 +234,8 @@ export interface ClinicData {
   invoices: Invoice[];
   /** Beds left by a pet that wait to be cleaned before the next */
   cleaning?: string[];
+  /** The pharmacy's shelf for drugs no prescription holds batches of yet (dispense.ts shelfOf) */
+  shelf?: Record<string, Batch[]>;
+  /** Lots held back from dispensing, by lot number, with why (a recall's quarantine) */
+  holds?: Record<string, string>;
 }

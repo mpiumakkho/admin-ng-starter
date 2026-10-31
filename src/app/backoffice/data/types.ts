@@ -118,6 +118,112 @@ export interface AccountingExport {
 /** The day's reconciliation as someone signed it off: what was found and what was done about it */
 export interface Reconciliation { date: string; by: string; at: string; variances: number; note: string }
 
+/* Medication inventory (M06; ux/pages/inventory/00–07). The lots themselves are the clinic's batches (clinic/data/dispense.ts shelfOf) */
+
+/** How Thai law classes a controlled drug (ADR-0026): the narcotics act, the psychotropics act, or neither */
+export type ControlSystem = 'narcotic' | 'psychotropic' | 'none';
+
+/** A drug in the registry: what the pharmacist verified about it, and the stock rules the count workflow keeps */
+export interface DrugRecord {
+  id: string;
+  name: string;
+  /** What one unit is, from the formulary */
+  unit: string;
+  form: string;
+  reorderThreshold: number;
+  classSystem: ControlSystem;
+  /** The category under its act (1–5 narcotic, 1–4 psychotropic) */
+  category?: number;
+  /** Dispensing needs a second person, by the hospital's rule for this drug (at least categories 1–2) */
+  requiresWitnessDispense: boolean;
+  /** The pharmacist who verified the classification, as the go-live gate asks */
+  verifiedBy?: string;
+  lastCountAt?: string;
+  lastCountBy?: string;
+}
+
+/** Stock received: one lot of one drug, posted and not edited again */
+export interface StockReceipt {
+  id: string;
+  drug: string;
+  lot: string;
+  /** "MM/YYYY", as the clinic's batches have it */
+  expiry: string;
+  qty: number;
+  unit: string;
+  location: string;
+  /** The delivery or supplier reference, shown as given; no purchase order is made here */
+  sourceRef?: string;
+  note?: string;
+  by: string;
+  at: string;
+}
+
+/** A controlled drug drawn from the ledger for a patient, with the witness the drug's rule asks for */
+export interface LedgerDispense {
+  id: string;
+  drug: string;
+  lot?: string;
+  qty: number;
+  unit: string;
+  patient: string;
+  encounter?: string;
+  order?: string;
+  by: string;
+  witness?: string;
+  at: string;
+}
+
+export type WasteReason = 'partial_dose' | 'spillage' | 'expired' | 'refused' | 'contaminated' | 'count_reconcile' | 'other';
+export interface WasteRecord {
+  id: string;
+  drug: string;
+  lot?: string;
+  qty: number;
+  unit: string;
+  reason: WasteReason;
+  detail: string;
+  /** Always a second person, whatever the drug */
+  witness: string;
+  by: string;
+  at: string;
+  /** The dispense the leftover came from */
+  dispenseId?: string;
+}
+
+export type InvestigationStatus = 'none' | 'open' | 'resolved' | 'escalated';
+/** A count of a controlled drug: what was found against what the stock said; a difference opens an investigation */
+export interface CountRecord {
+  id: string;
+  drug: string;
+  expected: number;
+  actual: number;
+  discrepancy: number;
+  unit: string;
+  by: string;
+  at: string;
+  investigation: InvestigationStatus;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+}
+
+export type RecallStatus = 'open' | 'in-progress' | 'contained' | 'closed';
+/** A recall of one lot: traced to where it went, with what was done about it */
+export interface Recall {
+  id: string;
+  drug: string;
+  lot: string;
+  reason: string;
+  /** The classification the notice gave, when it gave one */
+  severity?: 'class-1' | 'class-2' | 'class-3';
+  status: RecallStatus;
+  openedBy: string;
+  openedAt: string;
+  /** Each change of state: when, by whom, to what, and why */
+  updates: [at: string, by: string, status: RecallStatus, note: string][];
+}
+
 export interface BackofficeData {
   workItems: WorkItem[];
   approvals: Approval[];
@@ -125,4 +231,10 @@ export interface BackofficeData {
   activity: ActivityEntry[];
   accountingExports: AccountingExport[];
   reconciliations: Reconciliation[];
+  drugs: DrugRecord[];
+  receipts: StockReceipt[];
+  ledgerDispenses: LedgerDispense[];
+  wastes: WasteRecord[];
+  counts: CountRecord[];
+  recalls: Recall[];
 }

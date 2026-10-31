@@ -470,8 +470,8 @@ export class ClinicStore {
 
   /** Prepared from a batch (first to expire unless another is named), which gives up the quantity; a controlled drug names its witness */
   prepareRx(rx: Prescription, batchNo: string, witness?: string) {
-    this.mutate(() => {
-      const batch = rx.stock.find(b => b[0] === batchNo) ?? fefo(rx);
+    this.mutate(d => {
+      const batch = rx.stock.find(b => b[0] === batchNo) ?? fefo(rx, d.holds);
       if (batch) {
         takeFrom(batch, rx.qty);
       }

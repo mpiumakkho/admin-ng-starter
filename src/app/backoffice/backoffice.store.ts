@@ -5,9 +5,13 @@ import { NOW, TODAY } from '../clinic/data/model';
 import { fullName, Session } from '../user-management';
 import { DISCOUNT_THRESHOLD, issue, newInvoice, queueExport, REFUND_THRESHOLD, retryExport, settle, statusOf } from './data/finance';
 import { approvalAging, severityCounts, worklist } from './data/home';
+import {
+  INVESTIGATION, ledgerDispense, type LedgerDispenseInput, openRecall, quarantine, RECALL_STATUS, receive, type ReceiptInput, recordCount, recordWaste, resolveInvestigation, stockItems, updateRecall,
+  type WasteInput, wasteReason,
+} from './data/inventory';
 import { createBackofficeSeed } from './data/seed';
 import type { Invoice, InvoiceLine, Refund } from '../clinic/data/types';
-import type { AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, Module } from './data/types';
+import type { AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, CountRecord, LedgerDispense, Module, Recall, RecallStatus, StockReceipt, WasteRecord } from './data/types';
 
 /** Who works in the back office when nobody is signed in, as in tests: the finance manager the sample is drawn for */
 const SAMPLE_USER = 'วรรณา (ผู้จัดการการเงิน)';
@@ -225,6 +229,80 @@ export class BackofficeStore {
       d.reconciliations = [...d.reconciliations.filter(r => r.date !== date), { date, by: this.userName(), at: `${TODAY} ${NOW}`, variances, note }];
       this.log(d, 'M11', 'บันทึกผลกระทบยอดประจำวัน', date, `${variances} รายการต่าง`, note);
     });
+  }
+
+  /* Medication inventory (data/inventory.ts) */
+
+  /** The stock of every drug as the clinic's batches have it now */
+  readonly stock = computed(() => stockItems(this.clinic.data(), this.data()));
+
+  /** A lot received: the clinic's shelf has it at once */
+  receive(input: ReceiptInput): StockReceipt {
+    let receipt!: StockReceipt;
+    this.clinic.mutate(c => this.mutate(d => {
+      receipt = receive(c, d, input, this.userName());
+      this.log(d, 'M06', 'รับยาเข้าคลัง', receipt.id, receipt.drug, `lot ${receipt.lot} · ${receipt.qty} ${receipt.unit} · ${receipt.location}`);
+    }));
+    return receipt;
+  }
+
+  /** A controlled drug drawn for a patient, with its witness */
+  ledgerDispense(input: LedgerDispenseInput): LedgerDispense {
+    let record!: LedgerDispense;
+    this.clinic.mutate(c => this.mutate(d => {
+      record = ledgerDispense(c, d, input, this.userName());
+      this.log(d, 'M06', 'เบิกยาควบคุม', record.id, record.drug, `${record.qty} ${record.unit} · ${record.patient}${record.witness ? ` — พยาน ${record.witness}` : ''}`);
+    }));
+    return record;
+  }
+
+  recordWaste(input: WasteInput): WasteRecord {
+    let record!: WasteRecord;
+    this.clinic.mutate(c => this.mutate(d => {
+      record = recordWaste(c, d, input, this.userName());
+      this.log(d, 'M06', 'บันทึกยาเสีย', record.id, record.drug, `${record.qty} ${record.unit} · ${wasteReason(record.reason).label} — พยาน ${record.witness}`);
+    }));
+    return record;
+  }
+
+  /** What was counted; the difference, if any, opens an investigation */
+  recordCount(drug: string, actual: number): CountRecord {
+    let record!: CountRecord;
+    this.clinic.mutate(c => this.mutate(d => {
+      record = recordCount(c, d, drug, actual, this.userName());
+      this.log(d, 'M06', 'นับยาควบคุม', record.id, record.drug, `นับได้ ${record.actual} ${record.unit} · คาด ${record.expected} · ส่วนต่าง ${record.discrepancy}`, undefined, record.investigation === 'open' ? 'เปิดการสอบสวน' : undefined);
+    }));
+    return record;
+  }
+
+  resolveInvestigation(c: CountRecord, status: 'resolved' | 'escalated', notes: string) {
+    this.mutate(d => {
+      resolveInvestigation(c, status, notes, this.userName());
+      this.log(d, 'M06', status === 'resolved' ? 'สรุปผลสอบสวน' : 'ส่งต่อการสอบสวน', c.id, c.drug, notes, 'สอบสวนอยู่', INVESTIGATION[status].label);
+    });
+  }
+
+  openRecall(drug: string, lot: string, reason: string, severity: Recall['severity']): Recall {
+    let recall!: Recall;
+    this.mutate(d => {
+      recall = openRecall(d, drug, lot, reason, severity, this.userName());
+      this.log(d, 'M06', 'เปิดการเรียกคืนยา', recall.id, `${drug} · lot ${lot}`, reason);
+    });
+    return recall;
+  }
+
+  updateRecall(recall: Recall, status: RecallStatus, note: string) {
+    const before = recall.status;
+    this.mutate(d => {
+      updateRecall(recall, status, note, this.userName());
+      this.log(d, 'M06', 'อัปเดตการเรียกคืนยา', recall.id, `${recall.drug} · lot ${recall.lot}`, note, RECALL_STATUS[before].label, RECALL_STATUS[status].label);
+    });
+  }
+
+  /** The lot held on every shelf; the clinic will not dispense from it */
+  quarantine(lot: string, reason: string) {
+    this.clinic.mutate(c => quarantine(c, lot, reason));
+    this.mutate(d => this.log(d, 'M06', 'กันของคงคลัง', lot, reason));
   }
 
   /** Seen, and what was done about it or where it went; the exception is settled in its own workflow */

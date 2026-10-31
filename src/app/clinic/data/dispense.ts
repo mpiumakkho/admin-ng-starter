@@ -48,8 +48,11 @@ const THIS_MONTH = Number(TODAY.slice(0, 4)) * 12 + Number(TODAY.slice(5, 7));
 /** Expired: its month has passed */
 export const isExpired = (batch: Batch) => expiryMonths(batch[1]) < THIS_MONTH;
 
-/** Why a batch cannot fill this prescription, or null when it can */
-export function batchProblem(rx: Prescription, batch: Batch): string | null {
+/** Why a batch cannot fill this prescription, or null when it can; `holds` are the lots a recall keeps back (ClinicData.holds) */
+export function batchProblem(rx: Prescription, batch: Batch, holds?: Record<string, string>): string | null {
+  if (holds?.[batch[0]]) {
+    return 'lot นี้ถูกกันไว้ — ห้ามจ่าย';
+  }
   if (isExpired(batch)) {
     return 'batch นี้หมดอายุแล้ว — ห้ามจ่าย';
   }
@@ -62,8 +65,8 @@ export function batchProblem(rx: Prescription, batch: Batch): string | null {
 }
 
 /** First expiry, first out: the batch to take unless the pharmacist picks another */
-export function fefo(rx: Prescription): Batch | undefined {
-  return rx.stock.filter(b => !batchProblem(rx, b)).sort((a, b) => expiryMonths(a[1]) - expiryMonths(b[1]))[0];
+export function fefo(rx: Prescription, holds?: Record<string, string>): Batch | undefined {
+  return rx.stock.filter(b => !batchProblem(rx, b, holds)).sort((a, b) => expiryMonths(a[1]) - expiryMonths(b[1]))[0];
 }
 
 /** Takes the prescription's quantity out of a batch, when both count in the same unit */
@@ -80,12 +83,30 @@ export function takeFrom(batch: Batch, qty: string) {
  * same batches, so taking from one shows on both), or one batch of the formulary's shelf when there is none
  */
 export function stockFor(data: ClinicData, drug: string): Batch[] {
-  const known = data.prescriptions.find(rx => rx.drug === drug && rx.stock.length);
-  if (known) {
-    return known.stock;
+  const known = shelfOf(data, drug);
+  if (known.length) {
+    return known;
   }
   const shelf = FORMULARY.find(d => d.name === drug)?.stock ?? '—';
   return [[`${drug.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase()}-2508-01`, '08/2027', '—', shelf]];
+}
+
+/**
+ * The batches of a drug on the shelf, the very arrays the prescriptions and the shelf hold, so what one takes the
+ * others see: a prescription's batches when one shows them, else the pharmacy's own shelf, else none
+ */
+export function shelfOf(data: ClinicData, drug: string): Batch[] {
+  return data.prescriptions.find(rx => rx.drug === drug && rx.stock.length)?.stock ?? data.shelf?.[drug] ?? [];
+}
+
+/** A batch received into the shelf of a drug: onto the batches it already shows, or as the first on its own shelf */
+export function addBatch(data: ClinicData, drug: string, batch: Batch) {
+  const known = shelfOf(data, drug);
+  if (known.length) {
+    known.push(batch);
+  } else {
+    (data.shelf ??= {})[drug] = [batch];
+  }
 }
 
 /** The prescriptions of a pet the pharmacy still has to hand over (not verbal orders waiting for a co-signature) */

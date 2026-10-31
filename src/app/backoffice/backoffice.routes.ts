@@ -12,6 +12,15 @@ import { InvoicesComponent } from './pages/finance/invoices.component';
 import { PaymentsComponent } from './pages/finance/payments.component';
 import { ReceivablesComponent } from './pages/finance/receivables.component';
 import { ReconciliationComponent } from './pages/finance/reconciliation.component';
+import { ControlledComponent } from './pages/inventory/controlled.component';
+import { DispensesComponent } from './pages/inventory/dispenses.component';
+import { InventoryOverviewComponent } from './pages/inventory/inventory-overview.component';
+import { ItemDetailComponent } from './pages/inventory/item-detail.component';
+import { LotsComponent } from './pages/inventory/lots.component';
+import { RecallComponent } from './pages/inventory/recall.component';
+import { ReceiptsComponent } from './pages/inventory/receipts.component';
+import { ReorderComponent } from './pages/inventory/reorder.component';
+import { StockComponent } from './pages/inventory/stock.component';
 import { BackofficeShellComponent } from './shell/backoffice-shell.component';
 
 /** The back office's pages, under /backoffice, by the spec's menu groups (shell/nav.ts) */
@@ -35,6 +44,16 @@ export const BACKOFFICE_ROUTES: Routes = [
       { path: 'finance/receivables', component: ReceivablesComponent },
       { path: 'finance/reconciliation', component: ReconciliationComponent },
       { path: 'finance/exports', component: ExportsComponent },
+      { path: 'inventory', pathMatch: 'full', redirectTo: 'inventory/overview' },
+      { path: 'inventory/overview', component: InventoryOverviewComponent },
+      { path: 'inventory/stock', component: StockComponent },
+      { path: 'inventory/items/:id', component: ItemDetailComponent },
+      { path: 'inventory/lots', component: LotsComponent },
+      { path: 'inventory/receipts', component: ReceiptsComponent },
+      { path: 'inventory/dispenses', component: DispensesComponent },
+      { path: 'inventory/reorder', component: ReorderComponent },
+      { path: 'inventory/controlled', component: ControlledComponent },
+      { path: 'inventory/recall', component: RecallComponent },
       { path: '**', redirectTo: 'home/overview' },
     ],
   },

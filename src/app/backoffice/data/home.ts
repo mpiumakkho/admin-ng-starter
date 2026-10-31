@@ -78,12 +78,12 @@ export function stockWork(clinic: ClinicData): WorkItem[] {
       if (Number.isFinite(qty) && qty <= 10) {
         items.push({
           id: 'stock-' + batch[0], module: 'M06', kind: 'สต็อกต่ำ', title: `${rx.drug} เหลือ ${batch[2]}`, detail: `batch ${batch[0]} · ${batch[3]} · ต่ำกว่าจุดสั่งซื้อ`,
-          priority: 'high', due: TODAY, owner: 'ห้องยา', status: 'open', ref: batch[0], link: '/clinic/dispense',
+          priority: 'high', due: TODAY, owner: 'ห้องยา', status: 'open', ref: batch[0], link: '/backoffice/inventory/reorder',
         });
       } else if (months <= 3) {
         items.push({
           id: 'exp-' + batch[0], module: 'M06', kind: 'ใกล้หมดอายุ', title: `${rx.drug} batch ${batch[0]} หมดอายุ ${batch[1]}`, detail: `คงเหลือ ${batch[2]} · ${batch[3]} · จ่ายก่อนตาม FEFO`,
-          priority: months <= 1 ? 'high' : 'normal', due: `${batch[1].slice(3)}-${batch[1].slice(0, 2)}-01`, owner: 'ห้องยา', status: 'open', ref: batch[0], link: '/clinic/dispense',
+          priority: months <= 1 ? 'high' : 'normal', due: `${batch[1].slice(3)}-${batch[1].slice(0, 2)}-01`, owner: 'ห้องยา', status: 'open', ref: batch[0], link: '/backoffice/inventory/lots',
         });
       }
     }

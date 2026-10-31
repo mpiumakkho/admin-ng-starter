@@ -1,5 +1,7 @@
 /* The morning of 24 September 2026 in the hospital's back office: what waits for the people who run it */
-import type { AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, WorkItem } from './types';
+import type {
+  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, ControlSystem, CountRecord, DrugRecord, LedgerDispense, Recall, StockReceipt, WasteRecord, WorkItem,
+} from './types';
 
 /* Work the modules without a page of their own yet hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
 const WORK_ITEMS: WorkItem[] = [
@@ -113,7 +115,61 @@ const ACCOUNTING_EXPORTS: AccountingExport[] = [
     firstAt: '2026-09-23 23:00', lastAt: '2026-09-24 06:00', retryable: true, idempotencyKey: 'I8:credit-note:1', errorCode: 'AUTH_401', errorText: 'PEAK ตอบ 401 — token หมดอายุ' },
 ];
 
+/* Medication inventory (M06): the registry the pharmacist verified, and what the storekeeper and the ledger recorded lately */
+const drug = (id: string, name: string, unit: string, form: string, reorderThreshold: number, lastCount?: [string, string], control?: [ControlSystem, number, boolean]): DrugRecord => ({
+  id, name, unit, form, reorderThreshold, classSystem: control?.[0] ?? 'none', category: control?.[1], requiresWitnessDispense: control?.[2] ?? false,
+  verifiedBy: 'ภก. ธนพร', lastCountAt: lastCount?.[0], lastCountBy: lastCount?.[1],
+});
+const DRUGS: DrugRecord[] = [
+  drug('D01', 'Amoxicillin-clavulanate 250 mg', 'เม็ด', 'ยาเม็ด', 60, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D02', 'Amoxicillin 250 mg', 'เม็ด', 'ยาเม็ด', 40, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D03', 'Cefalexin 250 mg', 'เม็ด', 'ยาเม็ด', 40, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D04', 'Doxycycline 100 mg', 'เม็ด', 'ยาเม็ด', 40, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D05', 'Metronidazole 250 mg', 'เม็ด', 'ยาเม็ด', 40, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D06', 'Carprofen 25 mg', 'เม็ด', 'ยาเม็ด', 60, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D07', 'Meloxicam 1.5 mg/mL', 'mL', 'ยาน้ำ', 10, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D08', 'Paracetamol 500 mg', 'เม็ด', 'ยาเม็ด', 50),
+  drug('D09', 'Tramadol 50 mg', 'เม็ด', 'ยาเม็ด', 30, ['2026-09-23 18:00', 'พ.ส. กมล'], ['psychotropic', 3, false]),
+  drug('D10', 'Buprenorphine 0.3 mg/mL (inj)', 'mL', 'ยาฉีด', 20, ['2026-09-24 06:15', 'พ.ส. ณิชา'], ['narcotic', 2, true]),
+  drug('D11', 'Prednisolone 5 mg', 'เม็ด', 'ยาเม็ด', 50, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D12', 'Gentamicin 40 mg/mL (inj)', 'mL', 'ยาฉีด', 10, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D13', 'Ondansetron 2 mg', 'เม็ด', 'ยาเม็ด', 30, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D14', 'Maropitant 16 mg', 'เม็ด', 'ยาเม็ด', 20, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D15', 'Omeprazole 10 mg', 'เม็ด', 'ยาเม็ด', 40, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D16', 'Mirtazapine 1.88 mg', 'เม็ด', 'ยาเม็ด', 20, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D17', 'Apoquel 3.6 mg', 'เม็ด', 'ยาเม็ด', 20, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D18', 'Otic drops (ear)', 'ขวด', 'ยาหยอด', 5, ['2026-09-01 08:30', 'คุณสมชาย (คลัง)']),
+  drug('D19', 'Bravecto 1000 mg', 'เม็ด', 'ยาเม็ด', 10),
+  drug('D20', 'Potassium gluconate 2 mEq', 'โดส', 'ผงผสมอาหาร', 30),
+];
+const RECEIPTS: StockReceipt[] = [
+  { id: 'RC-2609-014', drug: 'Doxycycline 100 mg', lot: 'DX-2506-01', expiry: '06/2028', qty: 150, unit: 'เม็ด', location: 'ตู้ A2', sourceRef: 'DN-77012 · Zuellig', by: 'คุณสมชาย (คลัง)', at: '2026-09-22 09:40' },
+  { id: 'RC-2609-015', drug: 'Paracetamol 500 mg', lot: 'PC-2507-01', expiry: '07/2028', qty: 200, unit: 'เม็ด', location: 'ตู้ A3', sourceRef: 'DN-77012 · Zuellig', by: 'คุณสมชาย (คลัง)', at: '2026-09-22 09:45' },
+  { id: 'RC-2609-016', drug: 'Buprenorphine 0.3 mg/mL (inj)', lot: 'BU-2411-02', expiry: '11/2027', qty: 10, unit: 'mL', location: 'ตู้ล็อก C', sourceRef: 'DN-77030 · DKSH', note: 'ยาควบคุม · รับโดยเภสัชกรและพยาน', by: 'ภก. ธนพร', at: '2026-09-23 14:10' },
+];
+const LEDGER_DISPENSES: LedgerDispense[] = [
+  { id: 'LD-2609-031', drug: 'Buprenorphine 0.3 mg/mL (inj)', lot: 'BU-2411-02', qty: 0.4, unit: 'mL', patient: 'Mali · Kanokwan R.', encounter: 'ENC-260923-07', order: 'RX-260923-42', by: 'พ.ส. ณิชา', witness: 'พ.ส. กมล', at: '2026-09-24 06:10' },
+  { id: 'LD-2609-030', drug: 'Tramadol 50 mg', lot: 'TR-2410-01', qty: 2, unit: 'เม็ด', patient: 'Bolt · Patcharee L.', encounter: 'ENC-260911-03', order: 'RX-260911-05', by: 'สพ.ญ. ลลิตา', at: '2026-09-23 15:20' },
+];
+const WASTES: WasteRecord[] = [
+  { id: 'WS-2609-008', drug: 'Buprenorphine 0.3 mg/mL (inj)', lot: 'BU-2411-02', qty: 0.1, unit: 'mL', reason: 'partial_dose', detail: 'เหลือจากการดูดยา 0.5 mL ให้ 0.4 mL ตามน้ำหนัก', witness: 'พ.ส. กมล', by: 'พ.ส. ณิชา', at: '2026-09-24 06:12', dispenseId: 'LD-2609-031' },
+];
+const COUNTS: CountRecord[] = [
+  { id: 'CT-2609-021', drug: 'Buprenorphine 0.3 mg/mL (inj)', expected: 6, actual: 6, discrepancy: 0, unit: 'mL', by: 'พ.ส. ณิชา', at: '2026-09-24 06:15', investigation: 'none' },
+  { id: 'CT-2609-020', drug: 'Tramadol 50 mg', expected: 44, actual: 42, discrepancy: -2, unit: 'เม็ด', by: 'พ.ส. กมล', at: '2026-09-23 18:00', investigation: 'open' },
+  { id: 'CT-2609-019', drug: 'Tramadol 50 mg', expected: 46, actual: 46, discrepancy: 0, unit: 'เม็ด', by: 'พ.ส. ณิชา', at: '2026-09-22 18:00', investigation: 'none' },
+  { id: 'CT-2609-018', drug: 'Buprenorphine 0.3 mg/mL (inj)', expected: 7, actual: 6.5, discrepancy: -0.5, unit: 'mL', by: 'พ.ส. กมล', at: '2026-09-22 06:15', investigation: 'resolved',
+    resolvedBy: 'น.สพ. นรินทร์', resolvedAt: '2026-09-22 09:30', resolutionNotes: 'ตรวจพบบันทึกยาเสียของคืนวันที่ 21 ที่ยังไม่ลงในบัญชี ลงบันทึกแล้ว' },
+];
+const RECALLS: Recall[] = [
+  { id: 'RCL-2609-002', drug: 'Carprofen 25 mg', lot: 'B-2312-04', reason: 'ประกาศผู้ผลิต 2026-09-22: ปริมาณตัวยาต่ำกว่าเกณฑ์ใน lot นี้ (class 2)', severity: 'class-2', status: 'open', openedBy: 'ภก. ธนพร', openedAt: '2026-09-23 09:00',
+    updates: [['2026-09-23 09:00', 'ภก. ธนพร', 'open', 'รับประกาศจากผู้ผลิต เริ่มตรวจสอบ lot ในคลังและที่จ่ายไปแล้ว']] },
+];
+
 /** A fresh copy of the sample, for the store to change */
 export function createBackofficeSeed(): BackofficeData {
-  return structuredClone({ workItems: WORK_ITEMS, approvals: APPROVALS, exceptions: EXCEPTIONS, activity: ACTIVITY, accountingExports: ACCOUNTING_EXPORTS, reconciliations: [] });
+  return structuredClone({
+    workItems: WORK_ITEMS, approvals: APPROVALS, exceptions: EXCEPTIONS, activity: ACTIVITY, accountingExports: ACCOUNTING_EXPORTS, reconciliations: [],
+    drugs: DRUGS, receipts: RECEIPTS, ledgerDispenses: LEDGER_DISPENSES, wastes: WASTES, counts: COUNTS, recalls: RECALLS,
+  });
 }

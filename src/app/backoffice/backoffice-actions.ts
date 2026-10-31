@@ -8,7 +8,8 @@ import { BackofficeUi, type DialogField } from './backoffice-ui';
 import { BackofficeStore } from './backoffice.store';
 import { DISCOUNT_THRESHOLD, methodOf, PAYMENT_METHODS, refundable, REFUND_THRESHOLD, statusOf } from './data/finance';
 import { APPROVAL_KIND, canDecide } from './data/home';
-import type { AccountingExport, Approval, BoException } from './data/types';
+import { canResolve, INVESTIGATION, type LedgerDispenseInput, RECALL_NEXT, RECALL_SEVERITY, RECALL_STATUS, type ReceiptInput, type WasteInput, wasteReason } from './data/inventory';
+import type { AccountingExport, Approval, BoException, CountRecord, Recall, RecallStatus, StockReceipt } from './data/types';
 import { BoI18n } from './i18n/bo-i18n';
 
 const baht = (n: number) => `฿${n.toLocaleString('en-US')}`;
@@ -209,6 +210,158 @@ export class BackofficeActions {
 
   openInvoice(i: Invoice) {
     this.router.navigate(['/backoffice/finance/invoices', i.id]);
+  }
+
+  /* Medication inventory (data/inventory.ts): the forms live on the pages; here is what confirms and records them */
+
+  /** The receipt reviewed once more, then posted; the shelf shows it at once */
+  receive(input: ReceiptInput, onDone?: (receipt: StockReceipt) => void) {
+    const unit = this.store.data().drugs.find(d => d.name === input.drug)?.unit ?? '';
+    this.ui.ask({
+      title: `บันทึกการรับเข้า · ${input.drug}`,
+      facts: [['Lot', input.lot], ['วันหมดอายุ', input.expiry], ['จำนวนรับ', `${input.qty} ${unit}`], ['ตำแหน่งจัดเก็บ', input.location], ...(input.sourceRef ? [['อ้างอิงที่มา', input.sourceRef] as [string, string]] : [])],
+      intro: ['ตรวจทานรายการยา lot วันหมดอายุ และจำนวนกับของจริงก่อนบันทึก · ยอดคงเหลือใหม่เป็นผลจากระบบ ไม่ใช่ตัวเลขประมาณการ · receipt ที่บันทึกแล้วแก้ไขไม่ได้'],
+      confirmLabel: 'บันทึกการรับเข้า',
+      onConfirm: () => {
+        const receipt = this.store.receive(input);
+        this.ui.toast('รับเข้า {id} แล้ว · {drug} lot {lot} {qty}', { id: receipt.id, drug: receipt.drug, lot: receipt.lot, qty: `${receipt.qty} ${receipt.unit}` });
+        onDone?.(receipt);
+      },
+    });
+  }
+
+  /** A controlled drug drawn: patient, drug, quantity and witness confirmed together, never in one click */
+  ledgerDispense(input: LedgerDispenseInput, onDone?: () => void) {
+    const unit = this.store.data().drugs.find(d => d.name === input.drug)?.unit ?? '';
+    this.ui.ask({
+      title: `เบิก-จ่ายยาควบคุม · ${input.drug}`,
+      tone: 'danger',
+      facts: [['ผู้ป่วย', input.patient], ['Visit / คำสั่ง', `${input.encounter || '—'} / ${input.order || '—'}`], ['จำนวน', `${input.qty} ${unit}`], ['พยาน', input.witness || '—'], ['ผู้ทำรายการ', this.store.userName()]],
+      intro: ['รายการเบิกเป็น append-only: บันทึกแล้วแก้หรือลบไม่ได้ · ส่วนที่ดูดแล้วไม่ได้ให้ต้องบันทึกเป็นยาเสียพร้อมพยาน'],
+      confirmLabel: 'ยืนยันการเบิก',
+      onConfirm: () => {
+        const record = this.store.ledgerDispense(input);
+        this.ui.toast('เบิก {id} แล้ว · {qty} จาก lot {lot}', { id: record.id, qty: `${record.qty} ${record.unit}`, lot: record.lot ?? '—' });
+        onDone?.();
+      },
+    });
+  }
+
+  recordWaste(input: WasteInput, onDone?: () => void) {
+    const unit = this.store.data().drugs.find(d => d.name === input.drug)?.unit ?? '';
+    this.ui.ask({
+      title: `บันทึกยาเสีย · ${input.drug}`,
+      tone: 'danger',
+      facts: [['จำนวน', `${input.qty} ${unit}`], ['เหตุผล', wasteReason(input.reason).label], ['รายละเอียด', input.detail], ['พยาน', input.witness], ['ผู้ทำรายการ', this.store.userName()]],
+      intro: [wasteReason(input.reason).fromStock ? 'เหตุผลนี้ตัดจากคงเหลือในคลัง' : 'เหตุผลนี้เป็นยาที่เบิกออกไปแล้ว คงเหลือในคลังไม่เปลี่ยน'],
+      confirmLabel: 'บันทึกยาเสีย',
+      onConfirm: () => {
+        const record = this.store.recordWaste(input);
+        this.ui.toast('บันทึกยาเสีย {id} แล้ว', { id: record.id });
+        onDone?.();
+      },
+    });
+  }
+
+  /** Only what was found is given; the expected figure and the difference are the system's */
+  recordCount(drug: string, actual: number, onDone?: () => void) {
+    const unit = this.store.data().drugs.find(d => d.name === drug)?.unit ?? '';
+    this.ui.ask({
+      title: `นับสต็อก · ${drug}`,
+      facts: [['จำนวนที่นับได้', `${actual} ${unit}`], ['ผู้นับ', this.store.userName()]],
+      intro: ['ระบบเทียบกับคงเหลือเองหลังบันทึก · ถ้าต่างกันจะเปิดการสอบสวนทันที และผู้นับสรุปผลเองไม่ได้ · นับซ้ำเป็นรายการใหม่ ไม่แก้ของเดิม'],
+      confirmLabel: 'บันทึกการนับ',
+      onConfirm: () => {
+        const record = this.store.recordCount(drug, actual);
+        this.ui.toast(record.investigation === 'open' ? 'นับได้ {actual} · คาด {expected} · ส่วนต่าง {diff} — เปิดการสอบสวน {id}' : 'นับได้ {actual} ตรงกับคงเหลือ · {id}',
+          { id: record.id, actual: `${record.actual} ${unit}`, expected: `${record.expected} ${unit}`, diff: String(record.discrepancy) }, record.investigation === 'open' ? 'info' : 'success');
+        onDone?.();
+      },
+    });
+  }
+
+  /** An investigation closed one way, by someone other than the counter, with notes that stand as evidence */
+  resolveInvestigation(c: CountRecord, status: 'resolved' | 'escalated') {
+    if (!canResolve(c, this.store.userName())) {
+      this.ui.toast(c.investigation !== 'open' ? 'การสอบสวนนี้สรุปผลไปแล้ว — นับใหม่เพื่อเปิดรอบใหม่' : 'ผู้นับสรุปผลการสอบสวนของตัวเองไม่ได้ (การแยกหน้าที่)', undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: `${status === 'resolved' ? 'สรุปผลสอบสวน' : 'ส่งต่อระดับสูง'} · ${c.id}`,
+      tone: status === 'resolved' ? 'primary' : 'danger',
+      facts: [['รายการยา', c.drug], ['นับได้ / คาด', `${c.actual} / ${c.expected} ${c.unit}`], ['ส่วนต่าง', `${c.discrepancy} ${c.unit}`], ['ผู้นับ', `${c.by} · ${c.at}`]],
+      intro: ['สถานะเดินทางเดียว: เปิด → สรุปผล/ส่งต่อ แล้วแก้ไม่ได้อีก · ผู้อำนวยการหรือผู้ดูแลระบบเป็นผู้ตัดสิน'],
+      fields: [{ name: 'notes', label: this.t('บันทึกผล (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: 'เช่น ตรวจพบรายการยาเสียที่ยังไม่ลงบัญชี ลงบันทึกแล้ว', validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null) }],
+      confirmLabel: status === 'resolved' ? 'สรุปผลสอบสวน' : 'ส่งต่อระดับสูง',
+      onConfirm: v => {
+        this.store.resolveInvestigation(c, status, v['notes'].trim());
+        this.ui.toast('{id} → {status}', { id: c.id, status: this.t(INVESTIGATION[status].label) });
+      },
+    });
+  }
+
+  /** A recall opened on a lot, from the notice that asks for it */
+  openRecall(drug: string, lot: string) {
+    this.ui.ask({
+      title: `เริ่มการเรียกคืน · ${drug}`,
+      tone: 'danger',
+      facts: [['Lot', lot], ['ผู้รับผิดชอบ', this.store.userName()]],
+      intro: ['การเรียกคืนเปลี่ยนสถานะของ lot และบันทึกหลักฐาน ไม่แก้หรือลบรายการจ่ายยา · กันของคงคลังแยกต่างหากหลังเปิด'],
+      fields: [
+        { name: 'severity', label: 'ระดับตามประกาศ', type: 'select', value: '', options: [{ value: '', label: 'ยังไม่ระบุ' }, ...Object.entries(RECALL_SEVERITY).map(([value, label]) => ({ value, label }))], optional: true },
+        { name: 'reason', label: this.t('เหตุผลและที่มา (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: 'เช่น ประกาศผู้ผลิต 2026-09-22: ปริมาณตัวยาต่ำกว่าเกณฑ์', validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null) },
+      ],
+      confirmLabel: 'เริ่มการเรียกคืน',
+      onConfirm: v => {
+        const recall = this.store.openRecall(drug, lot, v['reason'].trim(), (v['severity'] || undefined) as Recall['severity']);
+        this.ui.toast('เปิดการเรียกคืน {id} · lot {lot}', { id: recall.id, lot });
+      },
+    });
+  }
+
+  updateRecall(recall: Recall) {
+    const next = RECALL_NEXT[recall.status];
+    if (!next.length) {
+      this.ui.toast('การเรียกคืนนี้ปิดแล้ว', undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: `อัปเดตการเรียกคืน · ${recall.id}`,
+      facts: [['รายการยา', `${recall.drug} · lot ${recall.lot}`], ['สถานะปัจจุบัน', RECALL_STATUS[recall.status].label]],
+      intro: ['สถานะเดินไปข้างหน้าเท่านั้น: เปิด → กำลังดำเนินการ → ควบคุมได้แล้ว → ปิดแล้ว'],
+      fields: [
+        { name: 'status', label: 'สถานะใหม่', type: 'select', value: next[0], options: next.map(s => ({ value: s, label: RECALL_STATUS[s].label })) },
+        { name: 'note', label: this.t('สิ่งที่ทำ (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: 'เช่น กันของในคลังแล้ว แจ้งเจ้าของ 2 รายที่ได้รับยา', validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null) },
+      ],
+      confirmLabel: 'บันทึกการอัปเดต',
+      onConfirm: v => {
+        this.store.updateRecall(recall, v['status'] as RecallStatus, v['note'].trim());
+        this.ui.toast('{id} → {status}', { id: recall.id, status: this.t(RECALL_STATUS[recall.status].label) });
+      },
+    });
+  }
+
+  /** The lot held back on the shelf: nothing is taken away, the clinic simply cannot dispense from it */
+  quarantine(lot: string, recall: Recall) {
+    if (this.store.clinic.data().holds?.[lot]) {
+      this.ui.toast('lot นี้ถูกกันไว้แล้ว', undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: `กันของคงคลัง · lot ${lot}`,
+      tone: 'danger',
+      facts: [['รายการยา', recall.drug], ['การเรียกคืน', recall.id]],
+      intro: ['ของยังอยู่ในคลังตามจำนวนเดิม แต่ห้องยาจะจ่ายจาก lot นี้ไม่ได้จนกว่าจะปลด · ไม่ปรับจำนวนโดยไม่มี movement'],
+      confirmLabel: 'กันของคงคลัง',
+      onConfirm: () => {
+        this.store.quarantine(lot, `${recall.id} · ${recall.reason}`);
+        this.ui.toast('กัน lot {lot} แล้ว · ห้องยาจ่ายจาก lot นี้ไม่ได้', { lot });
+      },
+    });
+  }
+
+  openItem(drugId: string) {
+    this.router.navigate(['/backoffice/inventory/items', drugId]);
   }
 
   /** Seen: who saw it and what they did about it; it is settled in the owning workflow, not here */

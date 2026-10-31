@@ -1,7 +1,7 @@
 /* The morning of 24 September 2026 at a veterinary hospital: sample data from the design (seph1-vet-erp-rc, data/seed.ts) */
 import { consentItems, estimateFor, isDnr } from './estimate';
 import { defaultHandoff } from './model';
-import type { Appointment, ClinicData, Invoice, LabResult, Order, Owner, Patient, Prescription } from './types';
+import type { Appointment, Batch, ClinicData, Invoice, LabResult, Order, Owner, Patient, Prescription } from './types';
 
 const OWNERS: Record<string, Owner> = {
   'Somsak W.': {
@@ -464,6 +464,20 @@ const PRESCRIPTIONS: Prescription[] = [
     inpatient: true, marTimes: ['12:00'], doses: [] },
 ];
 
+/** The pharmacy's shelf: batches of the formulary's drugs that no prescription of the sample holds yet (dispense.ts shelfOf) */
+const SHELF: Record<string, Batch[]> = {
+  'Amoxicillin-clavulanate 250 mg': [['AC-2501-03', '01/2028', '210 เม็ด', 'ตู้ A1']],
+  'Amoxicillin 250 mg': [['AM-2412-08', '12/2027', '18 เม็ด', 'ตู้ A1']],
+  'Cefalexin 250 mg': [['CF-2503-02', '03/2028', '96 เม็ด', 'ตู้ A1']],
+  'Doxycycline 100 mg': [['DX-2409-05', '10/2026', '30 เม็ด', 'ตู้ A2'], ['DX-2506-01', '06/2028', '150 เม็ด', 'ตู้ A2']],
+  'Meloxicam 1.5 mg/mL': [['ML-2411-04', '11/2027', '3 mL', 'ตู้ A3']],
+  'Paracetamol 500 mg': [['PC-2408-02', '09/2026', '24 เม็ด', 'ตู้ A3'], ['PC-2507-01', '07/2028', '200 เม็ด', 'ตู้ A3']],
+  'Tramadol 50 mg': [['TR-2410-01', '12/2026', '42 เม็ด', 'ตู้ล็อก C']],
+  'Prednisolone 5 mg': [['PD-2502-06', '02/2028', '160 เม็ด', 'ตู้ A3']],
+  'Gentamicin 40 mg/mL (inj)': [['GT-2505-02', '05/2027', '12 mL', 'ตู้เย็น 1']],
+  'Apoquel 3.6 mg': [['AP-2504-03', '04/2028', '8 เม็ด', 'ตู้ B2']],
+};
+
 /** A fresh copy of all the sample data, for the store to change */
 const pet = (data: ClinicData, name: string) => data.patients.find(p => p.pet === name)!;
 
@@ -477,6 +491,7 @@ export function createSeed(): ClinicData {
     prescriptions: structuredClone(PRESCRIPTIONS),
     encounters: {},
     invoices: structuredClone(INVOICES),
+    shelf: structuredClone(SHELF),
   };
   // Vital signs of earlier visits, for the trend: Bolt's lameness rechecks and Nala's kidney visits
   pet(data, 'Bolt').vitals = [

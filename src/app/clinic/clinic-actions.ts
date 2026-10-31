@@ -576,7 +576,8 @@ export class ClinicActions {
 
   /** Prepared from a batch: the first to expire unless another is picked, never an expired one; a controlled drug needs a witness */
   prepareRx(rx: Prescription) {
-    const first = fefo(rx);
+    const holds = this.store.data().holds;
+    const first = fefo(rx, holds);
     const controlled = isControlled(rx.drug);
     const fields: DialogField[] = [];
     if (rx.stock.length) {
@@ -584,7 +585,7 @@ export class ClinicActions {
         name: 'batch', label: 'Batch (หมดอายุก่อนจ่ายก่อน)', type: 'select', value: first?.[0] ?? rx.stock[0][0],
         options: rx.stock.map(b => ({ value: b[0], label: `${b[0]} · ${this.i18n.t('หมดอายุ')} ${b[1]} · ${this.i18n.t('คงเหลือ')} ${this.i18n.t(b[2])} · ${this.i18n.t(b[3])}` })),
         validate: v => {
-          const problem = batchProblem(rx, rx.stock.find(b => b[0] === v)!);
+          const problem = batchProblem(rx, rx.stock.find(b => b[0] === v)!, holds);
           return problem ? this.i18n.t(problem) : null;
         },
       });

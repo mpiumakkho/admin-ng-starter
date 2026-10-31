@@ -1369,3 +1369,110 @@
     outline-offset: 2px;
   }
 }
+
+/* Inventory (pages/inventory): the receipt form and its impact rail, the ledger's action card, prompts and problem lists */
+.backoffice .notice.warn {
+  background: var(--ui-warning-soft);
+  color: var(--ui-warning-text);
+}
+.backoffice .notice.danger {
+  background: var(--ui-danger-soft);
+  color: var(--ui-danger-text);
+}
+.backoffice .notice.info {
+  background: var(--ui-info-soft);
+  color: var(--ui-info-text);
+}
+.backoffice .data-grid.wide {
+  padding: 12px 16px;
+  grid-template-columns: 140px 1fr;
+}
+.backoffice .prompt {
+  padding: 40px 16px;
+  text-align: center;
+  font-weight: 600;
+
+  .secondary {
+    margin-top: 6px;
+    font-weight: 400;
+  }
+}
+.backoffice .problems {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--ui-danger-text);
+}
+.backoffice .ok-text {
+  color: var(--ui-success-text);
+}
+.backoffice .receipt-form {
+  .form-grid {
+    padding: 12px 16px;
+  }
+
+  .form-foot {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 12px;
+  }
+}
+.backoffice .action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ui-muted);
+
+    .ui-input {
+      width: 100%;
+      font-weight: 400;
+      color: var(--ui-text);
+    }
+  }
+
+  .two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .secondary {
+    margin: 0;
+  }
+}
+.backoffice .record.ledger {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+.backoffice .kpi-value small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-muted);
+}
+.backoffice .bo-table.stock td:first-child,
+.backoffice .bo-table.stock th:first-child {
+  min-width: 220px;
+}
+.backoffice .bo-table tr.open td {
+  background: var(--ui-danger-soft);
+}
+.backoffice .impact .notice {
+  margin-top: 4px;
+}
+@media (max-width: 900px) {
+  .backoffice .record,
+  .backoffice .record.ledger {
+    grid-template-columns: 1fr;
+  }
+
+  .backoffice .record-rail {
+    position: static;
+  }
+}

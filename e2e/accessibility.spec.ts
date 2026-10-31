@@ -34,6 +34,15 @@ const PAGES = [
   { path: '/backoffice/finance/receivables', ready: '.bo-table tbody tr' },
   { path: '/backoffice/finance/reconciliation', ready: '.bo-table tbody tr' },
   { path: '/backoffice/finance/exports', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/inventory/overview', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/inventory/stock', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/inventory/items/D10', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/inventory/lots', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/inventory/receipts', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/inventory/dispenses', ready: '.prompt' },
+  { path: '/backoffice/inventory/reorder', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/inventory/controlled', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/inventory/recall?lot=B-2312-04', ready: '.bo-table tbody tr' },
   { path: '/error-pages/404', ready: '.error-code' },
   { path: '/error-pages/500', ready: '.error-code' },
 ];
@@ -53,7 +62,7 @@ for (const theme of ['light', 'dark'] as const) {
     });
 
     test('every page', async ({ page }) => {
-      test.setTimeout(90_000);
+      test.setTimeout(180_000);
       await start(page, '/login', theme);
       await signInAs(page, 'Administrator');
       for (const { path, ready } of PAGES) {
