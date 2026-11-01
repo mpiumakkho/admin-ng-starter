@@ -93,7 +93,15 @@ export const BACKOFFICE_NAV: NavGroup[] = [
     { path: '/backoffice/quality/audit-exports', label: 'Export Requests' },
     { path: '/backoffice/quality/audit-integrity', label: 'Chain / Retention Status' },
   ] },
-  { key: 'reports', label: 'รายงานผู้บริหาร', icon: lucideChartColumn, links: [] },
+  { key: 'reports', label: 'รายงานผู้บริหาร', icon: lucideChartColumn, links: [
+    { path: '/backoffice/reports/executive', label: 'Executive Overview' },
+    { path: '/backoffice/reports/revenue', label: 'Revenue & Collection' },
+    { path: '/backoffice/reports/inventory', label: 'Inventory Risk' },
+    { path: '/backoffice/reports/workforce', label: 'Workforce Readiness' },
+    { path: '/backoffice/reports/assets', label: 'Asset Readiness' },
+    { path: '/backoffice/reports/quality', label: 'Quality & Safety' },
+    { path: '/backoffice/reports/compliance', label: 'Audit & Compliance' },
+  ] },
   { key: 'integrations', label: 'Integration Center', icon: lucidePlug, links: [] },
   { key: 'settings', label: 'ตั้งค่าระบบ', icon: lucideSettings, links: [] },
 ];

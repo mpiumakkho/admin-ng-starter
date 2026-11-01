@@ -49,6 +49,7 @@ import { RcaComponent } from './pages/quality/rca.component';
 import { ResolutionComponent } from './pages/quality/resolution.component';
 import { RetentionComponent } from './pages/quality/retention.component';
 import { RopaComponent } from './pages/quality/ropa.component';
+import { ReportComponent } from './pages/reports/report.component';
 import { ClaimsComponent } from './pages/sales/claims.component';
 import { LineCrmComponent } from './pages/sales/line-crm.component';
 import { RevenueOverviewComponent } from './pages/sales/revenue-overview.component';
@@ -138,6 +139,14 @@ export const BACKOFFICE_ROUTES: Routes = [
       { path: 'quality/audit', component: AuditExplorerComponent },
       { path: 'quality/audit-exports', component: AuditExportsComponent },
       { path: 'quality/audit-integrity', component: AuditIntegrityComponent },
+      { path: 'reports', pathMatch: 'full', redirectTo: 'reports/executive' },
+      { path: 'reports/executive', component: ReportComponent, data: { report: 'executive' } },
+      { path: 'reports/revenue', component: ReportComponent, data: { report: 'revenue' } },
+      { path: 'reports/inventory', component: ReportComponent, data: { report: 'inventory' } },
+      { path: 'reports/workforce', component: ReportComponent, data: { report: 'workforce' } },
+      { path: 'reports/assets', component: ReportComponent, data: { report: 'assets' } },
+      { path: 'reports/quality', component: ReportComponent, data: { report: 'quality' } },
+      { path: 'reports/compliance', component: ReportComponent, data: { report: 'compliance' } },
       { path: '**', redirectTo: 'home/overview' },
     ],
   },

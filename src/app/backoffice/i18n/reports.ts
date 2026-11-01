@@ -1,0 +1,162 @@
+/* Executive reports: English for the Thai source text, and Thai for the English keys. Placeholders are {name}. */
+
+export const EN_REPORTS: Record<string, string> = {
+  /* the reports' names (ux/menus/00-i18n-menu-and-page-labels.md) */
+  'ภาพรวมสำหรับผู้บริหาร': 'Executive overview',
+  'รายได้และการรับชำระ': 'Revenue & collection',
+  'ความเสี่ยงด้านคลังสินค้า': 'Inventory risk',
+  'ความพร้อมด้านบุคลากร': 'Workforce readiness',
+  'ความพร้อมด้านอุปกรณ์': 'Asset readiness',
+  'คุณภาพและความปลอดภัย': 'Quality & safety',
+  'Audit และการกำกับดูแล': 'Audit & compliance',
+
+  /* sources */
+  'COMPOSED · M11 M12 M22 M24 M31 · ความเสี่ยงและข้อยกเว้นที่ต้องตัดสินใจ · ทุกตัวเลขเป็น metric ต้นแบบ ไม่ใช่ตัวเลขทางการ':
+    'COMPOSED · M11 M12 M22 M24 M31 · the risks and exceptions to decide on · every figure is a prototype metric, not an official one',
+  'COMPOSED · M11 การเงิน · M16 ประกัน · ยอดรับชำระจากบันทึกการชำระ ไม่ใช่งบการเงิน · ตรวจยอดกับระบบบัญชีภายนอกที่หน้าส่งข้อมูลบัญชี':
+    'COMPOSED · M11 billing · M16 insurance · collections from the payment records, not financial statements · reconciled with the outside accounting system on the accounting delivery page',
+  'COMPOSED · M06 คลังยา · สต็อกต่ำ วันหมดอายุ การเรียกคืน และผลต่างยาควบคุม ณ เวลาตัดข้อมูล': 'COMPOSED · M06 medication inventory · low stock, expiry, recalls and controlled-drug variance as of the cutoff',
+  'M24 บุคลากร': 'M24 workforce',
+  'ข้อมูลบุคลากรรายคนแสดงเท่าที่จำเป็นต่อการตัดสินใจ': 'individual staff detail only as far as a decision needs it',
+  'สัปดาห์ของ {d}': 'week of {d}',
+  'COMPOSED · M22 อุปกรณ์ · ความพร้อมของอุปกรณ์ critical · PM สอบเทียบ และการขัดข้อง · ไม่ใช่ทะเบียนสินทรัพย์ทางบัญชี':
+    'COMPOSED · M22 equipment · critical equipment readiness · PM, calibration and downtime · not the fixed-asset ledger',
+  'COMPOSED · M12 คุณภาพ · M28 ข้อร้องเรียน · ตัวชี้วัดจากคลังตัวชี้วัด · ค่าเทียบมาตรฐานเป็นตัวอย่าง': 'COMPOSED · M12 quality · M28 complaints · KPIs from the KPI library · benchmarks are samples',
+  'COMPOSED · M31 PDPA (GATED) · M13 Audit · ภาพรวมระดับสูงเท่านั้น รายละเอียดเปิดได้ตามสิทธิ์ที่หน้าต้นทาง': 'COMPOSED · M31 PDPA (GATED) · M13 audit · high level only; detail opens by permission on the source pages',
+  'metric ต้นแบบ ไม่ใช่ตัวเลขทางการ: ทุกตัวเลขมีสูตร แหล่งข้อมูล และข้อจำกัดในส่วนสัญญาตัวชี้วัดด้านล่าง · รายงานไม่ใช่แหล่งบันทึกรายการ แก้ไขที่หน้าต้นทางเท่านั้น':
+    'Prototype metrics, not official figures: each has its formula, source and limits in the metric contracts below · a report is not a record source; changes are made on the source pages',
+  'ตัดข้อมูล {at}': 'Cutoff {at}',
+  'ณ {t}': 'As of {t}',
+
+  /* the page */
+  'ไม่มีข้อมูลในช่วงนี้': 'No data in this period',
+  'ความเร่งด่วน': 'Severity',
+  'โมดูล': 'Module',
+  'ไม่มีรายการที่ต้องตัดสินใจ ณ เวลาตัดข้อมูล': 'Nothing to decide as of the cutoff',
+  'สัญญาตัวชี้วัด (ต้นแบบ)': 'Metric contracts (prototype)',
+  '{n} ตัว · สูตร แหล่งข้อมูล เวลาตัดข้อมูล เจ้าของ และข้อจำกัด': '{n} · formula, source, cutoff, owner and limits',
+  'เจ้าของ': 'Owner',
+  'ข้อจำกัด': 'Limits',
+  '90 วัน': '90 days',
+  '{n} ใบ': 'invoices: {n}',
+  'ยาต่ำกว่าจุดสั่งซื้อ': 'Drugs below reorder point',
+  'เปิดอยู่ {n}': '{n} open',
+  'ค้างชำระ {a}': 'owing {a}',
+  'ยังไม่แจ้ง สคส. {n}': 'PDPC not told: {n}',
+  'ผลต่าง {n}': 'variance {n}',
+
+  /* revenue */
+  'รับชำระในช่วง': 'Collected in period',
+  'คืนเงินในช่วง': 'Refunded in period',
+  'เกินกำหนดชำระ': 'Past due',
+  'ส่วนลดที่อนุมัติ': 'Approved discounts',
+  'เคลมรอผล': 'Claims awaiting outcome',
+  'ลูกหนี้ตามอายุหนี้': 'Receivables by age',
+  'ยอดค้างตามจำนวนวันเกินกำหนด': 'Balance by days past due',
+  'รับชำระตามช่องทาง': 'Collections by method',
+  'ในช่วงที่เลือก': 'In the period chosen',
+  'ลูกหนี้ที่ต้องติดตาม': 'Receivables to follow up',
+  'เกินกำหนดนานที่สุดก่อน · เปิดใบแจ้งหนี้ที่หน้าการเงิน': 'Longest overdue first · invoices open on the finance pages',
+  'ผลรวมการชำระที่ไม่ถูกกลับรายการ ในจำนวนวันที่เลือกถึงวันนี้': 'Sum of payments not reversed, over the days chosen up to today',
+  'ไม่หักคืนเงิน ไม่ใช่รายได้ทางบัญชี': 'Refunds not deducted; not accounting revenue',
+  'ยอดคงเหลือของใบแจ้งหนี้ที่ออกแล้วและยังเก็บได้': 'Balances of issued, collectible invoices',
+  'ไม่รวมส่วนที่บริษัทประกันจะจ่าย': 'Excludes what insurers will pay',
+  'เคลมที่ส่งแล้วและยังไม่มีผลจากบริษัทประกัน': 'Claims submitted with no outcome from the insurer yet',
+  'ติดตามด้วยมือ ไม่มีการเชื่อมต่อบริษัทประกัน': 'Tracked by hand; no insurer integration',
+
+  /* inventory */
+  'การเรียกคืนที่เปิดอยู่': 'Open recalls',
+  'หมดอายุใน 90 วัน': 'Expiring within 90 days',
+  'ยาควบคุมนับไม่ตรง': 'Controlled-drug count variance',
+  'Lot ตามวันหมดอายุ': 'Lots by expiry',
+  'เฉพาะ lot ที่ยังมีของ': 'Lots with stock only',
+  'รายการยาที่มีความเสี่ยง': 'Drugs at risk',
+  'สต็อกต่ำ หมดอายุ การเรียกคืน และผลต่างยาควบคุม': 'Low stock, expiry, recalls and controlled-drug variance',
+  'ยาที่คงเหลือน้อยกว่าหรือเท่ากับจุดสั่งซื้อ': 'Drugs at or below their reorder point',
+  'คงเหลือคำนวณจาก batch ในงานตรวจรักษา ไม่ใช่การนับจริง': 'On hand comes from the clinic\'s batches, not a physical count',
+  'lot ที่ยังมีของและหมดอายุภายใน 90 วัน': 'Lots with stock expiring within 90 days',
+  'วันหมดอายุระดับเดือน': 'Expiry is by month',
+  'การนับยาควบคุมที่มีผลต่างและการสอบสวนยังเปิด': 'Controlled-drug counts with a variance and an open investigation',
+  'นับตามรอบที่บันทึก ไม่ต่อเนื่อง': 'Counted at recorded rounds, not continuously',
+
+  /* workforce */
+  'ช่องว่างเวรสัปดาห์นี้': 'Rota gaps this week',
+  'เวรที่ขัดกัน': 'Shift conflicts',
+  'ใบอนุญาตหมดใน 30 วันหรือหมดแล้ว': 'Licences expired or expiring in 30 days',
+  'ใบอนุญาตรอตรวจสอบ': 'Licences awaiting verification',
+  'ชั่วโมงล่วงเวลาสัปดาห์นี้': 'Overtime hours this week',
+  'ช่องว่างเวรรายวัน': 'Rota gaps by day',
+  'จำนวนตำแหน่งที่ยังขาดตามขั้นต่ำ': 'Positions short of the minimum',
+  'บุคลากรและเวรที่กระทบ': 'Staff and shifts affected',
+  'ช่องว่างเวร ใบอนุญาต และล่วงเวลา': 'Rota gaps, licences and overtime',
+  'ช่องว่างเวร': 'Rota gap',
+  'เวรขัดกัน': 'Shift conflict',
+  'ล่วงเวลา': 'Overtime',
+  'เวรและตำแหน่งที่มีคนน้อยกว่าขั้นต่ำ โดยไม่นับคนที่ลาอนุมัติแล้ว': 'Shifts and roles below the minimum, not counting approved leave',
+  'ขั้นต่ำเป็นค่าตัวอย่างจนกว่าจะมีนโยบายอัตรากำลัง': 'The minimums are samples until a staffing policy is set',
+  'ใบอนุญาตที่หมดอายุแล้วหรือจะหมดใน 30 วัน': 'Licences expired or expiring within 30 days',
+  'ไม่ได้ตรวจกับสภาวิชาชีพแบบอัตโนมัติ': 'Not checked with the professional councils automatically',
+  'ชั่วโมงเวรเกินสัญญา บวกการเรียกตัว': 'Rostered hours over contract, plus call-outs',
+  'ไม่ใช่ข้อมูลเงินเดือน (payroll อยู่นอกขอบเขต)': 'Not payroll data (payroll is out of scope)',
+
+  /* assets */
+  'อุปกรณ์ critical พร้อมใช้': 'Critical equipment ready',
+  'กำลังขัดข้อง': 'Down now',
+  'PM เกินกำหนด': 'PM overdue',
+  'อุปกรณ์ critical ตามความพร้อม': 'Critical equipment by readiness',
+  'นับตามสถานะ': 'Counted by state',
+  'อุปกรณ์ที่ต้องตัดสินใจ': 'Equipment to decide on',
+  'ขัดข้อง ต้องดำเนินการ และใกล้ครบกำหนด': 'Down, needing action, and nearly due',
+  'อุปกรณ์ critical ที่ไม่ขัดข้องและไม่มีรายการค้างที่ต้องดำเนินการ': 'Critical devices not down and with nothing outstanding',
+  'ความพร้อมตามบันทึก ไม่ใช่การทดสอบเครื่องจริง': 'Readiness from the records, not a device test',
+  'ชั่วโมงที่ใช้งานได้ ÷ ชั่วโมงทั้งหมด ย้อนหลัง 12 เดือน': 'Hours available ÷ all hours, over 12 months',
+  'นับเฉพาะการขัดข้องที่บันทึกไว้': 'Counts recorded downtime only',
+
+  /* quality */
+  'อุบัติการณ์ที่ยังไม่ปิด': 'Open incidents',
+  'อันตรายรุนแรงขึ้นไปที่ยังไม่ปิด': 'Open major harm or worse',
+  'อุบัติการณ์รายเดือน': 'Incidents by month',
+  '12 เดือนถึงวันนี้': '12 months to date',
+  'อุบัติการณ์ RCA และข้อร้องเรียนที่ต้องตัดสินใจ': 'Incidents, RCAs and complaints to decide on',
+  'รุนแรงก่อน · เปิดรายการที่หน้าคุณภาพ': 'Most severe first · open them on the quality pages',
+  'ตัวชี้วัดไม่ถึงเป้า': 'KPI off target',
+  'ข้อร้องเรียนใกล้หรือเกินกำหนดตอบ': 'Complaint answer nearly or past due',
+  'รายงานอุบัติการณ์ที่สถานะยังไม่ปิด': 'Incident reports not yet closed',
+  'นับเฉพาะที่รายงาน การรายงานมากไม่ได้แปลว่าเกิดเหตุมาก': 'Counts what is reported; more reports do not mean more harm',
+  'ตัวชี้วัดที่ค่าเดือนล่าสุดไม่ถึงเป้าหมาย': 'KPIs whose latest month misses the target',
+  'ค่าเทียบมาตรฐานเป็นตัวอย่างจนกว่าจะได้เกณฑ์ TAHSA/AAHA ฉบับจริง': 'Benchmarks are samples until the real TAHSA/AAHA values are set',
+
+  /* compliance */
+  'DSAR ใกล้หรือเกิน 30 วัน': 'DSARs near or past 30 days',
+  'เหตุละเมิดใกล้ครบ 72 ชม.': 'Breaches near 72 hours',
+  'hash ไม่ตรงที่ยังไม่เปิด finding': 'Hash mismatches without a finding',
+  'RoPA ที่ต้องทบทวน': 'RoPA reviews due',
+  'คำขอ DSAR ตามสิทธิ์': 'DSARs by right',
+  'คำขอทั้งหมดในข้อมูลตัวอย่าง': 'All requests in the sample',
+  'ข้อยกเว้นด้านการกำกับดูแล': 'Compliance exceptions',
+  'เส้นตายตามกฎหมายก่อน': 'Statutory deadlines first',
+  'เหตุละเมิด': 'Breach',
+  'คำขอส่งออกรออนุมัติ': 'Export awaiting approval',
+  'ยังไม่เปิด finding': 'No finding yet',
+  'คำขอที่เปิดอยู่และเหลือไม่เกิน 7 วันหรือเกินกำหนด': 'Open requests with 7 days or fewer left, or overdue',
+  'เส้นตายในต้นแบบคำนวณที่หน้าจอ production ต้องมาจาก backend': 'The prototype computes the deadline on screen; production takes it from the backend',
+  'เดือนที่มีเหตุการณ์ hash ไม่ตรงและยังไม่เปิด finding': 'Months with a mismatched hash and no finding',
+  'การตรวจแบบลูกโซ่ (P3) ยังไม่เปิด จึงยืนยันได้ระดับเหตุการณ์เท่านั้น': 'Chain verification (P3) is not enabled, so only single events are proven',
+
+  /* the executive overview */
+  'ความเสี่ยงระดับวิกฤตตามด้าน': 'Critical risks by area',
+  'จำนวนรายการวิกฤตในแต่ละรายงาน': 'Critical items in each report',
+  'ข้อยกเว้นที่ต้องตัดสินใจ': 'Exceptions to decide on',
+  'วิกฤตก่อน · ข้อยกเว้นที่ยังไม่รับทราบ และรายการวิกฤตจากทุกรายงาน': 'Critical first · unacknowledged exceptions and every report\'s critical items',
+};
+
+/* The menu's English labels, in the Thai the spec gives them (ux/menus/00-i18n-menu-and-page-labels.md) */
+export const TH_REPORTS: Record<string, string> = {
+  'Executive Overview': 'ภาพรวมผู้บริหาร',
+  'Revenue & Collection': 'รายได้/รับชำระ',
+  'Inventory Risk': 'ความเสี่ยงคลัง',
+  'Workforce Readiness': 'ความพร้อมบุคลากร',
+  'Asset Readiness': 'ความพร้อมอุปกรณ์',
+  'Quality & Safety': 'คุณภาพ/ความปลอดภัย',
+  'Audit & Compliance': 'Audit/กำกับดูแล',
+};
