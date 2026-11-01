@@ -13,6 +13,8 @@ export interface NavLink {
   label: string;
   /** What the link counts, from BackofficeStore.counts */
   count?: 'overview' | 'approvals' | 'alerts';
+  /** The submenu it opens, when a group has several (menus/07 has four) */
+  section?: string;
 }
 export interface NavGroup {
   key: string;
@@ -71,7 +73,17 @@ export const BACKOFFICE_NAV: NavGroup[] = [
     { path: '/backoffice/assets/contracts', label: 'Service Contracts' },
     { path: '/backoffice/assets/decommission', label: 'Decommission' },
   ] },
-  { key: 'quality', label: 'คุณภาพและกำกับดูแล', icon: lucideShieldCheck, links: [] },
+  { key: 'quality', label: 'คุณภาพและกำกับดูแล', icon: lucideShieldCheck, links: [
+    { path: '/backoffice/quality/overview', label: 'Quality Dashboard', section: 'Quality & Patient Safety' },
+    { path: '/backoffice/quality/incidents', label: 'Incident Reports' },
+    { path: '/backoffice/quality/near-miss', label: 'Near Miss' },
+    { path: '/backoffice/quality/rca', label: 'RCA' },
+    { path: '/backoffice/quality/kpi', label: 'KPI Library' },
+    { path: '/backoffice/quality/culture', label: 'Safety Culture / M&M' },
+    { path: '/backoffice/quality/complaints', label: 'ข้อร้องเรียนทั้งหมด', section: 'Complaint Management' },
+    { path: '/backoffice/quality/investigation', label: 'Investigation' },
+    { path: '/backoffice/quality/resolution', label: 'Resolution & Trends' },
+  ] },
   { key: 'reports', label: 'รายงานผู้บริหาร', icon: lucideChartColumn, links: [] },
   { key: 'integrations', label: 'Integration Center', icon: lucidePlug, links: [] },
   { key: 'settings', label: 'ตั้งค่าระบบ', icon: lucideSettings, links: [] },

@@ -15,7 +15,6 @@ export const EN_FINANCE: Record<string, string> = {
   'ออกแล้ว': 'Issued',
   'ชำระบางส่วน': 'Partially paid',
   'ชำระครบ': 'Paid',
-  'ยกเลิก': 'Cancelled',
   'คืนเงินครบ': 'Refunded',
   'รับชำระแล้ว': 'Completed',
   'กลับรายการแล้ว': 'Reversed',

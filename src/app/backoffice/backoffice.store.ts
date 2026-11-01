@@ -11,6 +11,11 @@ import {
 } from './data/assets';
 import { approvalAging, severityCounts, worklist } from './data/home';
 import {
+  addRcaAction, addWhy, ANONYMOUS, CHANNEL, closeIncident, closeSurvey, COMPLAINT_SEVERITY, completeAction, type ComplaintInput, decideRca, escalate, escalateNearMiss, HARM,
+  type IncidentInput, logContact, type MmInput, type NearMissInput, openRca, preventNearMiss, recordFindings, recordMm, recordNearMiss, recordSatisfaction, REMEDY, receiveComplaint,
+  reportIncident, resolveComplaint, respond, scheduleMm, sendBack, setRootCause, setTarget, signOff, submitRca, triageComplaint, triageIncident, type TriageInput,
+} from './data/quality';
+import {
   INVESTIGATION, ledgerDispense, type LedgerDispenseInput, openRecall, quarantine, RECALL_STATUS, receive, type ReceiptInput, recordCount, recordWaste, resolveInvestigation, stockItems, updateRecall,
   type WasteInput, wasteReason,
 } from './data/inventory';
@@ -23,8 +28,9 @@ import {
 import { balanceOf } from '../clinic/data/rail';
 import type { Invoice, InvoiceLine, Refund } from '../clinic/data/types';
 import type {
-  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, CalibrationRecord, CeRecord, Claim, CountRecord, Criticality, Decommission, Downtime, Equipment, LeaveRequest,
-  LedgerDispense, License, Module, OnCallSlot, PmTask, Privilege, Recall, RecallStatus, ServiceContract, ServiceMessage, Shift, StaffMember, StockReceipt, WasteRecord,
+  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, CalibrationRecord, CeRecord, Claim, Complaint, ComplaintChannel, ComplaintSeverity, CountRecord, Criticality,
+  Decommission, Downtime, Equipment, HarmLevel, Incident, KpiDefinition, LeaveRequest, LedgerDispense, License, MmReview, Module, NearMiss, OnCallSlot, PmTask, Privilege, Rca, RcaAction,
+  Recall, RecallStatus, Remedy, SafetySurvey, ServiceContract, ServiceMessage, Shift, StaffMember, StockReceipt, WasteRecord,
 } from './data/types';
 
 /** Who works in the back office when nobody is signed in, as in tests: the finance manager the sample is drawn for */
@@ -77,6 +83,11 @@ export class BackofficeStore {
       a.decidedAt = `${TODAY} ${NOW}`;
       a.decision = decision;
       this.log(d, a.module, status === 'approved' ? 'อนุมัติคำขอ' : 'ปฏิเสธคำขอ', a.ref, a.title, decision, 'รออนุมัติ', status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ');
+      const complaint = a.kind === 'complaint' && status === 'approved' ? d.complaints.find(c => c.id === a.ref) : undefined;
+      if (complaint && !complaint.links.some(l => l.startsWith('RCA-'))) {
+        const r = openRca(d, complaint.id, complaint.subject, [complaint.handler ?? 'ผู้จัดการ OPD', 'ภก. ธนพร'], this.userName());
+        this.log(d, 'M12', 'เปิด RCA แล้ว', r.id, complaint.id, r.title);
+      }
       if (a.kind === 'refund' || a.kind === 'discount') {
         this.clinic.mutate(c => {
           for (const i of c.invoices) {
@@ -136,7 +147,7 @@ export class BackofficeStore {
       if (i.no) {
         queueExport(d, i, 'credit-note', i.total);
       }
-      this.log(d, 'M11', 'ยกเลิกใบแจ้งหนี้', i.no || i.id, i.ownerKey, reason, before === 'draft' ? 'ฉบับร่าง' : 'ออกแล้ว', 'ยกเลิก');
+      this.log(d, 'M11', 'ยกเลิกใบแจ้งหนี้', i.no || i.id, i.ownerKey, reason, before === 'draft' ? 'ฉบับร่าง' : 'ออกแล้ว', 'ยกเลิกแล้ว');
     });
   }
 
@@ -465,7 +476,7 @@ export class BackofficeStore {
   removeShift(s: Shift, reason: string) {
     this.mutate(d => {
       removeShift(d, s);
-      this.log(d, 'M24', 'ยกเลิกเวร', s.id, this.who(d, s.staffId), [`${s.date} · เวร${SHIFT[s.kind].label}`, reason].filter(Boolean).join(' · '), s.status === 'published' ? 'ประกาศแล้ว' : 'ฉบับร่าง', 'ยกเลิก');
+      this.log(d, 'M24', 'ยกเลิกเวร', s.id, this.who(d, s.staffId), [`${s.date} · เวร${SHIFT[s.kind].label}`, reason].filter(Boolean).join(' · '), s.status === 'published' ? 'ประกาศแล้ว' : 'ฉบับร่าง', 'ยกเลิกแล้ว');
     });
   }
 
@@ -638,6 +649,220 @@ export class BackofficeStore {
     });
   }
 
+  /* Quality and patient safety (data/quality.ts): each step goes into M12's audit; an anonymous report names no one there either */
+
+  private anonymous(d: BackofficeData) {
+    d.activity[0].by = ANONYMOUS;
+  }
+
+  reportIncident(input: IncidentInput): Incident {
+    let i!: Incident;
+    this.mutate(d => {
+      i = reportIncident(d, input, this.userName());
+      this.log(d, 'M12', 'รับแจ้งอุบัติการณ์', i.id, HARM[i.harm].label, i.description);
+      if (input.anonymous) {
+        this.anonymous(d);
+      }
+    });
+    return i;
+  }
+
+  triageIncident(i: Incident, input: TriageInput) {
+    const before = HARM[i.harm].label;
+    this.mutate(d => {
+      triageIncident(i, input, this.userName());
+      this.log(d, 'M12', 'คัดกรองอุบัติการณ์', i.id, i.owner!, input.note.trim(), before, HARM[i.harm].label);
+    });
+  }
+
+  closeIncident(i: Incident, outcome: string) {
+    this.mutate(d => {
+      closeIncident(i, outcome, this.userName());
+      this.log(d, 'M12', 'ปิดอุบัติการณ์แล้ว', i.id, HARM[i.harm].label, outcome.trim(), 'กำลังดำเนินการ', 'ปิดแล้ว');
+    });
+  }
+
+  recordNearMiss(input: NearMissInput): NearMiss {
+    let n!: NearMiss;
+    this.mutate(d => {
+      n = recordNearMiss(d, input, this.userName());
+      this.log(d, 'M12', 'รับแจ้งเหตุเกือบพลาด', n.id, n.caughtBy, n.description);
+      if (input.anonymous) {
+        this.anonymous(d);
+      }
+    });
+    return n;
+  }
+
+  preventNearMiss(n: NearMiss, prevention: string) {
+    this.mutate(d => {
+      preventNearMiss(n, prevention, this.userName());
+      this.log(d, 'M12', 'บันทึกมาตรการป้องกันแล้ว', n.id, n.caughtBy, n.prevention, 'รอมาตรการป้องกัน', 'มีมาตรการแล้ว');
+    });
+  }
+
+  escalateNearMiss(n: NearMiss, harm: HarmLevel, reason: string): Incident {
+    let i!: Incident;
+    this.mutate(d => {
+      i = escalateNearMiss(d, n, harm, reason, this.userName());
+      this.log(d, 'M12', 'ยกระดับเป็นอุบัติการณ์', n.id, i.id, reason.trim());
+    });
+    return i;
+  }
+
+  openRca(source: string, title: string, team: string[]): Rca {
+    let r!: Rca;
+    this.mutate(d => {
+      r = openRca(d, source, title, team, this.userName());
+      this.log(d, 'M12', 'เปิด RCA แล้ว', r.id, source, `${r.title} · ${team.join(', ')}`);
+    });
+    return r;
+  }
+
+  addWhy(r: Rca, text: string) {
+    this.mutate(d => {
+      addWhy(r, text, this.userName());
+      this.log(d, 'M12', 'บันทึกคำถามทำไม', r.id, r.title, text.trim(), undefined, `${r.whys.length} ทำไม`);
+    });
+  }
+
+  setRootCause(r: Rca, text: string) {
+    this.mutate(d => {
+      setRootCause(r, text, this.userName());
+      this.log(d, 'M12', 'สรุปสาเหตุราก', r.id, r.title, r.rootCause);
+    });
+  }
+
+  addRcaAction(r: Rca, a: { text: string; owner: string; due: string }) {
+    this.mutate(d => {
+      addRcaAction(r, a, this.userName());
+      this.log(d, 'M12', 'เพิ่มมาตรการแล้ว', r.id, a.owner.trim(), `${a.text.trim()} · ${a.due}`);
+    });
+  }
+
+  submitRca(r: Rca) {
+    this.mutate(d => {
+      submitRca(r, this.userName());
+      this.log(d, 'M12', 'ส่ง RCA อนุมัติ', r.id, r.title, undefined, 'กำลังวิเคราะห์', 'รออนุมัติ');
+    });
+  }
+
+  decideRca(r: Rca, approve: boolean, note: string) {
+    this.mutate(d => {
+      decideRca(r, approve, note, this.userName());
+      this.log(d, 'M12', approve ? 'อนุมัติ RCA แล้ว' : 'ส่ง RCA กลับให้ทีม', r.id, r.title, note.trim(), 'รออนุมัติ', approve ? 'อนุมัติแล้ว' : 'กำลังวิเคราะห์');
+    });
+  }
+
+  completeRcaAction(r: Rca, a: RcaAction) {
+    this.mutate(d => {
+      completeAction(r, a, this.userName());
+      this.log(d, 'M12', 'มาตรการเสร็จ', r.id, a.owner, a.text);
+    });
+  }
+
+  setKpiTarget(k: KpiDefinition, target: number, reason: string) {
+    const before = k.target;
+    this.mutate(d => {
+      setTarget(k, target, reason, this.userName());
+      this.log(d, 'M12', 'เปลี่ยนเป้าหมายตัวชี้วัด', k.id, k.name, reason.trim(), String(before), String(target));
+    });
+  }
+
+  closeSurvey(s: SafetySurvey) {
+    this.mutate(d => {
+      closeSurvey(s, this.userName());
+      this.log(d, 'M12', 'ปิดรอบสำรวจวัฒนธรรมความปลอดภัย', s.id, `${s.responded}/${s.invited}`, undefined, 'เปิดรับคำตอบ', 'ปิดแล้ว');
+    });
+  }
+
+  scheduleMm(input: MmInput): MmReview {
+    let m!: MmReview;
+    this.mutate(d => {
+      m = scheduleMm(d, input);
+      this.log(d, 'M12', 'นัดทบทวน M&M', m.id, m.pet, `${m.reviewDate} · ${m.presenter}`);
+    });
+    return m;
+  }
+
+  recordMm(m: MmReview, learning: string, attendees: number) {
+    this.mutate(d => {
+      recordMm(m, learning, attendees);
+      this.log(d, 'M12', 'บันทึกผลทบทวน M&M', m.id, m.pet, learning.trim(), 'นัดแล้ว', 'ทบทวนแล้ว');
+    });
+  }
+
+  /* Complaints (data/quality.ts): each step goes into M28's audit, the investigation's trail with it */
+
+  receiveComplaint(input: ComplaintInput): Complaint {
+    let c!: Complaint;
+    this.mutate(d => {
+      c = receiveComplaint(d, input, this.userName());
+      this.log(d, 'M28', 'รับเรื่องร้องเรียน', c.id, c.ownerKey ?? ANONYMOUS, `${CHANNEL[c.channel]} · ${c.subject}`);
+    });
+    return c;
+  }
+
+  triageComplaint(c: Complaint, severity: ComplaintSeverity, handler: string) {
+    this.mutate(d => {
+      triageComplaint(c, severity, handler, this.userName());
+      this.log(d, 'M28', 'คัดกรองข้อร้องเรียน', c.id, handler, `${COMPLAINT_SEVERITY[severity].label} · ตอบภายใน ${COMPLAINT_SEVERITY[severity].hours} ชม.`, 'รอคัดกรอง', 'มอบหมายแล้ว');
+    });
+  }
+
+  logContact(c: Complaint, direction: 'in' | 'out', channel: ComplaintChannel, text: string) {
+    this.mutate(d => {
+      logContact(c, direction, channel, text, this.userName());
+      this.log(d, 'M28', direction === 'in' ? 'บันทึกการติดต่อเข้า' : 'บันทึกการติดต่อออก', c.id, CHANNEL[channel], text.trim());
+    });
+  }
+
+  recordFindings(c: Complaint, findings: string, links: string[]) {
+    this.mutate(d => {
+      recordFindings(c, findings, links, this.userName());
+      this.log(d, 'M28', 'บันทึกผลสอบสวนแล้ว', c.id, links.join(', ') || c.subject, findings.trim());
+    });
+  }
+
+  respond(c: Complaint, text: string) {
+    this.mutate(d => {
+      respond(c, text, this.userName());
+      const sent = !!c.response?.sentAt;
+      this.log(d, 'M28', sent ? 'ส่งคำตอบแล้ว' : 'ร่างคำตอบแล้ว', c.id, c.ownerKey ?? ANONYMOUS, text.trim(), undefined, sent ? 'ตอบกลับแล้ว' : 'รอผู้อำนวยการลงนาม');
+    });
+  }
+
+  signOff(c: Complaint, approve: boolean, note: string) {
+    this.mutate(d => {
+      if (approve) {
+        signOff(c, note, this.userName());
+      } else {
+        sendBack(c, note, this.userName());
+      }
+      this.log(d, 'M28', approve ? 'ลงนามและส่งคำตอบ' : 'ส่งคำตอบกลับไปแก้แล้ว', c.id, c.ownerKey ?? ANONYMOUS, note.trim(), 'รอผู้อำนวยการลงนาม', approve ? 'ตอบกลับแล้ว' : 'กำลังสอบสวน');
+    });
+  }
+
+  resolveComplaint(c: Complaint, outcome: string, remedy: Remedy) {
+    this.mutate(d => {
+      resolveComplaint(c, outcome, remedy, this.userName());
+      this.log(d, 'M28', 'ปิดข้อร้องเรียน', c.id, REMEDY[remedy], outcome.trim(), 'ตอบกลับแล้ว', 'แก้ไขแล้ว');
+    });
+  }
+
+  recordSatisfaction(c: Complaint, score: number, note: string) {
+    this.mutate(d => {
+      recordSatisfaction(c, score, note, this.userName());
+      this.log(d, 'M28', 'บันทึกความพึงพอใจ', c.id, c.ownerKey ?? ANONYMOUS, `${score}/5${note.trim() ? ` · ${note.trim()}` : ''}`);
+    });
+  }
+
+  escalateComplaint(c: Complaint, body: string, reason: string) {
+    this.mutate(d => {
+      escalate(c, body, reason, this.userName());
+      this.log(d, 'M28', 'แจ้งหน่วยงานกำกับแล้ว', c.id, body, reason.trim());
+    });
+  }
   /** Seen, and what was done about it or where it went; the exception is settled in its own workflow */
   acknowledge(x: BoException, note: string) {
     this.mutate(d => {

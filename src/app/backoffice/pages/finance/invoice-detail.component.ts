@@ -30,7 +30,7 @@ import { TxPipe } from '../../i18n/bo-i18n';
             <span>{{ 'สร้าง' | tx }} {{ i.date }}</span>
             @if (i.issuedAt) {<span>{{ 'ออก' | tx }} {{ i.issuedAt }}</span>}
             @if (i.dueAt) {<span>{{ 'ครบกำหนด' | tx }} {{ i.dueAt }}</span>}
-            @if (i.cancelledAt) {<span class="text-danger">{{ 'ยกเลิก' | tx }} {{ i.cancelledAt }} · {{ i.cancelReason | tx }}</span>}
+            @if (i.cancelledAt) {<span class="text-danger">{{ 'ยกเลิกแล้ว' | tx }} {{ i.cancelledAt }} · {{ i.cancelReason | tx }}</span>}
           </div>
         </div>
         <div class="page-actions">

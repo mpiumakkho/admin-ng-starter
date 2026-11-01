@@ -18,7 +18,7 @@ export const INVOICE_STATUS: Record<InvoiceStatus, { label: string; cls: string 
   issued: { label: 'ออกแล้ว', cls: 'info' },
   partial: { label: 'ชำระบางส่วน', cls: 'warn' },
   paid: { label: 'ชำระครบ', cls: 'ok' },
-  cancelled: { label: 'ยกเลิก', cls: 'danger' },
+  cancelled: { label: 'ยกเลิกแล้ว', cls: 'danger' },
   refunded: { label: 'คืนเงินครบ', cls: 'quiet' },
 };
 export const PAYMENT_STATUS = {

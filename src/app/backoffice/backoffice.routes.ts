@@ -29,6 +29,15 @@ import { RecallComponent } from './pages/inventory/recall.component';
 import { ReceiptsComponent } from './pages/inventory/receipts.component';
 import { ReorderComponent } from './pages/inventory/reorder.component';
 import { StockComponent } from './pages/inventory/stock.component';
+import { ComplaintsComponent } from './pages/quality/complaints.component';
+import { CultureComponent } from './pages/quality/culture.component';
+import { IncidentsComponent } from './pages/quality/incidents.component';
+import { InvestigationComponent } from './pages/quality/investigation.component';
+import { KpiComponent } from './pages/quality/kpi.component';
+import { NearMissComponent } from './pages/quality/near-miss.component';
+import { QualityOverviewComponent } from './pages/quality/quality-overview.component';
+import { RcaComponent } from './pages/quality/rca.component';
+import { ResolutionComponent } from './pages/quality/resolution.component';
 import { ClaimsComponent } from './pages/sales/claims.component';
 import { LineCrmComponent } from './pages/sales/line-crm.component';
 import { RevenueOverviewComponent } from './pages/sales/revenue-overview.component';
@@ -97,6 +106,16 @@ export const BACKOFFICE_ROUTES: Routes = [
       { path: 'assets/critical', component: CriticalComponent },
       { path: 'assets/contracts', component: ContractsComponent },
       { path: 'assets/decommission', component: DecommissionComponent },
+      { path: 'quality', pathMatch: 'full', redirectTo: 'quality/overview' },
+      { path: 'quality/overview', component: QualityOverviewComponent },
+      { path: 'quality/incidents', component: IncidentsComponent },
+      { path: 'quality/near-miss', component: NearMissComponent },
+      { path: 'quality/rca', component: RcaComponent },
+      { path: 'quality/kpi', component: KpiComponent },
+      { path: 'quality/culture', component: CultureComponent },
+      { path: 'quality/complaints', component: ComplaintsComponent },
+      { path: 'quality/investigation', component: InvestigationComponent },
+      { path: 'quality/resolution', component: ResolutionComponent },
       { path: '**', redirectTo: 'home/overview' },
     ],
   },

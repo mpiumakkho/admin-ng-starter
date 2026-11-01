@@ -1,20 +1,22 @@
 /* The morning of 24 September 2026 in the hospital's back office: what waits for the people who run it */
+import { ANONYMOUS } from './quality';
 import type {
-  AccountingExport, ActivityEntry, Approval, Area, BackofficeData, BoException, CalibrationRecord, CallOut, CeRecord, Claim, ContractKind, ControlSystem, CountRecord, Criticality,
-  Decommission, Downtime, DrugRecord, Equipment, EquipmentClass, LeaveRequest, LedgerDispense, License, LineLink, OnCallSlot, PmTask, Policy, Privilege, PrivilegeChange, Recall,
-  ServiceContract, ServiceMessage, Shift, ShiftKind, StaffMember, StockReceipt, VaccineDue, WasteRecord, WorkItem,
+  AccountingExport, ActivityEntry, Approval, Area, BackofficeData, BoException, CalibrationRecord, CallOut, CatchPoint, CeRecord, Claim, Complaint, ComplaintCategory, ComplaintChannel,
+  ComplaintSeverity, ContractKind, ControlSystem, CountRecord, Criticality, Decommission, Downtime, DrugRecord, Equipment, EquipmentClass, HarmLevel, Incident, KpiDefinition, LeaveRequest,
+  LedgerDispense, License, LineLink, MmReview, NearMiss, OnCallSlot, PmTask, Policy, Privilege, PrivilegeChange, Rca, Recall, Remedy, SafetyCategory, SafetySurvey, ServiceContract,
+  ServiceMessage, Shift, ShiftKind, StaffMember, StockReceipt, VaccineDue, WasteRecord, WorkItem,
 } from './types';
 
-/* Work the modules without a page of their own yet hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
+/* Work the modules hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
 const WORK_ITEMS: WorkItem[] = [
   { id: 'W1', module: 'M31', kind: 'DSAR', title: 'คำขอเข้าถึงข้อมูลส่วนบุคคล · คุณ Kanokwan R.', detail: 'ขอสำเนาประวัติการรักษาของ Mali ทั้งหมด · ยืนยันตัวตนแล้ว',
     priority: 'high', due: '2026-09-30', owner: 'DPO', status: 'in-progress', ref: 'DSAR-2609-004' },
   { id: 'W2', module: 'M31', kind: 'DSAR', title: 'คำขอลบข้อมูล · คุณ Prasit N.', detail: 'เจ้าของย้ายโรงพยาบาล ขอลบข้อมูลติดต่อ · รอตรวจ retention',
     priority: 'normal', due: '2026-10-12', owner: 'DPO', status: 'open', ref: 'DSAR-2609-005' },
   { id: 'W3', module: 'M28', kind: 'ข้อร้องเรียน', title: 'รอนานเกิน 2 ชั่วโมงที่ OPD · คุณ Sirinya M.', detail: 'ร้องเรียนทาง LINE เมื่อ 2026-09-22 · ระดับปานกลาง · SLA ตอบกลับ 3 วัน',
-    priority: 'high', due: '2026-09-25', owner: 'ผู้จัดการ OPD', status: 'in-progress', ref: 'CMP-2609-011' },
+    priority: 'high', due: '2026-09-25', owner: 'ผู้จัดการ OPD', status: 'in-progress', ref: 'CMP-2609-011', link: '/backoffice/quality/complaints' },
   { id: 'W4', module: 'M28', kind: 'ข้อร้องเรียน', title: 'ใบเสร็จไม่ตรงกับประมาณการ · คุณ Arisa K.', detail: 'เรียกเก็บค่า X-ray เกินประมาณการ ฿400 · รอการเงินตรวจสอบ',
-    priority: 'normal', due: '2026-09-27', owner: 'การเงิน', status: 'open', ref: 'CMP-2609-012' },
+    priority: 'normal', due: '2026-09-26', owner: 'การเงิน', status: 'open', ref: 'CMP-2609-012', link: '/backoffice/quality/complaints' },
   { id: 'W5', module: 'M22', kind: 'PM', title: 'บำรุงรักษาเครื่องดมยาสลบ · ห้องผ่าตัด 1', detail: 'PM ประจำ 6 เดือน เกินกำหนด 4 วัน · อุปกรณ์ critical',
     priority: 'critical', due: '2026-09-20', owner: 'ช่างซ่อมบำรุง', status: 'open', ref: 'EQ-OR1-ANES-01', link: '/backoffice/assets/pm' },
   { id: 'W6', module: 'M22', kind: 'Calibration', title: 'สอบเทียบเครื่องตรวจเลือด CBC', detail: 'ครบกำหนดสอบเทียบประจำปี · นัดผู้ขาย 2026-09-26',
@@ -68,7 +70,7 @@ const EXCEPTIONS: BoException[] = [
   { id: 'EX6', module: 'M22', kind: 'downtime', severity: 'critical', title: 'เครื่องดมยาสลบ ห้องผ่าตัด 1 ใช้งานไม่ได้', detail: 'แจ้งเสีย 2026-09-23 17:40 · อุปกรณ์ critical · ผ่าตัดพรุ่งนี้ 2 เคสต้องย้ายห้อง',
     at: '2026-09-23 17:40', source: 'Downtime', ref: 'DT-2609-005', link: '/backoffice/assets/downtime' },
   { id: 'EX7', module: 'M28', kind: 'sla-risk', severity: 'warning', title: 'ข้อร้องเรียน CMP-2609-010 ต้องตอบกลับภายใน 5 ชั่วโมง', detail: 'ระดับรุนแรง · SLA 24 ชม. · รออนุมัติเปิด RCA',
-    at: '2026-09-24 09:30', source: 'ข้อร้องเรียน', ref: 'CMP-2609-010' },
+    at: '2026-09-24 09:30', source: 'ข้อร้องเรียน', ref: 'CMP-2609-010', link: '/backoffice/quality/complaints' },
   { id: 'EX8', module: 'M31', kind: 'sla-risk', severity: 'info', title: 'DSAR-2609-004 เหลือ 6 วันจากกำหนด 30 วัน', detail: 'รอบันทึกตรวจสอบจาก AX-2609-002 · ผู้รับผิดชอบ DPO',
     at: '2026-09-24 08:00', source: 'DSAR', ref: 'DSAR-2609-004' },
   { id: 'EX9', module: 'M11', kind: 'payment-failure', severity: 'warning', title: 'บัตรเครดิตถูกปฏิเสธ · ฿980', detail: 'Sirinya M. · INV-2609-0031 · ลูกค้าจะชำระเงินสดในนัดถัดไป',
@@ -465,6 +467,243 @@ const DECOMMISSIONS: Decommission[] = [
     completedBy: TECH, completedAt: '2026-05-20 15:00', evidence: 'ใบรับซากและหนังสือรับรองการทำลาย RC-6605-118 · ปลดทะเบียนเครื่องกำเนิดรังสีกับ ปส. แล้ว' },
 ];
 
+/* Quality and patient safety (M12): a year of safety events, the analyses they led to, the KPIs, the culture survey and M&M */
+const QPS = 'คณะกรรมการคุณภาพ';
+const DIRECTOR = 'น.สพ. นรินทร์';
+/** An earlier incident, triaged and closed */
+const pastIncident = (id: string, when: string, category: SafetyCategory, location: string, harm: HarmLevel, description: string, outcome: string): Incident => ({
+  id, at: when, reportedAt: when, reportedBy: 'หัวหน้าพยาบาล', category, location, description, immediateAction: 'แก้ไขทันทีและแจ้งสัตวแพทย์เจ้าของไข้', harm, status: 'closed',
+  triagedBy: QPS, triagedAt: when, owner: 'หัวหน้าพยาบาล', closedBy: QPS, closedAt: when, outcome, history: [[when, 'หัวหน้าพยาบาล', 'รับแจ้งอุบัติการณ์', description]],
+});
+const INCIDENTS: Incident[] = [
+  { id: 'INC-2609-005', at: '2026-09-24 08:20', reportedAt: '2026-09-24 08:50', category: 'communication', location: 'ห้องผ่าตัด 2',
+    description: 'คำสั่งงดน้ำงดอาหารก่อนผ่าตัดไม่ได้ส่งต่อในการส่งเวรดึก ต้องเลื่อนผ่าตัดทำหมันออกไป 1 วัน', immediateAction: 'แจ้งเจ้าของและนัดผ่าตัดใหม่ 2026-09-25', harm: 1,
+    status: 'reported', history: [['2026-09-24 08:50', ANONYMOUS, 'รับแจ้งอุบัติการณ์', 'ไม่มีอันตราย · การสื่อสาร']] },
+  { id: 'INC-2609-004', at: '2026-09-23 17:40', reportedAt: '2026-09-23 17:55', reportedBy: 'พ.ส. ณิชา', category: 'equipment', location: 'ห้องผ่าตัด 1',
+    description: 'เครื่องดมยาสลบไม่จ่ายแก๊สระหว่างเตรียมเครื่อง ตรวจพบก่อนนำสัตว์เข้าห้อง', immediateAction: 'แจ้งช่างและย้ายเคสไปห้องผ่าตัด 2', harm: 1, status: 'reported',
+    source: 'DT-2609-005', history: [['2026-09-23 17:55', 'พ.ส. ณิชา', 'รับแจ้งอุบัติการณ์', 'ไม่มีอันตราย · อุปกรณ์']] },
+  { id: 'INC-2609-003', at: '2026-09-20 15:40', reportedAt: '2026-09-20 16:00', reportedBy: 'พ.ส. ปวีณา', category: 'fall', location: 'OPD', pet: 'Milo',
+    description: 'แมวกระโดดลงจากโต๊ะตรวจขณะเจ้าของอุ้มออก ขาหน้าซ้ายช้ำ', immediateAction: 'สัตวแพทย์ตรวจซ้ำและเอกซเรย์ ไม่พบกระดูกหัก', harm: 2, status: 'reported',
+    history: [['2026-09-20 16:00', 'พ.ส. ปวีณา', 'รับแจ้งอุบัติการณ์', 'อันตรายเล็กน้อย · การพลัดตก']] },
+  { id: 'INC-2609-002', at: '2026-09-15 13:40', reportedAt: '2026-09-15 16:10', reportedBy: 'สพ.ญ. พิชญา', category: 'anaesthesia', location: 'ห้องผ่าตัด 1', pet: 'Bolt',
+    description: 'อุณหภูมิกายต่ำ 35.2°C หลังผ่าตัด 2 ชั่วโมง ฟื้นจากยาสลบช้า', immediateAction: 'ให้ความอบอุ่นและสารน้ำอุ่น ติดตามอุณหภูมิทุก 15 นาที', harm: 3,
+    status: 'triaged', triagedBy: 'พ.ส. อรุณี', triagedAt: '2026-09-16 09:00', owner: 'สพ.ญ. พิชญา', rcaId: 'RCA-2609-001',
+    history: [['2026-09-15 16:10', 'สพ.ญ. พิชญา', 'รับแจ้งอุบัติการณ์', 'อันตรายปานกลาง · การดมยา'], ['2026-09-16 09:00', 'พ.ส. อรุณี', 'คัดกรองเรียบร้อย', 'อันตรายปานกลาง → อันตรายปานกลาง · สพ.ญ. พิชญา'],
+      ['2026-09-16 09:10', 'พ.ส. อรุณี', 'เปิด RCA แล้ว', 'RCA-2609-001']] },
+  { id: 'INC-2609-001', at: '2026-09-08 07:10', reportedAt: '2026-09-08 07:40', reportedBy: 'พ.ส. กมล', category: 'medication', location: 'Cat ward', pet: 'Milo',
+    description: 'ได้รับอินซูลินซ้ำ 2 ครั้งในเช้าเดียวกัน เวรดึกให้แล้วแต่ไม่ได้ลงบันทึก น้ำตาลลดลงเหลือ 48 mg/dL', immediateAction: 'ให้ dextrose ทางหลอดเลือด ตรวจน้ำตาลทุก 1 ชม. แจ้งเจ้าของ',
+    harm: 4, status: 'triaged', triagedBy: DIRECTOR, triagedAt: '2026-09-08 10:00', owner: 'พ.ส. อรุณี', rcaId: 'RCA-2609-002',
+    history: [['2026-09-08 07:40', 'พ.ส. กมล', 'รับแจ้งอุบัติการณ์', 'อันตรายรุนแรง · ยา'], ['2026-09-08 10:00', DIRECTOR, 'คัดกรองเรียบร้อย', 'อันตรายรุนแรง → อันตรายรุนแรง · พ.ส. อรุณี'],
+      ['2026-09-08 11:00', DIRECTOR, 'เปิด RCA แล้ว', 'RCA-2609-002']] },
+  pastIncident('INC-2608-003', '2026-08-19 10:00', 'infection', 'ห้องผ่าตัด 2', 3, 'แผลผ่าตัดทำหมันติดเชื้อภายใน 7 วัน', 'รักษาด้วยยาปฏิชีวนะ แผลหายดี ทบทวนขั้นตอนเตรียมผิวหนัง'),
+  pastIncident('INC-2608-002', '2026-08-07 18:00', 'medication', 'Cat ward', 2, 'ให้ยาลดปวดซ้ำเพราะไม่ได้ลงบันทึก', 'ติดตามอาการ ไม่มีผลข้างเคียง'),
+  pastIncident('INC-2608-001', '2026-08-03 10:00', 'communication', 'OPD', 1, 'นัดผ่าตัดซ้อนกันสองเคส', 'ปรับตารางนัด และเพิ่มการตรวจห้องว่างก่อนยืนยันนัด'),
+  { ...pastIncident('INC-2607-001', '2026-07-14 09:30', 'identification', 'ICU', 4, 'เจาะเลือดผิดตัวระหว่างแมวสองตัวในกรงติดกัน ให้เลือดล่าช้า 3 ชม.', 'RCA-2607-001 อนุมัติแล้ว · ติดฉลากข้างกรงทันทีหลังเจาะ'),
+    rcaId: 'RCA-2607-001', triagedBy: DIRECTOR },
+  pastIncident('INC-2606-001', '2026-06-18 22:00', 'medication', 'ICU', 3, 'ให้ potassium เร็วเกินอัตราที่สั่ง', 'หยุดให้และตรวจค่าเกลือแร่ ตั้งค่าเครื่องให้สารน้ำใหม่'),
+  pastIncident('INC-2605-001', '2026-05-06 09:00', 'infection', 'ห้องผ่าตัด 2', 2, 'ชุดเครื่องมือผ่านการนึ่งไม่ครบรอบ', 'นึ่งซ้ำและตรวจตัวชี้วัดทุกชุด'),
+  pastIncident('INC-2604-001', '2026-04-05 08:00', 'fall', 'Dog ward', 2, 'สุนัขลื่นล้มขณะพาเดิน', 'ปูแผ่นกันลื่นทางเดินวอร์ด'),
+  pastIncident('INC-2603-001', '2026-03-11 14:00', 'identification', 'ห้องเอกซเรย์', 1, 'ส่งภาพเอกซเรย์ผิดรายชื่อไปโรงพยาบาลเครือข่าย', 'เรียกคืนภาพและแจ้งโรงพยาบาลเครือข่าย'),
+  pastIncident('INC-2602-001', '2026-02-17 11:00', 'surgery', 'ห้องผ่าตัด 1', 3, 'แผลผ่าตัดแยกหลังทำหมัน', 'เย็บแผลใหม่ และนัดตรวจแผลวันที่ 3'),
+  pastIncident('INC-2601-002', '2026-01-28 16:00', 'communication', 'OPD', 2, 'แจ้งผลแล็บผิดเจ้าของ', 'โทรแจ้งเจ้าของทั้งสองราย ทวนชื่อก่อนแจ้งผลทุกครั้ง'),
+  pastIncident('INC-2601-001', '2026-01-22 10:00', 'equipment', 'ห้องผ่าตัด 1', 1, 'vaporiser ล็อกไม่ได้ ต้องงดผ่าตัด', 'DT-2601-001 · เปลี่ยนชุดล็อก vaporiser'),
+  pastIncident('INC-2512-001', '2025-12-09 13:00', 'equipment', 'ห้องผ่าตัด 2', 1, 'จอ monitor ดับระหว่างผ่าตัด 2 นาที', 'เปลี่ยนสายไฟและตรวจเครื่องสำรอง'),
+  pastIncident('INC-2511-002', '2025-11-22 09:00', 'infection', 'ICU', 3, 'ติดเชื้อที่ตำแหน่งสายน้ำเกลือ', 'ถอดสายและรักษา ทบทวนการเปลี่ยนสายทุก 72 ชม.'),
+  pastIncident('INC-2511-001', '2025-11-03 15:00', 'medication', 'Dog ward', 2, 'ให้ยาปฏิชีวนะช้ากว่ากำหนด 4 ชม.', 'ปรับเวลาในตารางให้ยา'),
+  pastIncident('INC-2510-001', '2025-10-14 10:00', 'fall', 'OPD', 2, 'แมวกระโดดจากโต๊ะตรวจ', 'ใช้ผ้าห่อตัวแมวทุกครั้งระหว่างตรวจ'),
+];
+
+/** An earlier near miss, its prevention in place */
+const pastNearMiss = (id: string, when: string, category: SafetyCategory, location: string, caughtAt: CatchPoint, caughtBy: string, description: string): NearMiss => ({
+  id, at: when, reportedBy: caughtBy, category, location, description, caughtAt, caughtBy, prevention: 'ทบทวนขั้นตอนในที่ประชุมหน่วยงาน', status: 'actioned',
+  history: [[when, caughtBy, 'รับแจ้งเหตุเกือบพลาด', description]],
+});
+const NEAR_MISSES: NearMiss[] = [
+  { id: 'NM-2609-004', at: '2026-09-24 07:40', category: 'medication', location: 'ICU', caughtAt: 'handover', caughtBy: 'พ.ส. วิภา', status: 'open',
+    description: 'อัตราให้สารน้ำตั้งเป็น mL/ชม. แทน mL/กก./ชม. พยาบาลเวรเช้าตรวจทานพบก่อนเปิดเครื่อง',
+    history: [['2026-09-24 07:55', ANONYMOUS, 'รับแจ้งเหตุเกือบพลาด', 'การส่งเวร · พ.ส. วิภา']] },
+  { id: 'NM-2609-003', at: '2026-09-23 10:15', reportedBy: 'ภก. ธนพร', category: 'medication', location: 'ห้องยา', caughtAt: 'dispensing', caughtBy: 'ภก. ธนพร', status: 'open',
+    description: 'หยิบ Metronidazole แทน Meloxicam ให้ Mochi เพราะฉลากชั้นวางคล้ายกัน ตรวจพบตอนตรวจสอบขั้นสุดท้าย',
+    history: [['2026-09-23 10:20', 'ภก. ธนพร', 'รับแจ้งเหตุเกือบพลาด', 'ขั้นจ่ายยา · ภก. ธนพร']] },
+  { id: 'NM-2609-002', at: '2026-09-17 11:00', reportedBy: 'สพ.ญ. ลลิตา', category: 'medication', location: 'OPD', caughtAt: 'prescribing', caughtBy: 'ระบบตรวจสอบยา (CDS)',
+    description: 'สั่ง Meloxicam ร่วมกับ Prednisolone ระบบเตือนยาตีกันก่อนบันทึก', prevention: 'ตั้งคำเตือน NSAID ร่วมกับ steroid ให้ต้องระบุเหตุผลก่อนสั่ง', status: 'actioned',
+    history: [['2026-09-17 11:05', 'สพ.ญ. ลลิตา', 'รับแจ้งเหตุเกือบพลาด', 'ขั้นสั่งยา · ระบบตรวจสอบยา (CDS)'], ['2026-09-18 09:00', 'ภก. ธนพร', 'บันทึกมาตรการป้องกันแล้ว', 'ตั้งคำเตือน NSAID ร่วมกับ steroid ให้ต้องระบุเหตุผลก่อนสั่ง']] },
+  { id: 'NM-2609-001', at: '2026-09-05 09:30', reportedBy: 'พ.ส. สุดา', category: 'identification', location: 'ห้องปฏิบัติการ', caughtAt: 'specimen', caughtBy: 'พ.ส. สุดา',
+    description: 'หลอดเลือดติดฉลากสลับกันระหว่างสัตว์สองตัวในคิวเดียวกัน ห้องแล็บพบตอนลงทะเบียนตัวอย่าง', prevention: 'ติดฉลากข้างกรงทันทีหลังเจาะ และสแกนบาร์โค้ดก่อนส่ง', status: 'actioned',
+    history: [['2026-09-05 09:40', 'พ.ส. สุดา', 'รับแจ้งเหตุเกือบพลาด', 'การเก็บสิ่งส่งตรวจ · พ.ส. สุดา'], ['2026-09-06 10:00', 'พ.ส. อรุณี', 'บันทึกมาตรการป้องกันแล้ว', 'ติดฉลากข้างกรงทันทีหลังเจาะ และสแกนบาร์โค้ดก่อนส่ง']] },
+  ...([
+    ['NM-2608-002', '2026-08-26 14:00', 'medication', 'ห้องยา', 'dispensing', 'ภก. ธนพร', 'หยิบยาผิดความแรง ตรวจพบก่อนส่งมอบ'],
+    ['NM-2608-001', '2026-08-12 09:00', 'identification', 'OPD', 'procedure', 'สพ.ญ. ลลิตา', 'ป้ายข้อมือสัตว์ไม่ตรงกับใบนัด ตรวจพบก่อนฉีดวัคซีน'],
+    ['NM-2607-001', '2026-07-09 16:00', 'medication', 'Dog ward', 'administration', 'พ.ส. กมล', 'ขนาดยาในใบสั่งเป็นมิลลิกรัม แต่เตรียมเป็นมิลลิลิตร ตรวจพบก่อนให้ยา'],
+    ['NM-2606-002', '2026-06-24 11:00', 'surgery', 'ห้องผ่าตัด 1', 'procedure', 'สพ.ญ. พิชญา', 'ยังไม่ได้ลงนามยินยอมผ่าตัด ตรวจพบตอน time-out'],
+    ['NM-2606-001', '2026-06-03 08:30', 'medication', 'ห้องยา', 'dispensing', 'ภก. ธนพร', 'หยิบยาผิดความแรง ตรวจพบก่อนส่งมอบ'],
+    ['NM-2605-002', '2026-05-21 15:00', 'medication', 'OPD', 'prescribing', 'ระบบตรวจสอบยา (CDS)', 'สั่งยาที่สัตว์แพ้ ระบบเตือนก่อนบันทึก'],
+    ['NM-2605-001', '2026-05-08 10:00', 'identification', 'ห้องปฏิบัติการ', 'specimen', 'พ.ส. สุดา', 'ป้ายข้อมือสัตว์ไม่ตรงกับใบนัด ตรวจพบก่อนฉีดวัคซีน'],
+    ['NM-2604-003', '2026-04-27 13:00', 'medication', 'Cat ward', 'administration', 'พ.ส. ปวีณา', 'ขนาดยาในใบสั่งเป็นมิลลิกรัม แต่เตรียมเป็นมิลลิลิตร ตรวจพบก่อนให้ยา'],
+    ['NM-2604-002', '2026-04-14 09:00', 'surgery', 'ห้องผ่าตัด 2', 'procedure', 'สพ.ญ. พิชญา', 'ยังไม่ได้ลงนามยินยอมผ่าตัด ตรวจพบตอน time-out'],
+    ['NM-2604-001', '2026-04-02 17:00', 'medication', 'ห้องยา', 'dispensing', 'ภก. ธนพร', 'หยิบยาผิดความแรง ตรวจพบก่อนส่งมอบ'],
+    ['NM-2603-002', '2026-03-23 10:00', 'medication', 'OPD', 'prescribing', 'ระบบตรวจสอบยา (CDS)', 'สั่งยาที่สัตว์แพ้ ระบบเตือนก่อนบันทึก'],
+    ['NM-2603-001', '2026-03-04 14:00', 'identification', 'OPD', 'procedure', 'พ.ส. ณิชา', 'ป้ายข้อมือสัตว์ไม่ตรงกับใบนัด ตรวจพบก่อนฉีดวัคซีน'],
+    ['NM-2602-002', '2026-02-20 09:00', 'medication', 'Dog ward', 'administration', 'พ.ส. กมล', 'ขนาดยาในใบสั่งเป็นมิลลิกรัม แต่เตรียมเป็นมิลลิลิตร ตรวจพบก่อนให้ยา'],
+    ['NM-2602-001', '2026-02-06 11:00', 'medication', 'ห้องยา', 'dispensing', 'ภก. ธนพร', 'หยิบยาผิดความแรง ตรวจพบก่อนส่งมอบ'],
+    ['NM-2601-003', '2026-01-29 15:00', 'surgery', 'ห้องผ่าตัด 1', 'procedure', 'สพ.ญ. พิชญา', 'ยังไม่ได้ลงนามยินยอมผ่าตัด ตรวจพบตอน time-out'],
+    ['NM-2601-002', '2026-01-15 10:00', 'medication', 'OPD', 'prescribing', 'ระบบตรวจสอบยา (CDS)', 'สั่งยาที่สัตว์แพ้ ระบบเตือนก่อนบันทึก'],
+    ['NM-2601-001', '2026-01-07 08:00', 'medication', 'ห้องยา', 'dispensing', 'ภก. ธนพร', 'หยิบยาผิดความแรง ตรวจพบก่อนส่งมอบ'],
+    ['NM-2512-001', '2025-12-16 13:00', 'identification', 'ห้องปฏิบัติการ', 'specimen', 'พ.ส. สุดา', 'ป้ายข้อมือสัตว์ไม่ตรงกับใบนัด ตรวจพบก่อนฉีดวัคซีน'],
+    ['NM-2511-002', '2025-11-25 16:00', 'medication', 'Cat ward', 'administration', 'พ.ส. ปวีณา', 'ขนาดยาในใบสั่งเป็นมิลลิกรัม แต่เตรียมเป็นมิลลิลิตร ตรวจพบก่อนให้ยา'],
+    ['NM-2511-001', '2025-11-10 10:00', 'medication', 'ห้องยา', 'dispensing', 'ภก. ธนพร', 'หยิบยาผิดความแรง ตรวจพบก่อนส่งมอบ'],
+    ['NM-2510-002', '2025-10-28 09:00', 'surgery', 'ห้องผ่าตัด 2', 'procedure', 'สพ.ญ. พิชญา', 'ยังไม่ได้ลงนามยินยอมผ่าตัด ตรวจพบตอน time-out'],
+    ['NM-2510-001', '2025-10-06 14:00', 'medication', 'OPD', 'prescribing', 'ระบบตรวจสอบยา (CDS)', 'สั่งยาที่สัตว์แพ้ ระบบเตือนก่อนบันทึก'],
+  ] as [string, string, SafetyCategory, string, CatchPoint, string, string][]).map(r => pastNearMiss(...r)),
+];
+
+const RCAS: Rca[] = [
+  { id: 'RCA-2609-002', source: 'INC-2609-001', title: 'ให้อินซูลินซ้ำ · Milo', team: ['พ.ส. อรุณี', 'สพ.ญ. ลลิตา', 'ภก. ธนพร'], openedBy: DIRECTOR, openedAt: '2026-09-08 11:00',
+    whys: [
+      'Milo ได้อินซูลินสองครั้ง เพราะพยาบาลเวรเช้าไม่เห็นว่าเวรดึกให้ไปแล้ว',
+      'เวรดึกให้ยาแล้วแต่ยังไม่ได้ลงใน treatment sheet ก่อนส่งเวร',
+      'การลงบันทึกทำรวมตอนท้ายเวร ไม่ได้ทำทันทีหลังให้ยา',
+      'treatment sheet อยู่ที่เคาน์เตอร์พยาบาล ไม่อยู่ข้างกรง ต้องเดินกลับมาลงทีหลัง',
+      'ไม่มีขั้นตอนบังคับให้บันทึกยาความเสี่ยงสูงที่ข้างกรง',
+    ],
+    rootCause: 'ไม่มีการบันทึกการให้ยาความเสี่ยงสูง ณ จุดให้ยา และการส่งเวรไม่ได้ทวนยาความเสี่ยงสูงทีละรายการ',
+    actions: [
+      { text: 'บันทึกอินซูลินและยาความเสี่ยงสูงใน treatment sheet ที่ข้างกรงทันทีหลังให้', owner: 'พ.ส. อรุณี', due: '2026-10-15' },
+      { text: 'เพิ่มการทวนยาความเสี่ยงสูงทีละรายการในแบบฟอร์มส่งเวร', owner: 'พ.ส. อรุณี', due: '2026-10-01' },
+      { text: 'อบรมพยาบาลทุกเวรเรื่องยาความเสี่ยงสูง', owner: 'ภก. ธนพร', due: '2026-10-31' },
+    ],
+    status: 'review', submittedBy: 'พ.ส. อรุณี', submittedAt: '2026-09-22 15:00',
+    history: [['2026-09-08 11:00', DIRECTOR, 'เปิด RCA แล้ว', 'INC-2609-001 · พ.ส. อรุณี, สพ.ญ. ลลิตา, ภก. ธนพร'], ['2026-09-22 15:00', 'พ.ส. อรุณี', 'ส่งอนุมัติแล้ว', '5 ทำไม · 3 มาตรการ']] },
+  { id: 'RCA-2609-001', source: 'INC-2609-002', title: 'อุณหภูมิกายต่ำหลังผ่าตัด · Bolt', team: ['สพ.ญ. พิชญา', 'พ.ส. กมล'], openedBy: 'พ.ส. อรุณี', openedAt: '2026-09-16 09:10',
+    whys: [
+      'Bolt อุณหภูมิ 35.2°C เมื่อออกจากห้องผ่าตัด เพราะสูญเสียความร้อนระหว่างผ่าตัด 2 ชั่วโมง',
+      'ไม่ได้ใช้ผ้าห่มลมร้อนตลอดการผ่าตัด เพราะเครื่องถูกยืมไปใช้ที่ ICU',
+      'โรงพยาบาลมีผ้าห่มลมร้อนเพียงเครื่องเดียวสำหรับสองห้องผ่าตัดและ ICU',
+    ],
+    rootCause: '', actions: [], status: 'open', history: [['2026-09-16 09:10', 'พ.ส. อรุณี', 'เปิด RCA แล้ว', 'INC-2609-002 · สพ.ญ. พิชญา, พ.ส. กมล']] },
+  { id: 'RCA-2607-001', source: 'INC-2607-001', title: 'เจาะเลือดผิดตัว · ICU', team: ['สพ.ญ. ลลิตา', 'พ.ส. สุดา'], openedBy: DIRECTOR, openedAt: '2026-07-14 13:00',
+    whys: [
+      'เลือดที่ส่งจองเป็นของแมวอีกตัว เพราะหลอดเลือดติดฉลากผิด',
+      'ติดฉลากที่เคาน์เตอร์หลังเจาะครบทั้งสองตัว ไม่ได้ติดข้างกรง',
+      'เจาะเลือดสองตัวต่อกันเพื่อประหยัดเวลาในเวรที่คนน้อย',
+      'ไม่มีกฎให้เจาะและติดฉลากทีละตัว',
+      'ไม่มีการทวนชื่อกับป้ายกรงก่อนส่งเลือด',
+    ],
+    rootCause: 'การติดฉลากสิ่งส่งตรวจไม่ได้ทำ ณ จุดเก็บ และไม่มีการทวนตัวตนก่อนส่ง',
+    actions: [
+      { text: 'ติดฉลากข้างกรงทันทีหลังเจาะเลือด', owner: 'พ.ส. สุดา', due: '2026-08-15', doneAt: '2026-08-14' },
+      { text: 'ใช้บาร์โค้ดผู้ป่วยกับหลอดเลือดทุกหลอด', owner: 'พ.ส. อรุณี', due: '2026-09-15' },
+    ],
+    status: 'approved', submittedBy: 'สพ.ญ. ลลิตา', submittedAt: '2026-08-05 10:00', approvedBy: DIRECTOR, approvedAt: '2026-08-10 09:00', note: 'มาตรการครอบคลุม ติดตามบาร์โค้ดให้ทันกำหนด',
+    history: [['2026-07-14 13:00', DIRECTOR, 'เปิด RCA แล้ว', 'INC-2607-001'], ['2026-08-05 10:00', 'สพ.ญ. ลลิตา', 'ส่งอนุมัติแล้ว', '5 ทำไม · 2 มาตรการ'],
+      ['2026-08-10 09:00', DIRECTOR, 'อนุมัติ RCA แล้ว', 'มาตรการครอบคลุม ติดตามบาร์โค้ดให้ทันกำหนด'], ['2026-08-14 16:00', 'พ.ส. สุดา', 'มาตรการเสร็จ', 'ติดฉลากข้างกรงทันทีหลังเจาะเลือด']] },
+];
+
+const MONTHS_12 = ['2025-10', '2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
+const kpi = (id: string, name: string, domain: KpiDefinition['domain'], formula: string, source: string, unit: string, better: KpiDefinition['better'], target: number, owner: string,
+  values: number[], benchmark?: [string, number]): KpiDefinition => ({
+  id, name, domain, formula, source, unit, better, target, owner, benchmark, snapshots: values.map((v, i) => [MONTHS_12[i], v]),
+  history: [['2026-01-05 09:00', QPS, 'กำหนดตัวชี้วัด', `เป้าหมาย ${target}`]],
+});
+const KPIS: KpiDefinition[] = [
+  kpi('K01', 'อุบัติการณ์ต่อ 1,000 visit', 'clinical', 'อุบัติการณ์ ÷ visit × 1,000', 'M12 · visit จากงานตรวจรักษา', 'ต่อ 1,000 visit', 'lower', 3, QPS,
+    [2.4, 2.1, 2.8, 1.9, 2.2, 2.6, 2.0, 2.3, 2.5, 3.1, 2.7, 3.4], ['TAHSA (ตัวอย่าง)', 4]),
+  kpi('K02', 'การติดเชื้อแผลผ่าตัด', 'clinical', 'การผ่าตัดสะอาดที่ติดเชื้อภายใน 30 วัน ÷ การผ่าตัดสะอาด', 'M12 · บันทึกผ่าตัด', '%', 'lower', 2, 'สพ.ญ. พิชญา',
+    [1.2, 1.8, 0.9, 1.5, 1.1, 2.4, 1.0, 1.3, 0.8, 1.6, 2.2, 1.4], ['AAHA (ตัวอย่าง)', 3]),
+  kpi('K03', 'การเสียชีวิตเกี่ยวกับการดมยา', 'clinical', 'เสียชีวิตภายใน 48 ชม. หลังดมยา ÷ ครั้งที่ดมยา × 1,000', 'M12 · M&M', 'ต่อ 1,000 ครั้ง', 'lower', 1.5, 'สพ.ญ. พิชญา',
+    [0, 0, 2.1, 0, 0, 0, 1.9, 0, 0, 0, 0, 2.0], ['AAHA (ตัวอย่าง)', 1.8]),
+  kpi('K04', 'near miss ต่ออุบัติการณ์', 'clinical', 'near miss ÷ อุบัติการณ์ ในเดือน', 'M12 · คำนวณจากรายงานตอนนี้', 'เท่า', 'higher', 2, QPS,
+    [2.0, 1.0, 1.0, 1.5, 2.0, 2.0, 3.0, 2.0, 2.0, 1.0, 0.7, 0.8]),
+  kpi('K05', 'PM ตามกำหนด', 'operational', 'อุปกรณ์ที่ PM ไม่เกินกำหนด ÷ อุปกรณ์ที่มีแผน PM', 'M22 · คำนวณจากแผน PM ตอนนี้', '%', 'higher', 95, 'ช่างซ่อมบำรุง',
+    [100, 100, 94, 100, 100, 94, 100, 100, 94, 100, 94, 88], ['TAHSA-11 (ตัวอย่าง)', 95]),
+  kpi('K06', 'สอบเทียบไม่เกินกำหนด', 'operational', 'อุปกรณ์ที่สอบเทียบไม่เกินกำหนด ÷ อุปกรณ์ที่ต้องสอบเทียบ', 'M22 · คำนวณจากบันทึกสอบเทียบตอนนี้', '%', 'higher', 100, 'ช่างซ่อมบำรุง',
+    [100, 100, 100, 92, 92, 100, 92, 85, 85, 92, 92, 85], ['TAHSA-11 (ตัวอย่าง)', 100]),
+  kpi('K07', 'ตอบข้อร้องเรียนทันกำหนด', 'operational', 'คำตอบที่ส่งภายใน SLA ตามความรุนแรง ÷ คำตอบที่ส่ง', 'M28 · คำนวณจากข้อร้องเรียนตอนนี้', '%', 'higher', 90, 'ผู้จัดการ OPD',
+    [88, 92, 85, 90, 95, 80, 90, 86, 92, 89, 83, 80], ['TAHSA-13 (ตัวอย่าง)', 90]),
+  kpi('K08', 'เวลารอ OPD เฉลี่ย', 'operational', 'นาทีจากลงทะเบียนถึงพบสัตวแพทย์', 'คิว OPD', 'นาที', 'lower', 30, 'ผู้จัดการ OPD', [28, 31, 27, 35, 33, 29, 30, 34, 38, 36, 41, 39]),
+  kpi('K09', 'ลูกหนี้ค้างเกิน 30 วัน', 'financial', 'ยอดค้างชำระเกิน 30 วัน ÷ ยอดค้างชำระทั้งหมด', 'M11', '%', 'lower', 10, 'ผู้จัดการการเงิน', [8, 9, 7, 11, 10, 9, 8, 12, 10, 9, 11, 13]),
+  kpi('K10', 'คืนเงินต่อรายได้', 'financial', 'ยอดคืนเงิน ÷ รายได้รับชำระ', 'M11', '%', 'lower', 1, 'ผู้จัดการการเงิน', [0.6, 0.4, 0.8, 0.5, 0.7, 0.9, 0.5, 0.6, 1.1, 0.7, 0.6, 0.8]),
+];
+
+const DIMENSIONS = ['การทำงานเป็นทีม', 'การสื่อสารอย่างเปิดเผย', 'การไม่ลงโทษเมื่อเกิดความผิดพลาด', 'ความถี่ในการรายงานเหตุการณ์', 'การสนับสนุนจากผู้บริหาร', 'การส่งต่องานระหว่างเวร', 'อัตรากำลัง'];
+const SURVEYS: SafetySurvey[] = [
+  { id: 'SC-2026', round: '2026', from: '2026-09-01', to: '2026-09-30', invited: 36, responded: 22, status: 'open',
+    dimensions: DIMENSIONS.map((d, i) => [d, [82, 66, 57, 63, 72, 49, 41][i]]) },
+  { id: 'SC-2025', round: '2025', from: '2025-09-01', to: '2025-09-30', invited: 34, responded: 27, status: 'closed', closedBy: QPS,
+    dimensions: DIMENSIONS.map((d, i) => [d, [78, 61, 48, 55, 70, 52, 44][i]]) },
+];
+
+const MM_REVIEWS: MmReview[] = [
+  { id: 'MM-2609-02', pet: 'Toffee', outcome: 'death', eventDate: '2026-09-12', summary: 'สุนัข 12 ปี เสียชีวิต 6 ชั่วโมงหลังผ่าตัดม้ามจากเลือดออกในช่องท้อง', presenter: 'สพ.ญ. พิชญา',
+    reviewDate: '2026-09-30', status: 'scheduled' },
+  { id: 'MM-2609-01', pet: 'Bolt', outcome: 'complication', eventDate: '2026-09-15', summary: 'อุณหภูมิกายต่ำหลังผ่าตัด ฟื้นจากยาสลบช้า', presenter: 'พ.ส. กมล', reviewDate: '2026-09-24',
+    status: 'scheduled', incidentId: 'INC-2609-002' },
+  { id: 'MM-2608-01', pet: 'Ginger', outcome: 'readmission', eventDate: '2026-08-11', summary: 'แมว 9 ปี กลับมารักษาซ้ำใน 48 ชม. หลังถอนฟันจากเลือดออกที่แผล', presenter: DIRECTOR,
+    reviewDate: '2026-08-27', status: 'reviewed', learning: 'ตรวจการแข็งตัวของเลือดก่อนถอนฟันหลายซี่ในแมวสูงอายุ และนัดตรวจแผลภายใน 24 ชม.', attendees: 11 },
+  { id: 'MM-2607-01', pet: 'Lucky', outcome: 'complication', eventDate: '2026-07-18', summary: 'ความดันต่ำระหว่างดมยาในสุนัขโรคหัวใจ', presenter: 'สพ.ญ. พิชญา', reviewDate: '2026-07-30',
+    status: 'reviewed', learning: 'ประเมินหัวใจก่อนดมยาทุกรายที่มีเสียงหัวใจผิดปกติ และเตรียมยาเพิ่มความดันไว้ก่อน', attendees: 9 },
+];
+
+/* Complaints (M28): this month's open cases and half a year of settled ones */
+const pastComplaint = (id: string, receivedAt: string, channel: ComplaintChannel, ownerKey: string, category: ComplaintCategory, topic: string, severity: ComplaintSeverity,
+  subject: string, sentAt: string, resolvedAt: string, remedy: Remedy, score: number): Complaint => ({
+  id, receivedAt, channel, ownerKey, category, topic, severity, subject, description: subject, handler: category === 'financial' ? 'การเงิน' : 'ผู้จัดการ OPD', status: 'resolved',
+  triagedBy: 'ผู้จัดการ OPD', triagedAt: receivedAt, communications: [[receivedAt, ownerKey, 'in', channel, subject], [sentAt, 'ผู้จัดการ OPD', 'out', channel, 'ชี้แจงสาเหตุและขออภัย']],
+  findings: severity === 'low' ? undefined : 'ตรวจสอบกับผู้เกี่ยวข้องแล้ว', links: [],
+  response: { text: 'ชี้แจงสาเหตุและขออภัย', draftedBy: 'ผู้จัดการ OPD', draftedAt: sentAt, sentAt, sentBy: 'ผู้จัดการ OPD' },
+  resolution: { outcome: 'ชี้แจงสาเหตุและแก้ไขแล้ว', remedy, by: 'ผู้จัดการ OPD', at: resolvedAt }, satisfaction: { score, at: resolvedAt },
+  history: [[receivedAt, 'แผนกต้อนรับ', 'รับข้อร้องเรียน', subject]],
+});
+const OPD_MANAGER = 'ผู้จัดการ OPD';
+const COMPLAINTS: Complaint[] = [
+  { id: 'CMP-2609-013', receivedAt: '2026-09-24 10:05', channel: 'email', ownerKey: 'Somsak W.', pet: 'Luna', category: 'operational', topic: 'การนัดหมาย', status: 'new',
+    subject: 'นัดหมายถูกเลื่อนโดยไม่ได้แจ้ง', description: 'มาตามนัด 09:00 แต่ไม่มีชื่อในคิว เจ้าหน้าที่บอกว่านัดถูกเลื่อนแล้วโดยไม่มีใครโทรแจ้ง', links: [],
+    communications: [['2026-09-24 10:05', 'Somsak W.', 'in', 'email', 'มาตามนัด 09:00 แต่ไม่มีชื่อในคิว เจ้าหน้าที่บอกว่านัดถูกเลื่อนแล้วโดยไม่มีใครโทรแจ้ง']],
+    history: [['2026-09-24 10:05', 'แผนกต้อนรับ', 'รับเรื่องร้องเรียน', 'อีเมล · นัดหมายถูกเลื่อนโดยไม่ได้แจ้ง']] },
+  { id: 'CMP-2609-012', receivedAt: '2026-09-23 15:00', channel: 'in-person', ownerKey: 'Arisa K.', pet: 'Coco', category: 'financial', topic: 'ค่าบริการ', severity: 'moderate',
+    subject: 'ใบเสร็จไม่ตรงกับประมาณการ', description: 'เรียกเก็บค่า X-ray เกินประมาณการ ฿400 โดยไม่ได้แจ้งก่อนทำ', handler: 'การเงิน', status: 'triaged', triagedBy: OPD_MANAGER,
+    triagedAt: '2026-09-23 16:00', links: [], communications: [['2026-09-23 15:00', 'Arisa K.', 'in', 'in-person', 'เรียกเก็บค่า X-ray เกินประมาณการ ฿400 โดยไม่ได้แจ้งก่อนทำ']],
+    history: [['2026-09-23 15:00', 'แผนกต้อนรับ', 'รับเรื่องร้องเรียน', 'ที่โรงพยาบาล · ใบเสร็จไม่ตรงกับประมาณการ'], ['2026-09-23 16:00', OPD_MANAGER, 'คัดกรองเรียบร้อย', 'ปานกลาง · การเงิน']] },
+  { id: 'CMP-2609-011', receivedAt: '2026-09-22 15:00', channel: 'line', ownerKey: 'Sirinya M.', pet: 'Khao Niao', category: 'operational', topic: 'เวลารอ', severity: 'moderate',
+    subject: 'รอนานเกิน 2 ชั่วโมงที่ OPD', description: 'นัด 13:00 ได้พบหมอ 15:10 ไม่มีใครแจ้งเวลารอ ทั้งที่เคยขอไว้แล้ว', handler: OPD_MANAGER, status: 'investigating', triagedBy: OPD_MANAGER,
+    triagedAt: '2026-09-22 16:10', findings: 'สัตวแพทย์ OPD ถูกเรียกไปผ่าตัดฉุกเฉิน 1 ชม. คิวไม่ได้ปรับ และไม่ได้แจ้งเวลารอทุก 15 นาทีตามที่บันทึกในทะเบียนเจ้าของ', links: [],
+    communications: [['2026-09-22 15:00', 'Sirinya M.', 'in', 'line', 'นัด 13:00 ได้พบหมอ 15:10 ไม่มีใครแจ้งเวลารอ ทั้งที่เคยขอไว้แล้ว'],
+      ['2026-09-22 16:20', OPD_MANAGER, 'out', 'line', 'รับเรื่องแล้ว จะตรวจสอบและแจ้งกลับภายใน 3 วัน']],
+    history: [['2026-09-22 15:00', 'แผนกต้อนรับ', 'รับเรื่องร้องเรียน', 'LINE · รอนานเกิน 2 ชั่วโมงที่ OPD'], ['2026-09-22 16:10', OPD_MANAGER, 'คัดกรองเรียบร้อย', 'ปานกลาง · ผู้จัดการ OPD'],
+      ['2026-09-23 11:00', OPD_MANAGER, 'บันทึกผลสอบสวนแล้ว', 'สัตวแพทย์ OPD ถูกเรียกไปผ่าตัดฉุกเฉิน 1 ชม. คิวไม่ได้ปรับ และไม่ได้แจ้งเวลารอทุก 15 นาทีตามที่บันทึกในทะเบียนเจ้าของ']] },
+  { id: 'CMP-2609-010', receivedAt: '2026-09-23 16:32', channel: 'phone', ownerKey: 'Napat T.', pet: 'Mochi', category: 'clinical', topic: 'ยา', severity: 'severe',
+    subject: 'ได้รับยาผิดตัวในครั้งก่อน', description: 'ได้ยาแก้อักเสบที่ไม่ใช่ตัวที่หมอสั่ง ขอคำอธิบายและไม่อยากให้เกิดกับสัตว์ตัวอื่น', handler: OPD_MANAGER, status: 'investigating',
+    triagedBy: OPD_MANAGER, triagedAt: '2026-09-23 17:10', links: ['NM-2609-003'],
+    findings: 'ห้องยาหยิบ Metronidazole แทน Meloxicam เพราะฉลากชั้นวางคล้ายกัน ภก. ธนพรเปลี่ยนก่อนส่งมอบ แต่ฉลากซองยาเดิมยังติดอยู่ในถุง',
+    response: { text: 'ขออภัยในความสับสน ยาที่ Mochi ได้รับคือ Meloxicam ตามที่สั่ง ฉลากที่ผิดเป็นซองที่เปลี่ยนออกแล้ว เราแยกชั้นวางยาและเพิ่มการตรวจสองคนแล้ว', draftedBy: OPD_MANAGER,
+      draftedAt: '2026-09-24 09:30' },
+    communications: [['2026-09-23 16:32', 'Napat T.', 'in', 'phone', 'ได้ยาแก้อักเสบที่ไม่ใช่ตัวที่หมอสั่ง ขอคำอธิบายและไม่อยากให้เกิดกับสัตว์ตัวอื่น']],
+    history: [['2026-09-23 16:32', 'แผนกต้อนรับ', 'รับเรื่องร้องเรียน', 'โทรศัพท์ · ได้รับยาผิดตัวในครั้งก่อน'], ['2026-09-23 17:10', OPD_MANAGER, 'คัดกรองเรียบร้อย', 'รุนแรง · ผู้จัดการ OPD'],
+      ['2026-09-24 09:00', OPD_MANAGER, 'บันทึกผลสอบสวนแล้ว', 'NM-2609-003'], ['2026-09-24 09:30', OPD_MANAGER, 'ร่างคำตอบแล้ว', 'รอผู้อำนวยการลงนาม']] },
+  { ...pastComplaint('CMP-2609-009', '2026-09-16 10:20', 'email', 'Kittikun S.', 'financial', 'ค่าบริการ', 'low', 'ใบกำกับภาษีออกผิดชื่อ', '2026-09-16 15:40', '2026-09-17 10:00', 'process', 5),
+    pet: 'Milo', satisfaction: undefined },
+  { ...pastComplaint('CMP-2609-008', '2026-09-10 18:05', 'in-person', 'Patcharee L.', 'operational', 'การสื่อสาร', 'moderate', 'ไม่ได้รับใบเสนอราคาก่อนทำหัตถการ', '2026-09-12 09:00',
+    '2026-09-13 11:00', 'apology', 3), pet: 'Bolt', status: 'responded', resolution: undefined, satisfaction: undefined },
+  { ...pastComplaint('CMP-2609-007', '2026-09-09 08:00', 'email', '', 'operational', 'ความสะอาด', 'moderate', 'ห้องพักพยาบาลเวรดึกไม่มีการทำความสะอาด', '2026-09-10 10:00',
+    '2026-09-11 09:00', 'process', 0), ownerKey: undefined, handler: 'หัวหน้าพยาบาล', satisfaction: undefined,
+    communications: [['2026-09-09 08:00', ANONYMOUS, 'in', 'email', 'ห้องพักพยาบาลเวรดึกไม่มีการทำความสะอาด'], ['2026-09-10 10:00', 'หัวหน้าพยาบาล', 'out', 'email', 'ชี้แจงสาเหตุและขออภัย']] },
+  { ...pastComplaint('CMP-2609-006', '2026-09-04 12:00', 'line', 'Waraporn D.', 'clinical', 'การสื่อสาร', 'moderate', 'ไม่ได้รับการแจ้งอาการระหว่างนอนโรงพยาบาล', '2026-09-08 10:00',
+    '2026-09-09 14:00', 'apology', 2), pet: 'Nala' },
+  pastComplaint('CMP-2608-003', '2026-08-30 19:00', 'phone', 'Thanawat P.', 'clinical', 'ผลการรักษา', 'low', 'หูยังอักเสบหลังรักษา', '2026-09-01 10:00', '2026-09-03 10:00', 'none', 3),
+  pastComplaint('CMP-2608-002', '2026-08-22 10:30', 'in-person', 'Arisa K.', 'financial', 'ค่าบริการ', 'moderate', 'ค่าฝากเลี้ยงคิดเกินวัน', '2026-08-24 09:00', '2026-08-25 10:00', 'refund', 5),
+  pastComplaint('CMP-2608-001', '2026-08-09 12:00', 'line', 'Napat T.', 'operational', 'ความสะอาด', 'low', 'ห้องรอแมวมีกลิ่น', '2026-08-10 10:00', '2026-08-12 10:00', 'process', 4),
+  pastComplaint('CMP-2607-003', '2026-07-28 17:00', 'email', 'Somsak W.', 'operational', 'เวลารอ', 'low', 'รอชำระเงินนาน', '2026-07-30 10:00', '2026-08-01 10:00', 'process', 3),
+  pastComplaint('CMP-2607-002', '2026-07-20 15:00', 'phone', 'Waraporn D.', 'clinical', 'ยา', 'moderate', 'ไม่ได้อธิบายวิธีให้ยาหยอดตา', '2026-07-22 10:00', '2026-07-23 10:00', 'apology', 4),
+  pastComplaint('CMP-2607-001', '2026-07-06 09:00', 'line', 'Kittikun S.', 'operational', 'เวลารอ', 'low', 'รอคิวอาบน้ำตัดขนนาน', '2026-07-07 10:00', '2026-07-08 10:00', 'process', 4),
+  pastComplaint('CMP-2606-003', '2026-06-27 10:00', 'in-person', 'Sirinya M.', 'operational', 'เวลารอ', 'moderate', 'รอผลแล็บนาน', '2026-06-29 10:00', '2026-06-30 10:00', 'apology', 3),
+  pastComplaint('CMP-2606-002', '2026-06-15 13:00', 'phone', 'Patcharee L.', 'financial', 'ค่าบริการ', 'low', 'ไม่ได้รับส่วนลดสมาชิก', '2026-06-16 10:00', '2026-06-17 10:00', 'credit', 5),
+  pastComplaint('CMP-2606-001', '2026-06-02 11:00', 'line', 'Thanawat P.', 'operational', 'การนัดหมาย', 'low', 'ข้อความนัดทาง LINE แจ้งผิดวัน', '2026-06-03 10:00', '2026-06-04 10:00', 'process', 4),
+  pastComplaint('CMP-2605-002', '2026-05-19 16:00', 'email', 'Kanokwan R.', 'clinical', 'ผลการรักษา', 'moderate', 'อาการไม่ดีขึ้นหลังรักษา 3 วัน', '2026-05-22 18:00', '2026-05-25 10:00', 'apology', 3),
+  pastComplaint('CMP-2605-001', '2026-05-03 09:30', 'in-person', 'Arisa K.', 'operational', 'พฤติกรรมบริการ', 'low', 'เจ้าหน้าที่ต้อนรับพูดไม่สุภาพ', '2026-05-05 10:00', '2026-05-06 10:00', 'apology', 3),
+  pastComplaint('CMP-2604-002', '2026-04-21 14:00', 'line', 'Napat T.', 'financial', 'ค่าบริการ', 'moderate', 'ค่าตรวจเลือดสูงกว่าที่แจ้ง', '2026-04-23 09:00', '2026-04-24 10:00', 'refund', 4),
+  pastComplaint('CMP-2604-001', '2026-04-08 10:00', 'phone', 'Somsak W.', 'operational', 'เวลารอ', 'low', 'รอรับยานาน', '2026-04-09 10:00', '2026-04-10 10:00', 'apology', 4),
+];
+
 /** A fresh copy of the sample, for the store to change */
 export function createBackofficeSeed(): BackofficeData {
   return structuredClone({
@@ -473,5 +712,6 @@ export function createBackofficeSeed(): BackofficeData {
     lineLinks: LINE_LINKS, messages: MESSAGES, vaccinesDue: VACCINES_DUE, policies: POLICIES, claims: CLAIMS,
     staff: STAFF, licenses: LICENSES, ce: CE_RECORDS, privileges: PRIVILEGES_SEED, privilegeLog: PRIVILEGE_LOG, shifts: rota(), leaves: LEAVES, onCall: ON_CALL, callOuts: CALL_OUTS,
     equipment: equipment(), pm: PM_TASKS, calibrations: CALIBRATIONS, downtime: DOWNTIME, contracts: CONTRACTS, decommissions: DECOMMISSIONS,
+    incidents: INCIDENTS, nearMisses: NEAR_MISSES, rcas: RCAS, kpis: KPIS, surveys: SURVEYS, mm: MM_REVIEWS, complaints: COMPLAINTS,
   });
 }

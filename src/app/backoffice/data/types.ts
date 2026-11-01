@@ -1,7 +1,7 @@
 /* The back office's records: what the home pages compose (seph1-docs 26-backoffice-erp ux/menus/01-home.md) */
 
 /** The canonical modules the back office composes over (seph1-docs 21-module-specifications) */
-export type Module = 'M06' | 'M11' | 'M13' | 'M14' | 'M15' | 'M16' | 'M22' | 'M24' | 'M28' | 'M31';
+export type Module = 'M06' | 'M11' | 'M12' | 'M13' | 'M14' | 'M15' | 'M16' | 'M22' | 'M24' | 'M28' | 'M31';
 export const MODULES: Record<Module, { name: string; group: string }> = {
   M11: { name: 'Billing', group: 'การเงินและรายได้' },
   M06: { name: 'Medication inventory', group: 'คลังสินค้า' },
@@ -9,6 +9,7 @@ export const MODULES: Record<Module, { name: string; group: string }> = {
   M16: { name: 'Insurance', group: 'การขายและบริการลูกค้า' },
   M24: { name: 'Personnel', group: 'บุคลากร' },
   M22: { name: 'Equipment', group: 'ทรัพย์สินและการบำรุงรักษา' },
+  M12: { name: 'Quality & safety', group: 'คุณภาพและกำกับดูแล' },
   M28: { name: 'Complaints', group: 'คุณภาพและกำกับดูแล' },
   M31: { name: 'PDPA', group: 'คุณภาพและกำกับดูแล' },
   M13: { name: 'Audit', group: 'คุณภาพและกำกับดูแล' },
@@ -506,6 +507,175 @@ export interface Decommission {
   evidence?: string;
 }
 
+/* Quality and patient safety (M12) */
+
+/** The harm an event did, as reported and then as triaged: 1 none, 2 minor, 3 moderate, 4 major, 5 death */
+export type HarmLevel = 1 | 2 | 3 | 4 | 5;
+export type SafetyCategory = 'medication' | 'surgery' | 'anaesthesia' | 'fall' | 'infection' | 'identification' | 'equipment' | 'communication';
+type Trail = [at: string, by: string, action: string, note: string][];
+
+export interface Incident {
+  id: string;
+  /** When it happened, and when it was reported */
+  at: string;
+  reportedAt: string;
+  /** Who reported it; none when it was reported anonymously, and the name is never kept */
+  reportedBy?: string;
+  category: SafetyCategory;
+  location: string;
+  pet?: string;
+  description: string;
+  immediateAction: string;
+  harm: HarmLevel;
+  status: 'reported' | 'triaged' | 'closed';
+  triagedBy?: string;
+  triagedAt?: string;
+  owner?: string;
+  rcaId?: string;
+  /** What it came from: a near miss escalated, a complaint, a device's downtime */
+  source?: string;
+  closedBy?: string;
+  closedAt?: string;
+  outcome?: string;
+  history: Trail;
+}
+
+export type CatchPoint = 'prescribing' | 'dispensing' | 'administration' | 'procedure' | 'handover' | 'specimen';
+/** An error caught before it reached the patient */
+export interface NearMiss {
+  id: string;
+  at: string;
+  reportedBy?: string;
+  category: SafetyCategory;
+  location: string;
+  description: string;
+  caughtAt: CatchPoint;
+  caughtBy: string;
+  /** What stops it happening again */
+  prevention?: string;
+  status: 'open' | 'actioned' | 'escalated';
+  incidentId?: string;
+  history: Trail;
+}
+
+export interface RcaAction {
+  text: string;
+  owner: string;
+  due: string;
+  doneAt?: string;
+}
+/** A root cause analysis: at least five whys, the cause they reach, and what will be done */
+export interface Rca {
+  id: string;
+  /** The incident, near miss or complaint it analyses */
+  source: string;
+  title: string;
+  team: string[];
+  openedBy: string;
+  openedAt: string;
+  whys: string[];
+  rootCause: string;
+  actions: RcaAction[];
+  status: 'open' | 'review' | 'approved';
+  submittedBy?: string;
+  submittedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  note?: string;
+  history: Trail;
+}
+
+export interface KpiDefinition {
+  id: string;
+  name: string;
+  domain: 'clinical' | 'operational' | 'financial';
+  formula: string;
+  /** Where its figures come from */
+  source: string;
+  unit: string;
+  better: 'higher' | 'lower';
+  target: number;
+  /** A standard's reference value, as a sample until the real benchmark is set */
+  benchmark?: [standard: string, value: number];
+  /** Monthly values, oldest first, up to this month */
+  snapshots: [month: string, value: number][];
+  owner: string;
+  history: Trail;
+}
+
+/** A hospital-wide safety culture survey: the share of positive answers in each dimension */
+export interface SafetySurvey {
+  id: string;
+  round: string;
+  from: string;
+  to: string;
+  invited: number;
+  responded: number;
+  dimensions: [name: string, positive: number][];
+  status: 'open' | 'closed';
+  closedBy?: string;
+}
+
+/** A mortality and morbidity review */
+export interface MmReview {
+  id: string;
+  pet: string;
+  outcome: 'death' | 'complication' | 'readmission';
+  eventDate: string;
+  summary: string;
+  presenter: string;
+  reviewDate: string;
+  status: 'scheduled' | 'reviewed';
+  learning?: string;
+  attendees?: number;
+  incidentId?: string;
+}
+
+/* Complaints (M28) */
+
+export type ComplaintChannel = 'line' | 'phone' | 'in-person' | 'email';
+export type ComplaintCategory = 'clinical' | 'operational' | 'financial';
+export type ComplaintSeverity = 'low' | 'moderate' | 'severe';
+export type Remedy = 'apology' | 'refund' | 'credit' | 'process' | 'none';
+export interface ComplaintResponse {
+  text: string;
+  draftedBy: string;
+  draftedAt: string;
+  signedOffBy?: string;
+  signedOffAt?: string;
+  sentAt?: string;
+  sentBy?: string;
+}
+export interface Complaint {
+  id: string;
+  receivedAt: string;
+  channel: ComplaintChannel;
+  /** The owner who complained; none for a staff member's anonymous complaint */
+  ownerKey?: string;
+  pet?: string;
+  category: ComplaintCategory;
+  /** Set at triage */
+  severity?: ComplaintSeverity;
+  /** What it is about, for the trend */
+  topic: string;
+  subject: string;
+  description: string;
+  handler?: string;
+  status: 'new' | 'triaged' | 'investigating' | 'responded' | 'resolved';
+  triagedBy?: string;
+  triagedAt?: string;
+  communications: [at: string, by: string, direction: 'in' | 'out', channel: ComplaintChannel, text: string][];
+  findings?: string;
+  /** The near misses, incidents and RCAs it led to or rests on */
+  links: string[];
+  response?: ComplaintResponse;
+  resolution?: { outcome: string; remedy: Remedy; by: string; at: string };
+  satisfaction?: { score: number; at: string; note?: string };
+  /** Sent to a regulator, with why */
+  escalation?: { body: string; reason: string; by: string; at: string };
+  history: Trail;
+}
+
 export interface BackofficeData {
   workItems: WorkItem[];
   approvals: Approval[];
@@ -539,4 +709,11 @@ export interface BackofficeData {
   downtime: Downtime[];
   contracts: ServiceContract[];
   decommissions: Decommission[];
+  incidents: Incident[];
+  nearMisses: NearMiss[];
+  rcas: Rca[];
+  kpis: KpiDefinition[];
+  surveys: SafetySurvey[];
+  mm: MmReview[];
+  complaints: Complaint[];
 }

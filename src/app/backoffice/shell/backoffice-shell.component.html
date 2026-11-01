@@ -96,6 +96,7 @@
         </button>
         <ul class="nav-links" [id]="'nav-' + group.key" [inert]="!openGroups().has(group.key)">
           @for (link of group.links; track link.path) {
+            @if (link.section) {<li class="nav-section">{{ link.section | tx }}</li>}
             <li>
               <a [routerLink]="link.path" routerLinkActive="active" ariaCurrentWhenActive="page">
                 <span>{{ link.label | tx }}</span>
