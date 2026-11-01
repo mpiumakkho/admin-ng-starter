@@ -46,6 +46,15 @@ const PAGES = [
   { path: '/backoffice/sales/overview', ready: '.bo-table tbody tr' },
   { path: '/backoffice/sales/line', ready: '.bo-table tbody tr' },
   { path: '/backoffice/sales/claims', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/workforce/staff', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/workforce/staff/S02', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/workforce/credentials', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/workforce/education', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/workforce/privileges', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/workforce/schedule', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/workforce/leave', ready: '.bo-table tbody tr' },
+  { path: '/backoffice/workforce/on-call', ready: '.oncall-cal .night' },
+  { path: '/backoffice/workforce/overtime', ready: '.bo-table tbody tr' },
   { path: '/error-pages/404', ready: '.error-code' },
   { path: '/error-pages/500', ready: '.error-code' },
 ];
@@ -65,7 +74,7 @@ for (const theme of ['light', 'dark'] as const) {
     });
 
     test('every page', async ({ page }) => {
-      test.setTimeout(180_000);
+      test.setTimeout(300_000);
       await start(page, '/login', theme);
       await signInAs(page, 'Administrator');
       for (const { path, ready } of PAGES) {

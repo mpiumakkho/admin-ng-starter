@@ -6,6 +6,7 @@ import { EN_FINANCE, TH_FINANCE } from './finance';
 import { EN_INVENTORY, TH_INVENTORY } from './inventory';
 import { EN_SALES, TH_SALES } from './sales';
 import { TH_BO } from './th';
+import { EN_WORKFORCE, TH_WORKFORCE } from './workforce';
 
 /*
  * The back office's language: the same engine as the clinical workspace's (clinic/i18n/clinic-i18n.ts), with its own
@@ -23,8 +24,8 @@ type Vars = Record<string, string | number>;
 interface Pattern { re: RegExp; names: string[]; out: string }
 
 const DICTS: Record<Lang, Record<string, string>> = {
-  th: { ...TH_BO, ...TH_FINANCE, ...TH_INVENTORY, ...TH_SALES },
-  en: { ...EN_BO, ...EN_FINANCE, ...EN_INVENTORY, ...EN_SALES },
+  th: { ...TH_BO, ...TH_FINANCE, ...TH_INVENTORY, ...TH_SALES, ...TH_WORKFORCE },
+  en: { ...EN_BO, ...EN_FINANCE, ...EN_INVENTORY, ...EN_SALES, ...EN_WORKFORCE },
 };
 /** Thai letters and marks (not the baht sign) or Latin letters: anything worth looking up */
 const LETTERS = /[ก-ฺเ-๛A-Za-z]/;

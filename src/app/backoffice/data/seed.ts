@@ -1,7 +1,7 @@
 /* The morning of 24 September 2026 in the hospital's back office: what waits for the people who run it */
 import type {
-  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, Claim, ControlSystem, CountRecord, DrugRecord, LedgerDispense, LineLink, Policy, Recall, ServiceMessage,
-  StockReceipt, VaccineDue, WasteRecord, WorkItem,
+  AccountingExport, ActivityEntry, Approval, Area, BackofficeData, BoException, CallOut, CeRecord, Claim, ControlSystem, CountRecord, DrugRecord, LeaveRequest, LedgerDispense, License,
+  LineLink, OnCallSlot, Policy, Privilege, PrivilegeChange, Recall, ServiceMessage, Shift, ShiftKind, StaffMember, StockReceipt, VaccineDue, WasteRecord, WorkItem,
 } from './types';
 
 /* Work the modules without a page of their own yet hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
@@ -19,11 +19,11 @@ const WORK_ITEMS: WorkItem[] = [
   { id: 'W6', module: 'M22', kind: 'Calibration', title: 'สอบเทียบเครื่องตรวจเลือด CBC', detail: 'ครบกำหนดสอบเทียบประจำปี · นัดผู้ขาย 2026-09-26',
     priority: 'normal', due: '2026-09-26', owner: 'ห้องปฏิบัติการ', status: 'waiting', ref: 'EQ-LAB-CBC-02' },
   { id: 'W7', module: 'M24', kind: 'ใบอนุญาต', title: 'ใบอนุญาตประกอบวิชาชีพ สพ.ญ. ลลิตา หมดอายุใน 21 วัน', detail: 'หมดอายุ 2026-10-15 · ยังไม่ได้ยื่นต่ออายุ',
-    priority: 'high', due: '2026-10-15', owner: 'ฝ่ายบุคคล', status: 'open', ref: 'LIC-VET-0042' },
-  { id: 'W8', module: 'M24', kind: 'ตารางเวร', title: 'เวรดึกวันเสาร์ 27 ก.ย. ยังไม่มีพยาบาล', detail: 'ต้องการ 2 คน จัดแล้ว 1 คน · พ.ส. กมล ลาพักร้อน',
-    priority: 'high', due: '2026-09-27', owner: 'หัวหน้าพยาบาล', status: 'open', ref: 'SHIFT-0927-N' },
-  { id: 'W9', module: 'M24', kind: 'การลา', title: 'คำขอลาพักร้อน พ.ส. ณิชา 1–3 ต.ค.', detail: 'ตรวจ coverage แล้วพอ · รอหัวหน้าอนุมัติ',
-    priority: 'normal', due: '2026-09-26', owner: 'หัวหน้าพยาบาล', status: 'waiting', ref: 'LEAVE-2609-08' },
+    priority: 'high', due: '2026-10-15', owner: 'ฝ่ายบุคคล', status: 'open', ref: 'LIC-VET-0042', link: '/backoffice/workforce/credentials' },
+  { id: 'W8', module: 'M24', kind: 'ตารางเวร', title: 'เวรดึกวันเสาร์ 27 ก.ย. ยังไม่มีพยาบาล', detail: 'ต้องการ 1 คน ยังไม่มี · พ.ส. กมล ลาพักร้อน 26–28 ก.ย.',
+    priority: 'high', due: '2026-09-27', owner: 'หัวหน้าพยาบาล', status: 'open', ref: 'SHIFT-0927-N', link: '/backoffice/workforce/schedule' },
+  { id: 'W9', module: 'M24', kind: 'การลา', title: 'คำขอลาพักร้อน พ.ส. ณิชา 1–3 ต.ค.', detail: 'กระทบเวร 3 เวร ต้องจัดคนแทนก่อนอนุมัติ · รอหัวหน้าพยาบาล',
+    priority: 'normal', due: '2026-09-26', owner: 'หัวหน้าพยาบาล', status: 'waiting', ref: 'LV-2609-08', link: '/backoffice/workforce/leave' },
 ];
 
 const APPROVALS: Approval[] = [
@@ -63,7 +63,7 @@ const EXCEPTIONS: BoException[] = [
   { id: 'EX4', module: 'M06', kind: 'low-stock', severity: 'warning', title: 'Buprenorphine 0.3 mg/mL เหลือ 6 mL ต่ำกว่าจุดสั่งซื้อ', detail: 'จุดสั่งซื้อ 20 mL · ยาควบคุม · ใช้ในวอร์ด 3.6 mL/วัน',
     at: '2026-09-24 06:10', source: 'รายการต้องเติมยา', ref: 'BU-2411-02', link: '/clinic/ward' },
   { id: 'EX5', module: 'M24', kind: 'credential-expiry', severity: 'warning', title: 'ใบอนุญาต สพ.ญ. ลลิตา หมดอายุใน 21 วัน', detail: 'หมดอายุ 2026-10-15 · ถ้าไม่ต่ออายุจะจัดเวรตรวจไม่ได้',
-    at: '2026-09-24 00:00', source: 'ใบอนุญาตและ Credential', ref: 'LIC-VET-0042' },
+    at: '2026-09-24 00:00', source: 'ใบอนุญาตและ Credential', ref: 'LIC-VET-0042', link: '/backoffice/workforce/credentials' },
   { id: 'EX6', module: 'M22', kind: 'downtime', severity: 'critical', title: 'เครื่องดมยาสลบ ห้องผ่าตัด 1 ใช้งานไม่ได้', detail: 'แจ้งเสีย 2026-09-23 17:40 · อุปกรณ์ critical · ผ่าตัดพรุ่งนี้ 2 เคสต้องย้ายห้อง',
     at: '2026-09-23 17:40', source: 'Downtime', ref: 'DT-2609-005' },
   { id: 'EX7', module: 'M28', kind: 'sla-risk', severity: 'warning', title: 'ข้อร้องเรียน CMP-2609-010 ต้องตอบกลับภายใน 5 ชั่วโมง', detail: 'ระดับรุนแรง · SLA 24 ชม. · รออนุมัติเปิด RCA',
@@ -214,11 +214,152 @@ const CLAIMS: Claim[] = [
     log: [['2026-07-03 09:00', CASHIER, 'draft', 'สร้างจาก INV-2607-0045'], ['2026-07-03 09:05', CASHIER, 'documents-ready', 'ออกแบบฟอร์มเคลม Falcon'], ['2026-07-03 10:00', CASHIER, 'submitted', 'ส่งอีเมลพร้อมเอกสาร'], ['2026-07-15 14:00', CASHIER, 'rejected', 'วัคซีนป้องกันไม่อยู่ในความคุ้มครองของแผน']] },
 ];
 
+/* Workforce (M24): the people, their licenses and CE, the hospital's privileges, two weeks of shifts, leave and on-call */
+const STAFF: StaffMember[] = [
+  { id: 'S01', name: 'น.สพ. นรินทร์', role: 'vet', position: 'ผู้อำนวยการโรงพยาบาล · สัตวแพทย์', department: 'OPD', employment: 'full-time', status: 'active', startedAt: '2019-06-01', phone: '081-220-4411', iamUser: 'narin.v', ceTarget: 20, weeklyHours: 40 },
+  { id: 'S02', name: 'สพ.ญ. ลลิตา', role: 'vet', position: 'สัตวแพทย์อายุรกรรม', department: 'OPD', employment: 'full-time', status: 'active', startedAt: '2021-03-15', phone: '081-220-4412', iamUser: 'lalita.v', ceTarget: 20, weeklyHours: 40 },
+  { id: 'S03', name: 'สพ.ญ. พิชญา', role: 'vet', position: 'สัตวแพทย์ศัลยกรรม', department: 'OR', employment: 'full-time', status: 'active', startedAt: '2022-08-01', phone: '081-220-4413', iamUser: 'pichaya.v', ceTarget: 20, weeklyHours: 40 },
+  { id: 'S04', name: 'น.สพ. ภูมิ', role: 'vet', position: 'สัตวแพทย์ชั่วคราว', department: 'OPD', employment: 'locum', status: 'active', startedAt: '2026-09-20', phone: '089-551-0204', ceTarget: 20, weeklyHours: 24 },
+  { id: 'S05', name: 'พ.ส. อรุณี', role: 'nurse', position: 'หัวหน้าพยาบาล', department: 'Ward', employment: 'full-time', status: 'active', startedAt: '2019-06-01', phone: '081-220-4421', iamUser: 'arunee.n', ceTarget: 12, weeklyHours: 40 },
+  { id: 'S06', name: 'พ.ส. ณิชา', role: 'nurse', position: 'พยาบาลสัตว์', department: 'OPD', employment: 'full-time', status: 'active', startedAt: '2022-01-10', phone: '081-220-4422', iamUser: 'nicha.n', ceTarget: 12, weeklyHours: 40 },
+  { id: 'S07', name: 'พ.ส. กมล', role: 'nurse', position: 'พยาบาลสัตว์', department: 'Ward', employment: 'full-time', status: 'active', startedAt: '2023-05-02', phone: '081-220-4423', iamUser: 'kamon.n', ceTarget: 12, weeklyHours: 40 },
+  { id: 'S08', name: 'พ.ส. ปวีณา', role: 'nurse', position: 'พยาบาลสัตว์', department: 'Ward', employment: 'part-time', status: 'active', startedAt: '2024-11-01', phone: '081-220-4424', iamUser: 'paweena.n', ceTarget: 12, weeklyHours: 24 },
+  { id: 'S14', name: 'พ.ส. สุดา', role: 'nurse', position: 'พยาบาลสัตว์', department: 'Ward', employment: 'full-time', status: 'active', startedAt: '2024-02-01', phone: '081-220-4425', iamUser: 'suda.n', ceTarget: 12, weeklyHours: 40 },
+  { id: 'S15', name: 'พ.ส. วิภา', role: 'nurse', position: 'พยาบาลสัตว์', department: 'Ward', employment: 'full-time', status: 'active', startedAt: '2025-07-01', phone: '081-220-4426', iamUser: 'wipa.n', ceTarget: 12, weeklyHours: 40 },
+  { id: 'S09', name: 'ภก. ธนพร', role: 'pharmacist', position: 'เภสัชกร', department: 'Pharmacy', employment: 'full-time', status: 'active', startedAt: '2020-02-03', phone: '081-220-4431', iamUser: 'thanaporn.p', ceTarget: 15, weeklyHours: 40 },
+  { id: 'S10', name: 'สมใจ', role: 'groomer', position: 'ช่างอาบน้ำตัดขน', department: 'Grooming', employment: 'full-time', status: 'active', startedAt: '2023-09-01', phone: '081-220-4441', weeklyHours: 40 },
+  { id: 'S11', name: 'นัทธมน', role: 'cashier', position: 'แคชเชียร์', department: 'การเงิน', employment: 'full-time', status: 'active', startedAt: '2022-04-01', phone: '081-220-4451', iamUser: 'nattamon.c', weeklyHours: 40 },
+  { id: 'S12', name: 'วรรณา', role: 'manager', position: 'ผู้จัดการการเงิน', department: 'การเงิน', employment: 'full-time', status: 'active', startedAt: '2020-01-06', phone: '081-220-4452', iamUser: 'wanna.f', weeklyHours: 40 },
+  { id: 'S13', name: 'ปรีดา', role: 'manager', position: 'เจ้าหน้าที่คุ้มครองข้อมูล (DPO)', department: 'สำนักงาน', employment: 'part-time', status: 'active', startedAt: '2025-01-15', phone: '081-220-4453', iamUser: 'preeda.d', weeklyHours: 24 },
+];
+
+const HR = 'ฝ่ายบุคคล';
+const lic = (id: string, staffId: string, kind: License['kind'], number: string, issuer: string, issuedAt: string, expiresAt: string, verified?: [string, string]): License => ({
+  id, staffId, kind, number, issuer, issuedAt, expiresAt, verification: verified ? 'verified' : 'pending', verifiedBy: verified?.[1], verifiedAt: verified?.[0],
+  history: [
+    [`${issuedAt} 09:00`, HR, 'บันทึกใบอนุญาต', `${number} · หมดอายุ ${expiresAt}`],
+    ...(verified ? [[verified[0], verified[1], 'ตรวจสอบแล้ว', `ตรวจกับ${issuer}`] as [string, string, string, string]] : []),
+  ],
+});
+const LICENSES: License[] = [
+  lic('L01', 'S01', 'vet-license', 'LIC-VET-0017', 'สัตวแพทยสภา', '2026-04-01', '2031-03-31', ['2026-04-03 10:00', HR]),
+  lic('L02', 'S01', 'controlled-license', 'CD-2210-033', 'อย.', '2022-10-01', '2027-09-30', ['2022-10-05 10:00', HR]),
+  lic('L03', 'S02', 'vet-license', 'LIC-VET-0042', 'สัตวแพทยสภา', '2021-10-16', '2026-10-15', ['2021-10-20 10:00', HR]),
+  lic('L04', 'S02', 'controlled-license', 'CD-2303-118', 'อย.', '2023-03-31', '2028-03-31', ['2023-04-04 11:00', HR]),
+  lic('L05', 'S03', 'vet-license', 'LIC-VET-0058', 'สัตวแพทยสภา', '2025-07-01', '2030-06-30', ['2025-07-03 09:30', HR]),
+  lic('L06', 'S04', 'vet-license', 'LIC-VET-0101', 'สัตวแพทยสภา', '2024-09-01', '2029-08-31'),
+  lic('L07', 'S05', 'rvn-certificate', 'RVN-H-001', 'โรงพยาบาล', '2025-06-01', '2027-05-31', ['2025-06-01 09:00', 'น.สพ. นรินทร์']),
+  lic('L08', 'S06', 'rvn-certificate', 'RVN-H-004', 'โรงพยาบาล', '2025-02-01', '2027-01-31', ['2025-02-01 09:00', 'พ.ส. อรุณี']),
+  lic('L09', 'S07', 'rvn-certificate', 'RVN-H-006', 'โรงพยาบาล', '2024-12-21', '2026-12-20', ['2024-12-21 09:00', 'พ.ส. อรุณี']),
+  lic('L10', 'S08', 'rvn-certificate', 'RVN-H-009', 'โรงพยาบาล', '2024-11-19', '2026-11-18', ['2024-11-19 09:00', 'พ.ส. อรุณี']),
+  lic('L13', 'S14', 'rvn-certificate', 'RVN-H-011', 'โรงพยาบาล', '2026-02-01', '2028-01-31', ['2026-02-01 09:00', 'พ.ส. อรุณี']),
+  lic('L14', 'S15', 'rvn-certificate', 'RVN-H-013', 'โรงพยาบาล', '2025-07-01', '2027-06-30', ['2025-07-01 09:00', 'พ.ส. อรุณี']),
+  lic('L11', 'S09', 'pharmacist-license', 'PH-38812', 'สภาเภสัชกรรม', '2022-12-11', '2027-12-10', ['2022-12-15 10:00', HR]),
+  lic('L12', 'S10', 'groomer-certificate', 'GRM-0721', 'สมาคมผู้ประกอบการสัตว์เลี้ยง', '2024-09-16', '2026-09-15', ['2024-09-18 10:00', HR]),
+];
+
+const ce = (id: string, staffId: string, course: string, provider: string, date: string, hours: number, category: CeRecord['category'], status: CeRecord['status'], certificate?: string): CeRecord => ({
+  id, staffId, course, provider, date, hours, category, status, certificate, enteredBy: HR, enteredAt: `${date} 17:00`,
+  ...(status === 'approved' ? { reviewedBy: 'ระบบ', reviewedAt: `${date} 17:00`, note: 'หลักสูตรในรายการที่โรงพยาบาลรับรอง' } : {}),
+});
+const CE_RECORDS: CeRecord[] = [
+  ce('CE-26-015', 'S02', 'Abdominal ultrasound course', 'Vet Imaging Asia', '2026-09-12', 8, 'clinical', 'pending', 'ultrasound-cert-lalita.pdf'),
+  ce('CE-26-014', 'S09', 'Antimicrobial stewardship webinar', 'สภาเภสัชกรรม', '2026-09-05', 2, 'pharmacology', 'pending'),
+  ce('CE-26-013', 'S06', 'Controlled drug handling', 'อย.', '2026-08-20', 3, 'pharmacology', 'approved', 'cd-handling-nicha.pdf'),
+  ce('CE-26-012', 'S09', 'Controlled drug handling', 'อย.', '2026-08-20', 3, 'pharmacology', 'approved', 'cd-handling-thanaporn.pdf'),
+  ce('CE-26-011', 'S01', 'Feline CKD update', 'คณะสัตวแพทยศาสตร์ จุฬาลงกรณ์มหาวิทยาลัย', '2026-06-07', 4, 'clinical', 'approved', 'ckd-narin.pdf'),
+  ce('CE-26-010', 'S02', 'Feline CKD update', 'คณะสัตวแพทยศาสตร์ จุฬาลงกรณ์มหาวิทยาลัย', '2026-06-07', 4, 'clinical', 'approved', 'ckd-lalita.pdf'),
+  ce('CE-26-009', 'S03', 'Anesthesia monitoring workshop', 'สมาคมวิสัญญีสัตวแพทย์', '2026-05-16', 6, 'clinical', 'approved', 'anes-pichaya.pdf'),
+  ce('CE-26-008', 'S01', 'VPAT Annual Conference 2026', 'VPAT', '2026-04-18', 12, 'clinical', 'approved', 'vpat-narin.pdf'),
+  ce('CE-26-007', 'S02', 'VPAT Annual Conference 2026', 'VPAT', '2026-04-18', 12, 'clinical', 'approved', 'vpat-lalita.pdf'),
+  ce('CE-26-006', 'S14', 'CPR (RECOVER) BLS', 'RECOVER Initiative', '2026-03-21', 4, 'clinical', 'approved', 'cpr-suda.pdf'),
+  ce('CE-26-005', 'S15', 'CPR (RECOVER) BLS', 'RECOVER Initiative', '2026-03-21', 4, 'clinical', 'approved', 'cpr-wipa.pdf'),
+  ce('CE-26-004', 'S06', 'CPR (RECOVER) BLS', 'RECOVER Initiative', '2026-03-21', 4, 'clinical', 'approved', 'cpr-nicha.pdf'),
+  ce('CE-26-003', 'S05', 'CPR (RECOVER) BLS', 'RECOVER Initiative', '2026-03-21', 4, 'clinical', 'approved', 'cpr-arunee.pdf'),
+  ce('CE-26-002', 'S05', 'Fire and chemical safety', 'โรงพยาบาล', '2026-02-12', 2, 'safety', 'approved'),
+  ce('CE-26-001', 'S07', 'Fire and chemical safety', 'โรงพยาบาล', '2026-02-12', 2, 'safety', 'approved'),
+];
+
+const PRIVILEGES_SEED: Record<string, Privilege[]> = {
+  S01: ['prescribe', 'prescribe-controlled', 'anesthesia', 'surgery', 'witness-controlled', 'imaging', 'discharge'],
+  S02: ['prescribe', 'prescribe-controlled', 'anesthesia', 'witness-controlled', 'imaging', 'discharge'],
+  S03: ['prescribe', 'anesthesia', 'surgery', 'witness-controlled', 'imaging', 'discharge'],
+  S04: [],
+  S05: ['witness-controlled', 'imaging', 'discharge'],
+  S06: ['witness-controlled', 'imaging', 'discharge'],
+  S07: ['witness-controlled', 'discharge'],
+  S08: ['discharge'],
+  S14: ['witness-controlled', 'discharge'],
+  S15: ['discharge'],
+  S09: ['dispense', 'witness-controlled'],
+  S10: [], S11: [], S12: [], S13: [],
+};
+const PRIVILEGE_LOG: PrivilegeChange[] = [
+  { id: 'PV-004', staffId: 'S07', privilege: 'imaging', action: 'revoke', reason: 'ยังไม่ผ่านการอบรมความปลอดภัยทางรังสีรอบปี 2026', by: 'พ.ส. อรุณี', at: '2026-08-30 15:00' },
+  { id: 'PV-003', staffId: 'S03', privilege: 'surgery', action: 'grant', reason: 'ผ่านการประเมินผ่าตัดทำหมันและเนื้อเยื่ออ่อนครบ 20 เคส', by: 'น.สพ. นรินทร์', at: '2025-11-02 10:00' },
+  { id: 'PV-002', staffId: 'S02', privilege: 'prescribe-controlled', action: 'grant', reason: 'ได้รับใบอนุญาตสั่งใช้ยาควบคุม CD-2303-118', by: 'น.สพ. นรินทร์', at: '2023-04-10 09:00' },
+  { id: 'PV-001', staffId: 'S09', privilege: 'dispense', action: 'grant', reason: 'เภสัชกรประจำโรงพยาบาล ใบอนุญาต PH-38812', by: 'น.สพ. นรินทร์', at: '2020-02-03 09:00' },
+];
+
+/*
+ * Two weeks of shifts, a letter a day from Monday: M morning, A afternoon, N night, X morning and afternoon (the
+ * overlap the check finds), - off. The week of 21 September is out; the next is a draft. Kamon is on leave 26–28,
+ * so Saturday night has no nurse.
+ */
+const AREA: Record<string, Area> = { S01: 'OPD', S02: 'OPD', S03: 'OR', S04: 'OPD', S05: 'Ward', S06: 'OPD', S07: 'Ward', S08: 'Ward', S14: 'Ward', S15: 'Ward', S09: 'Pharmacy', S10: 'Grooming' };
+const ROTA: Record<string, [string, string]> = {
+  S01: ['MMMMM--', 'MMMMM--'],
+  S02: ['MAMAM-M', 'MAMAM--'],
+  S03: ['AMAMAM-', 'AMXM-M-'],
+  S04: ['-------', '---AA-M'],
+  S05: ['MMMMM--', 'MMMMM--'],
+  S06: ['-ANMAMN', 'NM-AMM-'],
+  S07: ['AM-MM--', '-AN-N-N'],
+  S08: ['--M--AA', '--A--AA'],
+  S14: ['M-ANN-M', 'M-MMA-M'],
+  S15: ['NN-A---', 'AN-N-N-'],
+  S09: ['MMMMM--', 'MMMMM--'],
+  S10: ['-MMMMM-', '-MMMMM-'],
+};
+function rota(): Shift[] {
+  const out: Shift[] = [];
+  const kinds: Record<string, ShiftKind[]> = { M: ['morning'], A: ['afternoon'], N: ['night'], X: ['morning', 'afternoon'] };
+  let n = 0;
+  for (const [staffId, weeks] of Object.entries(ROTA)) {
+    weeks.forEach((week, w) => [...week].forEach((c, d) => {
+      for (const kind of kinds[c] ?? []) {
+        const day = new Date(Date.UTC(2026, 8, 21 + w * 7 + d)).toISOString().slice(0, 10);
+        out.push({ id: `SH-${String(++n).padStart(3, '0')}`, staffId, date: day, kind, area: AREA[staffId], status: w === 0 ? 'published' : 'draft' });
+      }
+    }));
+  }
+  return out;
+}
+
+const LEAVES: LeaveRequest[] = [
+  { id: 'LV-2609-09', staffId: 'S15', type: 'sick', from: '2026-09-24', to: '2026-09-24', reason: 'มีไข้ตั้งแต่เมื่อคืน ไปพบแพทย์ช่วงเช้า', status: 'pending', requestedBy: 'พ.ส. วิภา', requestedAt: '2026-09-24 07:40' },
+  { id: 'LV-2609-08', staffId: 'S06', type: 'vacation', from: '2026-10-01', to: '2026-10-03', reason: 'กลับบ้านต่างจังหวัดงานบวชน้องชาย', status: 'pending', requestedBy: 'พ.ส. ณิชา', requestedAt: '2026-09-22 16:30' },
+  { id: 'LV-2609-07', staffId: 'S08', type: 'personal', from: '2026-09-27', to: '2026-09-27', reason: 'ติดธุระส่วนตัวที่ธนาคาร', status: 'rejected', requestedBy: 'พ.ส. ปวีณา', requestedAt: '2026-09-16 10:00',
+    decidedBy: 'พ.ส. อรุณี', decidedAt: '2026-09-16 14:00', decisionNote: 'วันอาทิตย์มีพยาบาลบ่ายคนเดียว ขอให้เลื่อนเป็นวันธรรมดา' },
+  { id: 'LV-2609-06', staffId: 'S07', type: 'vacation', from: '2026-09-26', to: '2026-09-28', reason: 'ลาพักร้อนประจำปีตามที่แจ้งไว้ล่วงหน้า', status: 'approved', requestedBy: 'พ.ส. กมล', requestedAt: '2026-09-01 09:00',
+    decidedBy: 'พ.ส. อรุณี', decidedAt: '2026-09-02 10:30', decisionNote: 'อนุมัติ · จัดคนแทนเวรดึกวันเสาร์ก่อนประกาศ' },
+  { id: 'LV-2609-05', staffId: 'S03', type: 'personal', from: '2026-09-19', to: '2026-09-19', reason: 'ไปสอบวุฒิบัตรศัลยกรรมรอบแรก', status: 'approved', requestedBy: 'สพ.ญ. พิชญา', requestedAt: '2026-09-05 11:00',
+    decidedBy: 'น.สพ. นรินทร์', decidedAt: '2026-09-05 15:00', decisionNote: 'อนุมัติ · ไม่มีผ่าตัดนัดวันนั้น' },
+];
+
+/** The week of 21 September is out: a fair turn among the three vets */
+const ON_CALL: OnCallSlot[] = ['S01', 'S02', 'S03', 'S01', 'S02', 'S03', 'S01'].map((staffId, d) => ({ date: `2026-09-${21 + d}`, staffId, status: 'published' as const }));
+const CALL_OUTS: CallOut[] = [
+  { id: 'CO-2609-04', date: '2026-09-22', staffId: 'S02', hours: 2.5, reason: 'ผ่าตัดฉุกเฉิน GDV' },
+  { id: 'CO-2609-05', date: '2026-09-23', staffId: 'S03', hours: 1.5, reason: 'สุนัขชักต่อเนื่อง' },
+];
+
 /** A fresh copy of the sample, for the store to change */
 export function createBackofficeSeed(): BackofficeData {
   return structuredClone({
     workItems: WORK_ITEMS, approvals: APPROVALS, exceptions: EXCEPTIONS, activity: ACTIVITY, accountingExports: ACCOUNTING_EXPORTS, reconciliations: [],
     drugs: DRUGS, receipts: RECEIPTS, ledgerDispenses: LEDGER_DISPENSES, wastes: WASTES, counts: COUNTS, recalls: RECALLS,
     lineLinks: LINE_LINKS, messages: MESSAGES, vaccinesDue: VACCINES_DUE, policies: POLICIES, claims: CLAIMS,
+    staff: STAFF, licenses: LICENSES, ce: CE_RECORDS, privileges: PRIVILEGES_SEED, privilegeLog: PRIVILEGE_LOG, shifts: rota(), leaves: LEAVES, onCall: ON_CALL, callOuts: CALL_OUTS,
   });
 }

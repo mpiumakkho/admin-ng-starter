@@ -1503,3 +1503,387 @@
     gap: 4px;
   }
 }
+
+/* Workforce (pages/workforce): the roster, shift chips, the privilege matrix, the on-call and leave calendars, CE progress */
+.backoffice .section-title {
+  margin: 12px 0 4px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.backoffice .chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 16px;
+}
+.backoffice .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-muted);
+  font-size: 12px;
+
+  > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+.backoffice .shift {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+
+  &.morning { background: var(--ui-info-soft); color: var(--ui-info-text); }
+  &.afternoon { background: var(--ui-warning-soft); color: var(--ui-warning-text); }
+  &.night { background: var(--ui-neutral-soft); color: var(--ui-heading); }
+
+  &.draft {
+    border-style: dashed;
+    border-color: currentColor;
+    background: transparent;
+  }
+}
+.backoffice button.shift {
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: line-through;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 1px;
+  }
+}
+.backoffice .bo-table.roster {
+  min-width: 760px;
+  table-layout: fixed;
+
+  th.who {
+    width: 150px;
+    text-align: left;
+  }
+
+  thead th {
+    text-align: center;
+
+    &.short {
+      background: var(--ui-danger-soft);
+    }
+  }
+
+  tr.group th {
+    padding: 6px 12px;
+    background: var(--ui-surface-muted);
+    color: var(--ui-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  td {
+    text-align: center;
+    vertical-align: middle;
+
+    > * {
+      margin: 1px;
+    }
+
+    &.today {
+      background: var(--ui-primary-soft);
+    }
+
+    &.conflict {
+      background: var(--ui-danger-soft);
+      box-shadow: inset 0 0 0 1px var(--ui-danger-text);
+    }
+  }
+
+  .add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px dashed var(--ui-border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ui-muted);
+    opacity: .55;
+    cursor: pointer;
+
+    ng-icon {
+      width: 12px;
+      height: 12px;
+    }
+
+    &:hover,
+    &.picked {
+      border-color: var(--ui-primary);
+      color: var(--ui-primary-text);
+      opacity: 1;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-focus);
+      opacity: 1;
+    }
+  }
+}
+.backoffice .checks {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ui-warning-text);
+  font-size: 12.5px;
+
+  .hard {
+    color: var(--ui-danger-text);
+    font-weight: 600;
+  }
+}
+.backoffice .conflict-row {
+  padding: 6px 8px;
+  border-left: 3px solid var(--ui-warning-text);
+  border-radius: 4px;
+  background: var(--ui-warning-soft);
+  font-size: 12.5px;
+
+  &.hard {
+    border-left-color: var(--ui-danger-text);
+    background: var(--ui-danger-soft);
+  }
+}
+.backoffice .bo-table.matrix {
+  min-width: 860px;
+
+  th[scope='row'] {
+    min-width: 150px;
+    text-align: left;
+    font-weight: 400;
+  }
+
+  .priv-col {
+    width: 92px;
+    text-align: center;
+  }
+}
+.backoffice .priv {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-surface);
+  font-weight: 700;
+
+  &.ok { border-color: transparent; background: var(--ui-success-soft); color: var(--ui-success-text); }
+  &.warn { border-color: transparent; background: var(--ui-warning-soft); color: var(--ui-warning-text); }
+  &.danger { border-color: transparent; background: var(--ui-danger-soft); color: var(--ui-danger-text); }
+  &.quiet { color: var(--ui-muted); }
+}
+.backoffice button.priv {
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--ui-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 1px;
+  }
+}
+.backoffice .timeline.compact {
+  padding: 0;
+
+  .secondary {
+    margin-top: 2px;
+  }
+}
+.backoffice .oncall-cal,
+.backoffice .leave-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  padding: 12px;
+}
+.backoffice .oncall-cal {
+  .head {
+    color: var(--ui-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .night {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 92px;
+    padding: 8px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: var(--ui-surface);
+    font-size: 12px;
+
+    &.weekend {
+      background: var(--ui-surface-muted);
+    }
+
+    &.today {
+      border-color: var(--ui-primary);
+    }
+
+    &.problem {
+      border-color: var(--ui-danger-text);
+      background: var(--ui-danger-soft);
+    }
+  }
+
+  .who {
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary-text);
+    font-size: 12.5px;
+    font-weight: 650;
+    text-align: left;
+    cursor: pointer;
+
+    &.draft {
+      border: 1px dashed currentColor;
+      background: transparent;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ui-focus);
+    }
+  }
+
+  .callout {
+    color: var(--ui-warning-text);
+    font-size: 11.5px;
+  }
+}
+.backoffice .leave-cal .day {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 64px;
+  padding: 6px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  font-size: 12px;
+
+  &.today {
+    border-color: var(--ui-primary);
+  }
+
+  &.picked {
+    background: var(--ui-primary-soft);
+  }
+}
+.backoffice .ce-progress {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+  padding: 12px 16px;
+  list-style: none;
+  font-size: 13px;
+
+  .sum-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+}
+.backoffice .bar {
+  height: 6px;
+  margin: 4px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ui-neutral-soft);
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--ui-success-text);
+
+    &.behind {
+      background: var(--ui-danger-text);
+    }
+  }
+}
+.backoffice .foot-note {
+  margin: 0;
+  padding: 8px 12px;
+}
+.backoffice .notice.full {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+@container backoffice (max-width: 767px) {
+  .backoffice .oncall-cal,
+  .backoffice .leave-cal {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    .head {
+      display: none;
+    }
+  }
+}
+.backoffice .panel.actions .sum-row,
+.backoffice .action-card .sum-row,
+.backoffice .drawer .sum-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.backoffice .bo-table.roster th[scope='row'],
+.backoffice .bo-table.matrix th[scope='row'] {
+  color: var(--ui-text);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.backoffice .bo-table.matrix {
+  min-width: 0;
+
+  thead th.priv-col {
+    width: 76px;
+    white-space: normal;
+    line-height: 1.25;
+    vertical-align: bottom;
+  }
+}
+.backoffice .bo-table.credentials td:nth-child(2) {
+  min-width: 220px;
+}
+.backoffice .bo-table.staff td:first-child {
+  min-width: 230px;
+}

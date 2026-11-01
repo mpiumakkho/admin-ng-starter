@@ -24,6 +24,15 @@ import { StockComponent } from './pages/inventory/stock.component';
 import { ClaimsComponent } from './pages/sales/claims.component';
 import { LineCrmComponent } from './pages/sales/line-crm.component';
 import { RevenueOverviewComponent } from './pages/sales/revenue-overview.component';
+import { CredentialsComponent } from './pages/workforce/credentials.component';
+import { EducationComponent } from './pages/workforce/education.component';
+import { LeaveComponent } from './pages/workforce/leave.component';
+import { OnCallComponent } from './pages/workforce/on-call.component';
+import { OvertimeComponent } from './pages/workforce/overtime.component';
+import { PrivilegesComponent } from './pages/workforce/privileges.component';
+import { ScheduleComponent } from './pages/workforce/schedule.component';
+import { StaffDetailComponent } from './pages/workforce/staff-detail.component';
+import { StaffComponent } from './pages/workforce/staff.component';
 import { BackofficeShellComponent } from './shell/backoffice-shell.component';
 
 /** The back office's pages, under /backoffice, by the spec's menu groups (shell/nav.ts) */
@@ -61,6 +70,16 @@ export const BACKOFFICE_ROUTES: Routes = [
       { path: 'sales/overview', component: RevenueOverviewComponent },
       { path: 'sales/line', component: LineCrmComponent },
       { path: 'sales/claims', component: ClaimsComponent },
+      { path: 'workforce', pathMatch: 'full', redirectTo: 'workforce/staff' },
+      { path: 'workforce/staff', component: StaffComponent },
+      { path: 'workforce/staff/:id', component: StaffDetailComponent },
+      { path: 'workforce/credentials', component: CredentialsComponent },
+      { path: 'workforce/education', component: EducationComponent },
+      { path: 'workforce/privileges', component: PrivilegesComponent },
+      { path: 'workforce/schedule', component: ScheduleComponent },
+      { path: 'workforce/leave', component: LeaveComponent },
+      { path: 'workforce/on-call', component: OnCallComponent },
+      { path: 'workforce/overtime', component: OvertimeComponent },
       { path: '**', redirectTo: 'home/overview' },
     ],
   },

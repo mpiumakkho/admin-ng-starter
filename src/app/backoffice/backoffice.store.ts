@@ -11,10 +11,15 @@ import {
 } from './data/inventory';
 import { CLAIM_STATUS, type ClaimInput, decideClaim, markDocuments, MESSAGE_KIND, newClaim, type OutboxItem, reimburse, sendMessage, submitClaim } from './data/sales';
 import { createBackofficeSeed } from './data/seed';
+import {
+  addCe, addLicense, addStaff, assignShift, attachCertificate, changePrivilege, type CeInput, decideLeave, generateOnCall, LEAVE_TYPE, LICENSE_KIND, type LeaveInput, type LicenseInput,
+  PRIVILEGE, publishOnCall, publishWeek, removeShift, renewLicense, requestLeave, reviewCe, SHIFT, type ShiftInput, type StaffInput, staffOf, verifyLicense,
+} from './data/workforce';
 import { balanceOf } from '../clinic/data/rail';
 import type { Invoice, InvoiceLine, Refund } from '../clinic/data/types';
 import type {
-  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, Claim, CountRecord, LedgerDispense, Module, Recall, RecallStatus, ServiceMessage, StockReceipt, WasteRecord,
+  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, CeRecord, Claim, CountRecord, LeaveRequest, LedgerDispense, License, Module, OnCallSlot, Privilege, Recall, RecallStatus,
+  ServiceMessage, Shift, StaffMember, StockReceipt, WasteRecord,
 } from './data/types';
 
 /** Who works in the back office when nobody is signed in, as in tests: the finance manager the sample is drawn for */
@@ -362,6 +367,152 @@ export class BackofficeStore {
     if (payee === 'hospital' && invoice && outstanding(invoice)) {
       this.collect(invoice, Math.min(amount, balanceOf(invoice)), 'ประกัน', ref || c.id);
     }
+  }
+
+  /* Workforce (data/workforce.ts): M24's records; nothing here touches an IAM account or a payroll */
+
+  private who(d: BackofficeData, staffId: string) {
+    return staffOf(d, staffId)?.name ?? staffId;
+  }
+
+  addStaff(input: StaffInput): StaffMember {
+    let member!: StaffMember;
+    this.mutate(d => {
+      member = addStaff(d, input);
+      this.log(d, 'M24', 'เพิ่มบุคลากร', member.id, member.name, `${member.position} · ${member.department}`);
+    });
+    return member;
+  }
+
+  updateStaff(member: StaffMember, patch: Partial<Pick<StaffMember, 'department' | 'phone' | 'employment' | 'status'>>) {
+    const before = [member.department, member.phone, member.employment, member.status].join(' · ');
+    this.mutate(d => {
+      Object.assign(member, patch);
+      this.log(d, 'M24', 'แก้ไขข้อมูลบุคลากร', member.id, member.name, undefined, before, [member.department, member.phone, member.employment, member.status].join(' · '));
+    });
+  }
+
+  addLicense(input: LicenseInput): License {
+    let license!: License;
+    this.mutate(d => {
+      license = addLicense(d, input, this.userName());
+      this.log(d, 'M24', 'บันทึกใบอนุญาต', license.number, this.who(d, license.staffId), `${LICENSE_KIND[license.kind].label} · หมดอายุ ${license.expiresAt}`, undefined, 'รอตรวจสอบ');
+    });
+    return license;
+  }
+
+  verifyLicense(l: License, method: string, note: string) {
+    this.mutate(d => {
+      verifyLicense(l, method, note, this.userName());
+      this.log(d, 'M24', 'ตรวจสอบใบอนุญาต', l.number, this.who(d, l.staffId), [method, note].filter(Boolean).join(' · '), 'รอตรวจสอบ', 'ตรวจสอบแล้ว');
+    });
+  }
+
+  renewLicense(l: License, expiresAt: string, number: string, evidence: string) {
+    const before = l.expiresAt;
+    this.mutate(d => {
+      renewLicense(l, expiresAt, number, evidence, this.userName());
+      this.log(d, 'M24', 'ต่ออายุใบอนุญาต', l.number, this.who(d, l.staffId), evidence, `หมดอายุ ${before}`, `หมดอายุ ${expiresAt} · รอตรวจสอบ`);
+    });
+  }
+
+  addCe(input: CeInput): CeRecord {
+    let record!: CeRecord;
+    this.mutate(d => {
+      record = addCe(d, input, this.userName());
+      this.log(d, 'M24', 'บันทึก CE', record.id, this.who(d, record.staffId), `${record.course} · ${record.hours} ชม.`, undefined, record.status === 'approved' ? 'นับชั่วโมงแล้ว' : 'รอตรวจ');
+    });
+    return record;
+  }
+
+  reviewCe(c: CeRecord, decision: 'approved' | 'rejected', note: string) {
+    this.mutate(d => {
+      reviewCe(c, decision, note, this.userName());
+      this.log(d, 'M24', decision === 'approved' ? 'นับชั่วโมง CE' : 'ไม่นับชั่วโมง CE', c.id, this.who(d, c.staffId), note, 'รอตรวจ', decision === 'approved' ? 'นับชั่วโมงแล้ว' : 'ไม่นับ');
+    });
+  }
+
+  attachCertificate(c: CeRecord, file: string) {
+    this.mutate(d => {
+      attachCertificate(c, file);
+      this.log(d, 'M24', 'แนบใบรับรอง CE', c.id, this.who(d, c.staffId), file);
+    });
+  }
+
+  changePrivilege(staffId: string, p: Privilege, action: 'grant' | 'revoke', reason: string) {
+    this.mutate(d => {
+      const change = changePrivilege(d, staffId, p, action, reason, this.userName());
+      this.log(d, 'M24', action === 'grant' ? 'ให้สิทธิ์วิชาชีพ' : 'ถอนสิทธิ์วิชาชีพ', change.id, `${this.who(d, staffId)} · ${PRIVILEGE[p].label}`, reason,
+        action === 'grant' ? 'ไม่มีสิทธิ์' : 'มีสิทธิ์', action === 'grant' ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์');
+    });
+  }
+
+  /** A shift added as a draft: it counts for nothing until the week is published, and grants no role or privilege */
+  assignShift(input: ShiftInput): Shift {
+    let shift!: Shift;
+    this.mutate(d => {
+      shift = assignShift(d, input);
+      this.log(d, 'M24', 'จัดเวร', shift.id, this.who(d, shift.staffId), `${shift.date} · เวร${SHIFT[shift.kind].label} · ${shift.area}`, undefined, 'ฉบับร่าง');
+    });
+    return shift;
+  }
+
+  removeShift(s: Shift, reason: string) {
+    this.mutate(d => {
+      removeShift(d, s);
+      this.log(d, 'M24', 'ยกเลิกเวร', s.id, this.who(d, s.staffId), [`${s.date} · เวร${SHIFT[s.kind].label}`, reason].filter(Boolean).join(' · '), s.status === 'published' ? 'ประกาศแล้ว' : 'ฉบับร่าง', 'ยกเลิก');
+    });
+  }
+
+  publishWeek(monday: string): number {
+    let n = 0;
+    this.mutate(d => {
+      n = publishWeek(d, monday);
+      this.log(d, 'M24', 'ประกาศตารางเวร', `สัปดาห์ ${monday}`, `${n} เวร`, undefined, 'ฉบับร่าง', 'ประกาศแล้ว');
+    });
+    return n;
+  }
+
+  requestLeave(input: LeaveInput): LeaveRequest {
+    let leave!: LeaveRequest;
+    this.mutate(d => {
+      leave = requestLeave(d, input, this.userName());
+      this.log(d, 'M24', 'ยื่นคำขอลา', leave.id, this.who(d, leave.staffId), `${LEAVE_TYPE[leave.type]} ${leave.from}–${leave.to}`, undefined, 'รออนุมัติ');
+    });
+    return leave;
+  }
+
+  decideLeave(l: LeaveRequest, status: 'approved' | 'rejected', note: string) {
+    this.mutate(d => {
+      decideLeave(l, status, note, this.userName());
+      this.log(d, 'M24', status === 'approved' ? 'อนุมัติการลา' : 'ไม่อนุมัติการลา', l.id, this.who(d, l.staffId), note, 'รออนุมัติ', status === 'approved' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ');
+    });
+  }
+
+  generateOnCall(from: string, to: string): OnCallSlot[] {
+    let made: OnCallSlot[] = [];
+    this.mutate(d => {
+      made = generateOnCall(d, from, to);
+      this.log(d, 'M24', 'สร้างตารางเวร on-call', `${from}–${to}`, `${made.length} คืน`, undefined, undefined, 'ฉบับร่าง');
+    });
+    return made;
+  }
+
+  setOnCall(slot: OnCallSlot, staffId: string, reason: string) {
+    this.mutate(d => {
+      const before = this.who(d, slot.staffId);
+      slot.staffId = staffId;
+      this.log(d, 'M24', 'ปรับเวร on-call', slot.date, `${before} → ${this.who(d, staffId)}`, reason || undefined);
+    });
+  }
+
+  publishOnCall(from: string, to: string): number {
+    let n = 0;
+    this.mutate(d => {
+      n = publishOnCall(d, from, to);
+      this.log(d, 'M24', 'ประกาศตารางเวร on-call', `${from}–${to}`, `${n} คืน`, undefined, 'ฉบับร่าง', 'ประกาศแล้ว');
+    });
+    return n;
   }
 
   /** Seen, and what was done about it or where it went; the exception is settled in its own workflow */

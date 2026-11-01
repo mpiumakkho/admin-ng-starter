@@ -244,4 +244,11 @@ export const EN_BO: Record<string, string> = {
   'ก่อน': 'Before',
   'หลัง': 'After',
   'บันทึกนี้แก้ไขไม่ได้ · การส่งออกบันทึกตรวจสอบต้องขออนุมัติในรายการอนุมัติ': 'This entry cannot be changed · exporting the audit log needs an approval',
+  /* evidence labels and fields the finance and sales actions name */
+  'การชำระเดิม': 'Original payment',
+  'เกณฑ์': 'Rule',
+  'ส่วนลดเกิน 10% ต้องให้ผู้จัดการอนุมัติ': 'A discount over 10% needs approval by the manager',
+  'บันทึกการส่งเคลม': 'Recorded a claim submission',
+  'ต้องยืนยันข้อนี้': 'Confirm this',
+  'เช่น 200': 'e.g. 200',
 };

@@ -299,6 +299,108 @@ export interface Claim {
   log: [at: string, by: string, status: ClaimStatus, note: string][];
 }
 
+/* Workforce (M24 Personnel + Staff Scheduling; ux/menus/05-workforce.md). A staff record is not an IAM account (M14) */
+
+export type StaffRole = 'vet' | 'nurse' | 'pharmacist' | 'groomer' | 'cashier' | 'manager';
+export interface StaffMember {
+  id: string;
+  /** As the other modules write the person: 'สพ.ญ. ลลิตา' */
+  name: string;
+  role: StaffRole;
+  position: string;
+  department: string;
+  employment: 'full-time' | 'part-time' | 'locum';
+  status: 'active' | 'on-leave' | 'inactive';
+  startedAt: string;
+  phone: string;
+  /** The IAM account linked to the person (M14 owns it; shown here, changed there) */
+  iamUser?: string;
+  /** The hospital's yearly CE target in hours, for clinicians */
+  ceTarget?: number;
+  /** The hours a week the person is contracted for; over it is overtime */
+  weeklyHours: number;
+}
+
+export type LicenseKind = 'vet-license' | 'controlled-license' | 'rvn-certificate' | 'pharmacist-license' | 'groomer-certificate';
+export interface License {
+  id: string;
+  staffId: string;
+  kind: LicenseKind;
+  number: string;
+  issuer: string;
+  issuedAt: string;
+  expiresAt: string;
+  verification: 'verified' | 'pending';
+  verifiedBy?: string;
+  verifiedAt?: string;
+  /** Each step: when, by whom, what, with what */
+  history: [at: string, by: string, action: string, note: string][];
+}
+
+export type CeCategory = 'clinical' | 'pharmacology' | 'safety' | 'other';
+export interface CeRecord {
+  id: string;
+  staffId: string;
+  course: string;
+  provider: string;
+  date: string;
+  hours: number;
+  category: CeCategory;
+  /** A course from the hospital's approved list counts at once; any other waits for a reviewer */
+  status: 'approved' | 'pending' | 'rejected';
+  /** The certificate's file, as uploaded */
+  certificate?: string;
+  enteredBy: string;
+  enteredAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  note?: string;
+}
+
+export type Privilege = 'prescribe' | 'prescribe-controlled' | 'anesthesia' | 'surgery' | 'dispense' | 'witness-controlled' | 'imaging' | 'discharge';
+/** A privilege granted or taken back, with the authority and the reason (append-only) */
+export interface PrivilegeChange {
+  id: string;
+  staffId: string;
+  privilege: Privilege;
+  action: 'grant' | 'revoke';
+  reason: string;
+  by: string;
+  at: string;
+}
+
+export type ShiftKind = 'morning' | 'afternoon' | 'night';
+export type Area = 'OPD' | 'Ward' | 'OR' | 'Pharmacy' | 'Grooming';
+export interface Shift {
+  id: string;
+  staffId: string;
+  date: string;
+  kind: ShiftKind;
+  area: Area;
+  status: 'draft' | 'published';
+}
+
+export type LeaveType = 'vacation' | 'sick' | 'maternity' | 'personal';
+export interface LeaveRequest {
+  id: string;
+  staffId: string;
+  type: LeaveType;
+  from: string;
+  to: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedBy: string;
+  requestedAt: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  decisionNote?: string;
+}
+
+/** Who is on call for the night, and whether the rotation is out */
+export interface OnCallSlot { date: string; staffId: string; status: 'draft' | 'published' }
+/** A call-out while on call: the hours worked count as overtime */
+export interface CallOut { id: string; date: string; staffId: string; hours: number; reason: string }
+
 export interface BackofficeData {
   workItems: WorkItem[];
   approvals: Approval[];
@@ -317,4 +419,13 @@ export interface BackofficeData {
   vaccinesDue: VaccineDue[];
   policies: Policy[];
   claims: Claim[];
+  staff: StaffMember[];
+  licenses: License[];
+  ce: CeRecord[];
+  privileges: Record<string, Privilege[]>;
+  privilegeLog: PrivilegeChange[];
+  shifts: Shift[];
+  leaves: LeaveRequest[];
+  onCall: OnCallSlot[];
+  callOuts: CallOut[];
 }
