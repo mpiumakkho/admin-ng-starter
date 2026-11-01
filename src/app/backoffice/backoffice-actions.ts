@@ -13,6 +13,10 @@ import {
 } from './data/assets';
 import { DISCOUNT_THRESHOLD, methodOf, PAYMENT_METHODS, refundable, REFUND_THRESHOLD, statusOf } from './data/finance';
 import {
+  ARTIFACT_DAYS, BREACH_SEVERITY, type BreachInput, closeBreachBlock, CONSENT_PURPOSE, CONSENT_VERSION, DELIVERY_METHODS, DSAR_RIGHT, DSAR_STATUS, type DsarInput, EXPORT_STATUS,
+  exportDecideBlock, type ExportInput, fulfilBlock, IDENTITY_METHODS, notifyBlock, NOTIFY_TO, owedNotices, SHAPE, withdrawBlock,
+} from './data/governance';
+import {
   ANONYMOUS, approveBlock, CATCH_POINT, CHANNEL, CHANNELS, closeBlock, complainantOf, COMPLAINT_CATEGORY, COMPLAINT_SEVERITY, type ComplaintInput, escalateBlock, HANDLERS, HARM,
   HARM_LEVELS, type IncidentInput, linkProblems, MM_OUTCOME, mmBlock, type MmInput, moment, type NearMissInput, RCA_STATUS, REGULATORS, REMEDY, resolveBlock, responseBlock, responseDue,
   responseRate, SAFETY_CATEGORY, satisfactionBlock, SEVERITIES, signOffBlock, submitProblems, surveyBlock, targetProblem, TRIAGE_HOURS, triageHours, type TriageInput, WHY_MIN,
@@ -21,7 +25,7 @@ import { APPROVAL_KIND, canDecide } from './data/home';
 import { canResolve, INVESTIGATION, type LedgerDispenseInput, RECALL_NEXT, RECALL_SEVERITY, RECALL_STATUS, type ReceiptInput, type WasteInput, wasteReason } from './data/inventory';
 import { CLAIM_KIND, CLAIM_STATUS, type ClaimInput, linkOf, MESSAGE_KIND, type OutboxItem, policyOf, PURPOSE_LABEL } from './data/sales';
 import type {
-  AccountingExport, Approval, BoException, CalibrationRecord, CatchPoint, CeRecord, Claim, Complaint, ComplaintChannel, ComplaintSeverity, CountRecord, Criticality, Decommission, Downtime,
+  AccountingExport, Approval, AuditExport, BoException, Breach, ConsentGrant, DsarRequest, DsarRight, IntegrityPeriod, CalibrationRecord, CatchPoint, CeRecord, Claim, Complaint, ComplaintChannel, ComplaintSeverity, CountRecord, Criticality, Decommission, Downtime,
   Equipment, HarmLevel, Incident, KpiDefinition, LeaveRequest, License, MmReview, NearMiss, OnCallSlot, PmTask, Privilege, Rca, RcaAction, Recall, RecallStatus, Remedy, SafetyCategory,
   SafetySurvey, ServiceContract, Shift, StaffMember, StockReceipt,
 } from './data/types';
@@ -1530,6 +1534,281 @@ export class BackofficeActions {
       onConfirm: v => {
         this.store.escalateComplaint(c, v['body'], v['reason']);
         this.ui.toast('บันทึกการส่ง {id} ถึง{body}แล้ว', { id: c.id, body: this.t(v['body']) }, 'info');
+      },
+    });
+  }
+
+  /* PDPA (M31) */
+
+  intakeDsar(input: DsarInput, onDone?: (r: DsarRequest) => void) {
+    this.ui.ask({
+      title: `รับคำขอ DSAR · ${this.t(DSAR_RIGHT[input.right as DsarRight])}`,
+      facts: [['ผู้ขอ', input.requester.trim()], ['ช่องทางรับเรื่อง', CHANNEL[input.channel]], ['ขอบเขต', input.scope.trim()]],
+      intro: ['นับ 30 วันตามกฎหมายตั้งแต่รับคำขอ ต้องยืนยันตัวตนผู้ขอก่อนส่งมอบข้อมูลใด ๆ'],
+      confirmLabel: 'รับคำขอ',
+      onConfirm: () => {
+        const r = this.store.intakeDsar(input);
+        this.ui.toast('รับ {id} แล้ว · ครบกำหนด {due}', { id: r.id, due: r.statutoryDue });
+        onDone?.(r);
+      },
+    });
+  }
+
+  verifyIdentity(r: DsarRequest) {
+    this.ui.ask({
+      title: `ยืนยันตัวตน · ${r.id}`,
+      facts: [['ผู้ขอ', r.requester], ['สิทธิ์ที่ขอ', DSAR_RIGHT[r.right]], ...(r.ownerKey ? [['เจ้าของในทะเบียน', r.ownerKey] as [string, string]] : [])],
+      fields: [{ name: 'method', label: 'วิธียืนยัน', type: 'select', value: IDENTITY_METHODS[0], options: IDENTITY_METHODS.map(m => ({ value: m, label: m })) }],
+      confirmLabel: 'ยืนยันตัวตน',
+      onConfirm: v => {
+        this.store.verifyIdentity(r, v['method']);
+        this.ui.toast('{id} ยืนยันตัวตนแล้ว', { id: r.id });
+      },
+    });
+  }
+
+  collectDsar(r: DsarRequest, source: string) {
+    this.ui.ask({
+      title: `รวบรวมข้อมูล · ${source}`,
+      facts: [['คำขอ', `${r.id} · ${this.t(DSAR_RIGHT[r.right])}`], ['ขอบเขต', r.scope], ['ผู้ป่วย', r.hns.join(', ') || '—']],
+      intro: ['เก็บเฉพาะที่อยู่ในขอบเขตคำขอ การอ่านข้อมูลส่วนบุคคลแต่ละครั้งบันทึกเป็นเหตุการณ์ pii_read ในบันทึกตรวจสอบ'],
+      confirmLabel: 'รวบรวม',
+      onConfirm: () => {
+        this.store.collectDsar(r, source);
+        this.ui.toast('รวบรวม {source} แล้ว', { source: this.t(source) });
+      },
+    });
+  }
+
+  fulfilDsar(r: DsarRequest) {
+    const block = fulfilBlock(r);
+    if (block) {
+      this.ui.toast(block, undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: `ส่งมอบข้อมูล · ${r.id}`,
+      facts: [['ถึง', r.requester], ['ข้อมูลที่รวบรวม', r.collected.join(', ')], ['ยืนยันตัวตน', `${r.identity!.method} · ${r.identity!.at}`]],
+      intro: ['ไฟล์ส่งมอบปิดบังข้อมูลที่เกินขอบเขต และหมดอายุใน 14 วัน'],
+      fields: [{ name: 'method', label: 'วิธีส่งมอบ', type: 'select', value: DELIVERY_METHODS[0], options: DELIVERY_METHODS.map(m => ({ value: m, label: m })) }],
+      confirmLabel: 'ส่งมอบข้อมูล',
+      onConfirm: v => {
+        this.store.fulfilDsar(r, v['method']);
+        this.ui.toast('ส่งมอบ {id} แล้ว', { id: r.id });
+      },
+    });
+  }
+
+  closeDsar(r: DsarRequest, rejected: boolean) {
+    this.ui.ask({
+      title: `${rejected ? 'ปฏิเสธคำขอนี้' : 'ปิดคำขอ'} · ${r.id}`,
+      tone: rejected ? 'danger' : 'primary',
+      facts: [['ผู้ขอ', r.requester], ['สิทธิ์ที่ขอ', DSAR_RIGHT[r.right]], ['สถานะ', DSAR_STATUS[r.status].label]],
+      intro: rejected ? ['การปฏิเสธต้องมีเหตุผลตามกฎหมาย และแจ้งผู้ขอพร้อมสิทธิร้องเรียนต่อ สคส.'] : undefined,
+      fields: [{
+        name: 'outcome', label: this.t('ผล (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea',
+        placeholder: rejected ? 'เช่น ผู้ขอไม่ใช่เจ้าของข้อมูลและไม่มีหนังสือมอบอำนาจ' : 'เช่น ผู้ขอยืนยันรับข้อมูลครบแล้ว',
+        validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null),
+      }],
+      confirmLabel: rejected ? 'ปฏิเสธคำขอนี้' : 'ปิดคำขอ',
+      onConfirm: v => {
+        this.store.closeDsar(r, v['outcome'], rejected);
+        this.ui.toast('{id} → {status}', { id: r.id, status: this.t(DSAR_STATUS[r.status].label) }, rejected ? 'info' : 'success');
+      },
+    });
+  }
+
+  withdrawConsent(g: ConsentGrant) {
+    const block = withdrawBlock(g);
+    if (block) {
+      this.ui.toast(block, undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: `ถอนความยินยอม · ${g.ownerKey}`,
+      tone: 'danger',
+      facts: [['วัตถุประสงค์', CONSENT_PURPOSE[g.purpose].label], ['เวอร์ชันที่ให้', g.version], ['ให้เมื่อ', `${g.at} · ${this.t(g.channel)}`], ['แหล่ง', CONSENT_PURPOSE[g.purpose].source]],
+      intro: ['หยุดใช้ข้อมูลเพื่อวัตถุประสงค์นี้ทันที ประวัติการให้และถอนยังเก็บไว้เป็นหลักฐาน'],
+      confirmLabel: 'ถอนความยินยอม',
+      onConfirm: () => {
+        this.store.withdrawConsent(g);
+        this.ui.toast('ถอนความยินยอม{purpose}ของ {owner} แล้ว', { purpose: this.t(CONSENT_PURPOSE[g.purpose].label), owner: g.ownerKey }, 'info');
+      },
+    });
+  }
+
+  recordConsent(ownerKey: string, purpose: 'insurance' | 'case-study', granted: boolean, channel: string, onDone?: () => void) {
+    this.ui.ask({
+      title: `บันทึกความยินยอม · ${ownerKey}`,
+      facts: [['วัตถุประสงค์', CONSENT_PURPOSE[purpose].label], ['การตัดสินใจ', granted ? 'ยินยอม' : 'ไม่ยินยอม'], ['เวอร์ชันแบบฟอร์ม', CONSENT_VERSION], ['ช่องทาง', channel]],
+      confirmLabel: 'บันทึก',
+      onConfirm: () => {
+        const g = this.store.recordConsent(ownerKey, purpose, granted, channel);
+        this.ui.toast('บันทึก {id} แล้ว', { id: g.id });
+        onDone?.();
+      },
+    });
+  }
+
+  reportBreach(input: BreachInput, onDone?: (b: Breach) => void) {
+    this.ui.ask({
+      title: `บันทึกเหตุละเมิด · ${input.title.trim()}`,
+      tone: 'danger',
+      facts: [['พบเมื่อ', input.discoveredAt.replace('T', ' ')], ['ผู้ได้รับผลกระทบ (ประมาณ)', input.count], ['แหล่งที่พบ', input.source.trim() || '—']],
+      intro: ['นับ 72 ชั่วโมงตามกฎหมายตั้งแต่พบเหตุ ประเมินความรุนแรงให้เร็วที่สุดเพื่อรู้ว่าต้องแจ้ง สคส. และเจ้าของข้อมูลหรือไม่'],
+      confirmLabel: 'บันทึกเหตุ',
+      onConfirm: () => {
+        const b = this.store.reportBreach(input);
+        this.ui.toast('บันทึก {id} แล้ว · แจ้งภายใน {due}', { id: b.id, due: b.statutoryDue }, 'info');
+        onDone?.(b);
+      },
+    });
+  }
+
+  assessBreach(b: Breach) {
+    this.ui.ask({
+      title: `ประเมินความรุนแรง · ${b.id}`,
+      facts: [['เหตุ', b.title], ['ผู้ได้รับผลกระทบ', `${b.affected.count} · ${b.affected.kinds.join(', ') || '—'}`], ['แจ้งภายใน', b.statutoryDue]],
+      intro: ['สูง: แจ้ง สคส. และเจ้าของข้อมูล · ปานกลาง: แจ้ง สคส. · ต่ำ: ไม่มีความเสี่ยงต่อสิทธิ ไม่ต้องแจ้งแต่ต้องบันทึกเหตุผล'],
+      fields: [
+        { name: 'severity', label: 'ความรุนแรง', type: 'select', value: 'medium', options: (['high', 'medium', 'low'] as const).map(s => ({ value: s, label: BREACH_SEVERITY[s].label })) },
+        {
+          name: 'dpia', label: this.t('การประเมิน (DPIA) (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: 'เช่น ข้อมูลติดต่อ 40 ราย เสี่ยงถูกนำไปติดต่อขาย',
+          validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null),
+        },
+      ],
+      confirmLabel: 'บันทึกการประเมิน',
+      onConfirm: v => {
+        this.store.assessBreach(b, v['severity'] as NonNullable<Breach['severity']>, v['dpia']);
+        this.ui.toast('{id} ประเมินแล้ว · ต้องแจ้ง {n} ราย', { id: b.id, n: owedNotices(b).length });
+      },
+    });
+  }
+
+  notifyBreach(b: Breach, to: 'pdpc' | 'subjects') {
+    const block = notifyBlock(b, to);
+    if (block) {
+      this.ui.toast(block, undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: `แจ้งเหตุ · ${NOTIFY_TO[to]}`,
+      facts: [['เหตุ', `${b.id} · ${b.title}`], ['แจ้งภายใน', b.statutoryDue], ['ความรุนแรง', BREACH_SEVERITY[b.severity!].label]],
+      fields: [{
+        name: 'ref', label: to === 'pdpc' ? 'เลขรับแจ้งจาก สคส.' : 'วิธีและจำนวนที่แจ้ง', type: 'input', placeholder: to === 'pdpc' ? 'เช่น PDPC-6909-0231' : 'เช่น SMS และอีเมล 40 ราย',
+        validate: v => (v.trim().length >= 4 ? null : this.t('อย่างน้อย 4 ตัวอักษร')),
+      }],
+      confirmLabel: 'บันทึกการแจ้ง',
+      onConfirm: v => {
+        this.store.notifyBreach(b, to, v['ref']);
+        this.ui.toast('บันทึกการแจ้ง{to}แล้ว', { to: this.t(NOTIFY_TO[to]) });
+      },
+    });
+  }
+
+  closeBreach(b: Breach) {
+    const block = closeBreachBlock(b, this.store.userName());
+    if (block) {
+      this.ui.toast(block, undefined, 'info');
+      return;
+    }
+    const high = b.severity === 'high';
+    this.ui.ask({
+      title: `${high ? 'ลงนามปิดเหตุ' : 'ปิดเหตุ'} · ${b.id}`,
+      facts: [['เหตุ', b.title], ['ความรุนแรง', BREACH_SEVERITY[b.severity!].label], ['การแจ้ง', b.notifications.map(n => `${this.t(NOTIFY_TO[n[0]])} ${n[3]}`).join(', ') || this.t('ไม่ต้องแจ้ง')]],
+      intro: high ? ['เหตุรุนแรง: ผู้อำนวยการลงนามปิด และต้องไม่ใช่ผู้ประเมิน'] : undefined,
+      fields: [{
+        name: 'outcome', label: this.t('ผลและสิ่งที่แก้ไข (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: 'เช่น ขอให้ผู้รับลบไฟล์และยืนยันเป็นหนังสือแล้ว',
+        validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null),
+      }],
+      confirmLabel: high ? 'ลงนามปิดเหตุ' : 'ปิดเหตุ',
+      onConfirm: v => {
+        this.store.closeBreach(b, v['outcome']);
+        this.ui.toast('{id} ปิดแล้ว', { id: b.id });
+      },
+    });
+  }
+
+  generateRopa() {
+    const d = this.store.data();
+    this.ui.ask({
+      title: 'สร้าง RoPA',
+      facts: [['กิจกรรมการประมวลผล', String(d.ropa.length)], ['การโอนข้ามประเทศ', String(d.crossBorder.length)]],
+      intro: ['สร้างจาก ropa_record ทั้งหมดเป็นเอกสาร (เป้าหมายไม่เกิน 5 นาที) การสร้างและส่งออกบันทึกในบันทึกตรวจสอบ'],
+      confirmLabel: 'สร้าง RoPA',
+      onConfirm: () => {
+        const e = this.store.generateRopa();
+        this.ui.toast('สร้าง {file} แล้ว · {s} วินาที', { file: e.artifact, s: e.seconds });
+      },
+    });
+  }
+
+  /* Audit (M13) */
+
+  requestExport(input: ExportInput, onDone?: (x: AuditExport) => void) {
+    this.ui.ask({
+      title: 'ยื่นคำขอส่งออกบันทึกตรวจสอบ',
+      facts: [['ขอบเขต', `${this.t(SHAPE[input.shape])}${input.value.trim() ? ` · ${input.value.trim()}` : ''} · ${this.t('{n} วัน', { n: input.days })}`], ['วัตถุประสงค์', input.purpose],
+        ['อ้างอิง', input.reference.trim()]],
+      intro: ['การดูไม่ใช่การส่งออก: ไฟล์สร้างโดย server เมื่อผู้อื่นอนุมัติแล้ว และการส่งออกบันทึกเป็นเหตุการณ์ audit.export.performed'],
+      confirmLabel: 'ยื่นคำขอ',
+      onConfirm: () => {
+        const x = this.store.requestExport(input);
+        this.ui.toast('ยื่น {id} แล้ว · รออนุมัติ', { id: x.id });
+        onDone?.(x);
+      },
+    });
+  }
+
+  decideExport(x: AuditExport, approve: boolean) {
+    const block = exportDecideBlock(x, this.store.userName());
+    if (block) {
+      this.ui.toast(block, undefined, 'info');
+      return;
+    }
+    this.ui.ask({
+      title: `${approve ? 'อนุมัติ' : 'ปฏิเสธ'}การส่งออก · ${x.id}`,
+      tone: approve ? 'primary' : 'danger',
+      facts: [['ผู้ขอ', `${x.requestedBy} · ${x.requestedAt}`], ['ขอบเขต', `${this.t(SHAPE[x.shape])}${x.value ? ` · ${x.value}` : ''} · ${x.from} → ${x.to}`], ['วัตถุประสงค์', `${x.purpose} · ${x.reference}`]],
+      fields: [{
+        name: 'note', label: this.t('เหตุผล (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: approve ? 'เช่น ขอบเขตตรงกับคำขอ DSAR' : 'เช่น ขอบเขตกว้างเกินวัตถุประสงค์',
+        validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null),
+      }],
+      confirmLabel: approve ? 'อนุมัติการส่งออก' : 'ปฏิเสธการส่งออก',
+      onConfirm: v => {
+        this.store.decideExport(x, approve, v['note']);
+        this.ui.toast('{id} → {status}', { id: x.id, status: this.t(EXPORT_STATUS[x.status].label) }, approve ? 'success' : 'info');
+      },
+    });
+  }
+
+  performExport(x: AuditExport) {
+    this.ui.ask({
+      title: `ส่งออก · ${x.id}`,
+      facts: [['ขอบเขต', `${this.t(SHAPE[x.shape])}${x.value ? ` · ${x.value}` : ''} · ${x.from} → ${x.to}`], ['อนุมัติโดย', `${x.decidedBy} · ${x.decidedAt}`]],
+      intro: [this.t('server สร้างไฟล์ตามขอบเขตที่อนุมัติ ไม่ใช่จากแถวที่เห็นบนจอ ไฟล์หมดอายุใน {n} วัน', { n: ARTIFACT_DAYS })],
+      confirmLabel: 'ส่งออก',
+      onConfirm: () => {
+        this.store.performExport(x);
+        this.ui.toast('{file} พร้อมแล้ว · {n} รายการ', { file: x.artifact!, n: x.rows ?? 0 });
+      },
+    });
+  }
+
+  recordFinding(p: IntegrityPeriod, events: string) {
+    this.ui.ask({
+      title: `เปิด finding · ${p.period}`,
+      tone: 'danger',
+      facts: [['เหตุการณ์ที่ hash ไม่ตรง', events]],
+      intro: ['บันทึกตรวจสอบแก้ไม่ได้: finding นี้ส่งให้ Security owner สอบสวน ไม่มีการแก้หรือซ่อมเหตุการณ์'],
+      fields: [{
+        name: 'note', label: this.t('สิ่งที่จะสอบสวน (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: 'เช่น ตรวจสำเนาสำรองของเดือนนั้นเทียบกับ hash',
+        validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null),
+      }],
+      confirmLabel: 'เปิด finding',
+      onConfirm: v => {
+        this.store.recordFinding(p, v['note']);
+        this.ui.toast('เปิด finding ของ {period} แล้ว', { period: p.period }, 'info');
       },
     });
   }

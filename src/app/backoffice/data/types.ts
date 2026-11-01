@@ -676,6 +676,165 @@ export interface Complaint {
   history: Trail;
 }
 
+/* PDPA (M31): a design contract until the pdpa service exists, so every figure here is the sample's, not /pdpa/v1 */
+
+/** The eight rights a data subject may ask for */
+export type DsarRight = 'informed' | 'access' | 'portability' | 'objection' | 'erasure' | 'restriction' | 'rectification' | 'withdraw-consent';
+export interface DsarRequest {
+  id: string;
+  right: DsarRight;
+  requester: string;
+  /** The owner the data is about, when the clinic knows them */
+  ownerKey?: string;
+  pets: string[];
+  /** The patients' numbers, for the access log */
+  hns: string[];
+  channel: ComplaintChannel;
+  scope: string;
+  receivedAt: string;
+  /** Thirty days from receipt, as the backend sets it */
+  statutoryDue: string;
+  status: 'intake' | 'verified' | 'collecting' | 'delivered' | 'closed' | 'rejected';
+  identity?: { method: string; by: string; at: string };
+  /** The sources gathered for it, minimum necessary */
+  collected: string[];
+  delivery?: { method: string; artifact: string; expires: string; by: string; at: string };
+  outcome?: string;
+  /** The audit export it waits on, if any */
+  exportId?: string;
+  history: Trail;
+}
+
+export type ConsentPurpose = 'service' | 'reminder' | 'marketing' | 'insurance' | 'case-study';
+/** A consent kept by M31 itself; LINE's three are read from the LINE link (M15) */
+export interface ConsentGrant {
+  id: string;
+  ownerKey: string;
+  purpose: ConsentPurpose;
+  status: 'granted' | 'declined' | 'withdrawn';
+  version: string;
+  at: string;
+  channel: string;
+  withdrawnAt?: string;
+}
+
+export interface Breach {
+  id: string;
+  title: string;
+  discoveredAt: string;
+  reportedBy: string;
+  source: string;
+  description: string;
+  /** Seventy-two hours from discovery, as the backend sets it */
+  statutoryDue: string;
+  severity?: 'low' | 'medium' | 'high';
+  assessment?: { dpia: string; by: string; at: string };
+  affected: { count: number; kinds: string[] };
+  status: 'open' | 'assessed' | 'notified' | 'closed';
+  notifications: [to: 'pdpc' | 'subjects', at: string, by: string, ref: string][];
+  signOff?: { by: string; at: string; note: string };
+  closedAt?: string;
+  outcome?: string;
+  history: Trail;
+}
+
+export interface RetentionDataset {
+  id: string;
+  dataset: string;
+  module: string;
+  policy: string;
+  basis: string;
+  records: number;
+  /** Records past their window, as the backend counts them */
+  pastWindow: number;
+  /** Kept past the window on purpose: a DSAR, a claim, a dispute */
+  hold?: string;
+}
+
+export interface RopaRecord {
+  id: string;
+  activity: string;
+  purpose: string;
+  basis: string;
+  dataKinds: string;
+  subjects: string;
+  recipients: string;
+  retention: string;
+  crossBorder?: string;
+  owner: string;
+  reviewedAt: string;
+}
+export interface CrossBorder {
+  id: string;
+  destination: string;
+  vendor: string;
+  data: string;
+  safeguard: string;
+  status: 'assessed' | 'pending';
+  assessedAt?: string;
+}
+export interface RopaExport {
+  id: string;
+  at: string;
+  by: string;
+  records: number;
+  seconds: number;
+  artifact: string;
+}
+
+/* Audit (M13): the events, their exports and their integrity */
+
+export type RiskLevel = 'critical' | 'high' | 'medium' | 'low';
+/** One audit event as /audit/v1/events gives it (AuditEventOut); the risk is the backend's, and there is no IP or PHI field */
+export interface AuditEvent {
+  id: string;
+  occurredAt: string;
+  actor: string;
+  actorRole: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  /** The patient it touches: what PHI is read from, the schema has no PHI flag */
+  patientId?: string;
+  result: 'success' | 'denied' | 'error';
+  riskLevel: RiskLevel;
+  requestId: string;
+  eventHash: string;
+  /** The server's per-event hash check */
+  hashCheck: 'verified' | 'mismatch';
+}
+
+export type AuditShape = 'tenant' | 'patient' | 'actor';
+export interface AuditExport {
+  id: string;
+  requestedBy: string;
+  requestedAt: string;
+  shape: AuditShape;
+  value: string;
+  from: string;
+  to: string;
+  purpose: string;
+  /** The DSAR, incident or order the purpose rests on */
+  reference: string;
+  status: 'pending' | 'approved' | 'rejected' | 'ready' | 'expired';
+  decidedBy?: string;
+  decidedAt?: string;
+  decision?: string;
+  performedAt?: string;
+  artifact?: string;
+  expires?: string;
+  rows?: number;
+}
+
+/** A month of events as the server checked it: its hashes are on each event; here its relay gaps and any finding */
+export interface IntegrityPeriod {
+  period: string;
+  /** Ingestion gaps from the relay: when, and how long */
+  gaps: [from: string, minutes: number][];
+  checkedAt: string;
+  finding?: { by: string; at: string; note: string };
+}
+
 export interface BackofficeData {
   workItems: WorkItem[];
   approvals: Approval[];
@@ -716,4 +875,14 @@ export interface BackofficeData {
   surveys: SafetySurvey[];
   mm: MmReview[];
   complaints: Complaint[];
+  dsars: DsarRequest[];
+  consents: ConsentGrant[];
+  breaches: Breach[];
+  retention: RetentionDataset[];
+  ropa: RopaRecord[];
+  crossBorder: CrossBorder[];
+  ropaExports: RopaExport[];
+  auditEvents: AuditEvent[];
+  auditExports: AuditExport[];
+  integrity: IntegrityPeriod[];
 }

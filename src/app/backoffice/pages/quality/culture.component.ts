@@ -102,7 +102,7 @@ const BLANK: MmInput = { pet: '', outcome: 'complication', eventDate: TODAY, sum
             <label>{{ 'วันที่เกิดเหตุ' | tx }}<input class="ui-input" type="date" [value]="form().eventDate" (input)="set('eventDate', $any($event.target).value)" /></label>
             <label>{{ 'วันประชุม' | tx }}<input class="ui-input" type="date" [value]="form().reviewDate" (input)="set('reviewDate', $any($event.target).value)" /></label>
             <label>{{ 'ผู้นำเสนอ' | tx }}<input class="ui-input" [value]="form().presenter" (input)="set('presenter', $any($event.target).value)" /></label>
-            <label>{{ 'อุบัติการณ์ (ถ้ามี)' | tx }}<input class="ui-input" [placeholder]="'เช่น INC-2609-002'" [value]="form().incidentId" (input)="set('incidentId', $any($event.target).value.trim().toUpperCase())" /></label>
+            <label>{{ 'อุบัติการณ์ (ถ้ามี)' | tx }}<input class="ui-input" [placeholder]="'เช่น INC-2609-002' | tx" [value]="form().incidentId" (input)="set('incidentId', $any($event.target).value.trim().toUpperCase())" /></label>
             <label class="full">{{ 'สรุปเคส' | tx }}<textarea class="ui-input" rows="3" [value]="form().summary" (input)="set('summary', $any($event.target).value)"></textarea></label>
           </div>
           @if (problems().length) {<ul class="problems">@for (p of problems(); track p) {<li>{{ p | tx }}</li>}</ul>}

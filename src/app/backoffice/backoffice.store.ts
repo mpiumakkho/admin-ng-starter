@@ -9,6 +9,10 @@ import {
   DECOMMISSION_METHOD, type DecommissionInput, type DowntimeInput, type EquipmentInput, equipmentOf, moveEquipment, movePm, openDowntime, type PmInput, renewContract, requestDecommission,
   retireContract,
 } from './data/assets';
+import {
+  assessBreach, type BreachInput, BREACH_SEVERITY, BREACH_STATUS, closeBreach, closeDsar, collect, CONSENT_PURPOSE, CONSENT_STATUS, decideExport, DSAR_RIGHT, DSAR_STATUS, type DsarInput,
+  emit, type ExportInput, fulfil, generateRopa, intakeDsar, notify, NOTIFY_TO, performExport, recordConsent, recordFinding, reportBreach, requestExport, SHAPE, verifyIdentity, withdraw,
+} from './data/governance';
 import { approvalAging, severityCounts, worklist } from './data/home';
 import {
   addRcaAction, addWhy, ANONYMOUS, CHANNEL, closeIncident, closeSurvey, COMPLAINT_SEVERITY, completeAction, type ComplaintInput, decideRca, escalate, escalateNearMiss, HARM,
@@ -28,7 +32,7 @@ import {
 import { balanceOf } from '../clinic/data/rail';
 import type { Invoice, InvoiceLine, Refund } from '../clinic/data/types';
 import type {
-  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, CalibrationRecord, CeRecord, Claim, Complaint, ComplaintChannel, ComplaintSeverity, CountRecord, Criticality,
+  AccountingExport, ActivityEntry, Approval, AuditExport, BackofficeData, Breach, ConsentGrant, DsarRequest, IntegrityPeriod, RopaExport, BoException, CalibrationRecord, CeRecord, Claim, Complaint, ComplaintChannel, ComplaintSeverity, CountRecord, Criticality,
   Decommission, Downtime, Equipment, HarmLevel, Incident, KpiDefinition, LeaveRequest, LedgerDispense, License, MmReview, Module, NearMiss, OnCallSlot, PmTask, Privilege, Rca, RcaAction,
   Recall, RecallStatus, Remedy, SafetySurvey, ServiceContract, ServiceMessage, Shift, StaffMember, StockReceipt, WasteRecord,
 } from './data/types';
@@ -83,6 +87,10 @@ export class BackofficeStore {
       a.decidedAt = `${TODAY} ${NOW}`;
       a.decision = decision;
       this.log(d, a.module, status === 'approved' ? 'อนุมัติคำขอ' : 'ปฏิเสธคำขอ', a.ref, a.title, decision, 'รออนุมัติ', status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ');
+      const x = a.kind === 'audit-export' ? d.auditExports.find(e => e.id === a.ref && e.status === 'pending') : undefined;
+      if (x) {
+        Object.assign(x, { status, decidedBy: this.userName(), decidedAt: `${TODAY} ${NOW}`, decision });
+      }
       const complaint = a.kind === 'complaint' && status === 'approved' ? d.complaints.find(c => c.id === a.ref) : undefined;
       if (complaint && !complaint.links.some(l => l.startsWith('RCA-'))) {
         const r = openRca(d, complaint.id, complaint.subject, [complaint.handler ?? 'ผู้จัดการ OPD', 'ภก. ธนพร'], this.userName());
@@ -863,6 +871,140 @@ export class BackofficeStore {
       this.log(d, 'M28', 'แจ้งหน่วยงานกำกับแล้ว', c.id, body, reason.trim());
     });
   }
+  /* PDPA (data/governance.ts): each step goes into M31's audit */
+
+  intakeDsar(input: DsarInput): DsarRequest {
+    let r!: DsarRequest;
+    this.mutate(d => {
+      r = intakeDsar(d, input, this.userName());
+      this.log(d, 'M31', 'รับคำขอ DSAR', r.id, r.requester, `${DSAR_RIGHT[r.right]} · ครบกำหนด ${r.statutoryDue}`);
+    });
+    return r;
+  }
+
+  verifyIdentity(r: DsarRequest, method: string) {
+    this.mutate(d => {
+      verifyIdentity(r, method, this.userName());
+      this.log(d, 'M31', 'ยืนยันตัวตนผู้ขอ', r.id, r.requester, method.trim(), 'รอยืนยันตัวตน', 'ยืนยันตัวตนแล้ว');
+    });
+  }
+
+  collectDsar(r: DsarRequest, source: string) {
+    this.mutate(d => {
+      collect(d, r, source, this.userName());
+      this.log(d, 'M31', 'รวบรวมข้อมูลแล้ว', r.id, r.requester, source);
+    });
+  }
+
+  fulfilDsar(r: DsarRequest, method: string) {
+    this.mutate(d => {
+      fulfil(r, method, this.userName());
+      this.log(d, 'M31', 'ส่งมอบข้อมูลแล้ว', r.id, r.requester, `${method.trim()} · หมดอายุ ${r.delivery!.expires}`, 'กำลังรวบรวมข้อมูล', 'ส่งมอบแล้ว');
+    });
+  }
+
+  closeDsar(r: DsarRequest, outcome: string, rejected: boolean) {
+    const before = DSAR_STATUS[r.status].label;
+    this.mutate(d => {
+      closeDsar(r, outcome, rejected, this.userName());
+      this.log(d, 'M31', rejected ? 'ปฏิเสธคำขอ' : 'ปิดคำขอแล้ว', r.id, r.requester, outcome.trim(), before, DSAR_STATUS[r.status].label);
+    });
+  }
+
+  withdrawConsent(g: ConsentGrant) {
+    this.mutate(d => {
+      withdraw(d, g);
+      this.log(d, 'M31', 'ถอนความยินยอมแล้ว', g.ownerKey, CONSENT_PURPOSE[g.purpose].label, `เวอร์ชัน ${g.version}`, 'ยินยอม', 'ถอนแล้ว');
+    });
+  }
+
+  recordConsent(ownerKey: string, purpose: 'insurance' | 'case-study', granted: boolean, channel: string): ConsentGrant {
+    let g!: ConsentGrant;
+    this.mutate(d => {
+      g = recordConsent(d, ownerKey, purpose, granted, channel);
+      this.log(d, 'M31', 'บันทึกความยินยอมแล้ว', g.id, ownerKey, `${CONSENT_PURPOSE[purpose].label} · ${CONSENT_STATUS[g.status].label} · เวอร์ชัน ${g.version}`);
+    });
+    return g;
+  }
+
+  reportBreach(input: BreachInput): Breach {
+    let b!: Breach;
+    this.mutate(d => {
+      b = reportBreach(d, input, this.userName());
+      this.log(d, 'M31', 'บันทึกเหตุละเมิด', b.id, b.title, `แจ้งภายใน ${b.statutoryDue}`);
+    });
+    return b;
+  }
+
+  assessBreach(b: Breach, severity: NonNullable<Breach['severity']>, dpia: string) {
+    this.mutate(d => {
+      assessBreach(b, severity, dpia, this.userName());
+      this.log(d, 'M31', 'ประเมินความรุนแรงแล้ว', b.id, b.title, `${BREACH_SEVERITY[severity].label} · ${dpia.trim()}`, 'รอประเมิน', 'ประเมินแล้ว');
+    });
+  }
+
+  notifyBreach(b: Breach, to: 'pdpc' | 'subjects', ref: string) {
+    this.mutate(d => {
+      notify(b, to, ref, this.userName());
+      this.log(d, 'M31', 'แจ้งเหตุแล้ว', b.id, NOTIFY_TO[to], ref.trim());
+    });
+  }
+
+  closeBreach(b: Breach, outcome: string) {
+    this.mutate(d => {
+      closeBreach(b, outcome, this.userName());
+      this.log(d, 'M31', b.signOff ? 'ผู้อำนวยการลงนามปิดเหตุ' : 'ปิดเหตุแล้ว', b.id, b.title, outcome.trim(), BREACH_STATUS.notified.label, BREACH_STATUS.closed.label);
+    });
+  }
+
+  generateRopa(): RopaExport {
+    let e!: RopaExport;
+    this.mutate(d => {
+      e = generateRopa(d, this.userName());
+      this.log(d, 'M31', 'สร้าง RoPA แล้ว', e.id, e.artifact, `${e.records} กิจกรรม · ${e.seconds} วินาที`);
+    });
+    return e;
+  }
+
+  /* Audit (data/governance.ts): a patient query, an export and its decision are themselves audited */
+
+  queryPatient(hn: string) {
+    this.mutate(d => {
+      emit(d, { actor: this.userName(), actorRole: 'DPOCompliance', action: 'audit.query.patient', entityType: 'patient', entityId: hn.trim(), patientId: hn.trim(), riskLevel: 'medium' });
+    });
+  }
+
+  requestExport(input: ExportInput): AuditExport {
+    let x!: AuditExport;
+    this.mutate(d => {
+      x = requestExport(d, input, this.userName());
+      emit(d, { actor: this.userName(), actorRole: 'DPOCompliance', action: 'audit.export.request', entityType: 'audit_export', entityId: x.id, riskLevel: 'medium' });
+      this.log(d, 'M13', 'ขอส่งออกบันทึกตรวจสอบ', x.id, `${x.purpose} · ${x.reference}`, `${SHAPE[x.shape]}${x.value ? ` ${x.value}` : ''} · ${x.from} → ${x.to}`, undefined, 'รออนุมัติ');
+    });
+    return x;
+  }
+
+  decideExport(x: AuditExport, approve: boolean, note: string) {
+    this.mutate(d => {
+      decideExport(d, x, approve, note, this.userName());
+      this.log(d, 'M13', approve ? 'อนุมัติการส่งออกแล้ว' : 'ปฏิเสธการส่งออกแล้ว', x.id, `${x.purpose} · ${x.reference}`, note.trim(), 'รออนุมัติ', approve ? 'อนุมัติแล้ว' : 'ปฏิเสธ');
+    });
+  }
+
+  performExport(x: AuditExport) {
+    this.mutate(d => {
+      performExport(d, x, this.userName());
+      this.log(d, 'M13', 'ส่งออกบันทึกตรวจสอบแล้ว', x.id, x.artifact!, `${x.rows} รายการ · หมดอายุ ${x.expires}`, 'อนุมัติแล้ว', 'พร้อมดาวน์โหลด');
+    });
+  }
+
+  recordFinding(p: IntegrityPeriod, note: string) {
+    this.mutate(d => {
+      recordFinding(p, note, this.userName());
+      this.log(d, 'M13', 'เปิด finding ความถูกต้อง', p.period, 'hash ไม่ตรง', note.trim());
+    });
+  }
+
   /** Seen, and what was done about it or where it went; the exception is settled in its own workflow */
   acknowledge(x: BoException, note: string) {
     this.mutate(d => {

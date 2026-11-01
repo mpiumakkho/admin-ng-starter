@@ -29,15 +29,26 @@ import { RecallComponent } from './pages/inventory/recall.component';
 import { ReceiptsComponent } from './pages/inventory/receipts.component';
 import { ReorderComponent } from './pages/inventory/reorder.component';
 import { StockComponent } from './pages/inventory/stock.component';
+import { AuditExplorerComponent } from './pages/quality/audit-explorer.component';
+import { AuditExportsComponent } from './pages/quality/audit-exports.component';
+import { AuditIntegrityComponent } from './pages/quality/audit-integrity.component';
+import { BreachDetailComponent } from './pages/quality/breach-detail.component';
+import { BreachComponent } from './pages/quality/breach.component';
 import { ComplaintsComponent } from './pages/quality/complaints.component';
+import { ConsentComponent } from './pages/quality/consent.component';
 import { CultureComponent } from './pages/quality/culture.component';
+import { DsarDetailComponent } from './pages/quality/dsar-detail.component';
+import { DsarComponent } from './pages/quality/dsar.component';
 import { IncidentsComponent } from './pages/quality/incidents.component';
 import { InvestigationComponent } from './pages/quality/investigation.component';
 import { KpiComponent } from './pages/quality/kpi.component';
 import { NearMissComponent } from './pages/quality/near-miss.component';
+import { PdpaOverviewComponent } from './pages/quality/pdpa-overview.component';
 import { QualityOverviewComponent } from './pages/quality/quality-overview.component';
 import { RcaComponent } from './pages/quality/rca.component';
 import { ResolutionComponent } from './pages/quality/resolution.component';
+import { RetentionComponent } from './pages/quality/retention.component';
+import { RopaComponent } from './pages/quality/ropa.component';
 import { ClaimsComponent } from './pages/sales/claims.component';
 import { LineCrmComponent } from './pages/sales/line-crm.component';
 import { RevenueOverviewComponent } from './pages/sales/revenue-overview.component';
@@ -116,6 +127,17 @@ export const BACKOFFICE_ROUTES: Routes = [
       { path: 'quality/complaints', component: ComplaintsComponent },
       { path: 'quality/investigation', component: InvestigationComponent },
       { path: 'quality/resolution', component: ResolutionComponent },
+      { path: 'quality/pdpa', component: PdpaOverviewComponent },
+      { path: 'quality/dsar', component: DsarComponent },
+      { path: 'quality/dsar/:id', component: DsarDetailComponent },
+      { path: 'quality/consent', component: ConsentComponent },
+      { path: 'quality/breach', component: BreachComponent },
+      { path: 'quality/breach/:id', component: BreachDetailComponent },
+      { path: 'quality/retention', component: RetentionComponent },
+      { path: 'quality/ropa', component: RopaComponent },
+      { path: 'quality/audit', component: AuditExplorerComponent },
+      { path: 'quality/audit-exports', component: AuditExportsComponent },
+      { path: 'quality/audit-integrity', component: AuditIntegrityComponent },
       { path: '**', redirectTo: 'home/overview' },
     ],
   },

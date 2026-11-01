@@ -4,6 +4,7 @@ import { LanguageService } from '../../layout/language.service';
 import { EN_ASSETS, TH_ASSETS } from './assets';
 import { EN_BO } from './en';
 import { EN_FINANCE, TH_FINANCE } from './finance';
+import { EN_GOVERNANCE, TH_GOVERNANCE } from './governance';
 import { EN_INVENTORY, TH_INVENTORY } from './inventory';
 import { EN_QUALITY, TH_QUALITY } from './quality';
 import { EN_SALES, TH_SALES } from './sales';
@@ -26,8 +27,8 @@ type Vars = Record<string, string | number>;
 interface Pattern { re: RegExp; names: string[]; out: string }
 
 const DICTS: Record<Lang, Record<string, string>> = {
-  th: { ...TH_BO, ...TH_FINANCE, ...TH_INVENTORY, ...TH_SALES, ...TH_WORKFORCE, ...TH_ASSETS, ...TH_QUALITY },
-  en: { ...EN_BO, ...EN_FINANCE, ...EN_INVENTORY, ...EN_SALES, ...EN_WORKFORCE, ...EN_ASSETS, ...EN_QUALITY },
+  th: { ...TH_BO, ...TH_FINANCE, ...TH_INVENTORY, ...TH_SALES, ...TH_WORKFORCE, ...TH_ASSETS, ...TH_QUALITY, ...TH_GOVERNANCE },
+  en: { ...EN_BO, ...EN_FINANCE, ...EN_INVENTORY, ...EN_SALES, ...EN_WORKFORCE, ...EN_ASSETS, ...EN_QUALITY, ...EN_GOVERNANCE },
 };
 /** Thai letters and marks (not the baht sign) or Latin letters: anything worth looking up */
 const LETTERS = /[ก-ฺเ-๛A-Za-z]/;

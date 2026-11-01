@@ -1,7 +1,9 @@
 /* The morning of 24 September 2026 in the hospital's back office: what waits for the people who run it */
+import { hashOf } from './governance';
 import { ANONYMOUS } from './quality';
 import type {
-  AccountingExport, ActivityEntry, Approval, Area, BackofficeData, BoException, CalibrationRecord, CallOut, CatchPoint, CeRecord, Claim, Complaint, ComplaintCategory, ComplaintChannel,
+  AccountingExport, ActivityEntry, Approval, Area, AuditEvent, AuditExport, BackofficeData, Breach, ConsentGrant, CrossBorder, DsarRequest, IntegrityPeriod, RetentionDataset, RiskLevel,
+  RopaExport, RopaRecord, BoException, CalibrationRecord, CallOut, CatchPoint, CeRecord, Claim, Complaint, ComplaintCategory, ComplaintChannel,
   ComplaintSeverity, ContractKind, ControlSystem, CountRecord, Criticality, Decommission, Downtime, DrugRecord, Equipment, EquipmentClass, HarmLevel, Incident, KpiDefinition, LeaveRequest,
   LedgerDispense, License, LineLink, MmReview, NearMiss, OnCallSlot, PmTask, Policy, Privilege, PrivilegeChange, Rca, Recall, Remedy, SafetyCategory, SafetySurvey, ServiceContract,
   ServiceMessage, Shift, ShiftKind, StaffMember, StockReceipt, VaccineDue, WasteRecord, WorkItem,
@@ -10,9 +12,9 @@ import type {
 /* Work the modules hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
 const WORK_ITEMS: WorkItem[] = [
   { id: 'W1', module: 'M31', kind: 'DSAR', title: 'คำขอเข้าถึงข้อมูลส่วนบุคคล · คุณ Kanokwan R.', detail: 'ขอสำเนาประวัติการรักษาของ Mali ทั้งหมด · ยืนยันตัวตนแล้ว',
-    priority: 'high', due: '2026-09-30', owner: 'DPO', status: 'in-progress', ref: 'DSAR-2609-004' },
+    priority: 'high', due: '2026-09-30', owner: 'DPO', status: 'in-progress', ref: 'DSAR-2609-004', link: '/backoffice/quality/dsar/DSAR-2609-004' },
   { id: 'W2', module: 'M31', kind: 'DSAR', title: 'คำขอลบข้อมูล · คุณ Prasit N.', detail: 'เจ้าของย้ายโรงพยาบาล ขอลบข้อมูลติดต่อ · รอตรวจ retention',
-    priority: 'normal', due: '2026-10-12', owner: 'DPO', status: 'open', ref: 'DSAR-2609-005' },
+    priority: 'normal', due: '2026-10-12', owner: 'DPO', status: 'open', ref: 'DSAR-2609-005', link: '/backoffice/quality/dsar/DSAR-2609-005' },
   { id: 'W3', module: 'M28', kind: 'ข้อร้องเรียน', title: 'รอนานเกิน 2 ชั่วโมงที่ OPD · คุณ Sirinya M.', detail: 'ร้องเรียนทาง LINE เมื่อ 2026-09-22 · ระดับปานกลาง · SLA ตอบกลับ 3 วัน',
     priority: 'high', due: '2026-09-25', owner: 'ผู้จัดการ OPD', status: 'in-progress', ref: 'CMP-2609-011', link: '/backoffice/quality/complaints' },
   { id: 'W4', module: 'M28', kind: 'ข้อร้องเรียน', title: 'ใบเสร็จไม่ตรงกับประมาณการ · คุณ Arisa K.', detail: 'เรียกเก็บค่า X-ray เกินประมาณการ ฿400 · รอการเงินตรวจสอบ',
@@ -38,9 +40,9 @@ const APPROVALS: Approval[] = [
     amount: 1485, requestedBy: 'นัทธมน (แคชเชียร์)', requestedAt: '2026-09-24 10:20', reason: 'ลูกค้ามีประกันสัตว์เลี้ยง PI-44821 ตามเงื่อนไขส่วนลด 15% ของรายการที่ประกันไม่ครอบคลุม',
     evidence: [['ประมาณการ', 'EST-260924-09 · ฿9,900'], ['กรมธรรม์', 'Pet insurance · PI-44821 · ตรวจสอบแล้ว'], ['เกณฑ์ส่วนลด', 'ส่วนลดเกิน 10% ต้องให้ผู้จัดการอนุมัติ']],
     approver: 'ผู้จัดการการเงิน', status: 'pending', ref: 'DC-2609-007' },
-  { id: 'AP3', module: 'M13', kind: 'audit-export', title: 'ส่งออกบันทึกตรวจสอบ · การเข้าถึงเวชระเบียน Nala', detail: 'ช่วง 2026-09-01 ถึง 2026-09-24 · ผู้ขอ DPO · วัตถุประสงค์ ตอบ DSAR-2609-004',
+  { id: 'AP3', module: 'M13', kind: 'audit-export', title: 'ส่งออกบันทึกตรวจสอบ · การเข้าถึงเวชระเบียน Mali', detail: 'ช่วง 2026-09-01 ถึง 2026-09-24 · ผู้ขอ DPO · วัตถุประสงค์ ตอบ DSAR-2609-004',
     requestedBy: 'ปรีดา (DPO)', requestedAt: '2026-09-23 16:05', reason: 'ตอบคำขอเข้าถึงข้อมูลส่วนบุคคล DSAR-2609-004 ต้องแนบรายการผู้เข้าถึงเวชระเบียน',
-    evidence: [['ขอบเขต', 'entity=patient HN-130904 · 2026-09-01 → 2026-09-24'], ['วัตถุประสงค์', 'DSAR-2609-004'], ['การแยกหน้าที่', 'ผู้ขอไม่ใช่ผู้อนุมัติ']],
+    evidence: [['ขอบเขต', 'entity=patient HN-180533 · 2026-09-01 → 2026-09-24'], ['วัตถุประสงค์', 'DSAR-2609-004'], ['การแยกหน้าที่', 'ผู้ขอไม่ใช่ผู้อนุมัติ']],
     approver: 'Security owner', status: 'pending', ref: 'AX-2609-002' },
   { id: 'AP4', module: 'M28', kind: 'complaint', title: 'ข้อร้องเรียนระดับรุนแรง · ยาผิดตัว (near miss)', detail: 'คุณ Napat T. · Mochi · ห้องยาจับผิดได้ก่อนส่งมอบ · ขอยกระดับเป็น incident',
     requestedBy: 'ผู้จัดการ OPD', requestedAt: '2026-09-23 14:30', reason: 'เจ้าของร้องเรียนว่าได้รับยาผิดตัวในครั้งก่อน ตรวจพบว่าเป็น near miss ที่ห้องยาแก้ไขแล้ว ขออนุมัติเปิด RCA',
@@ -72,7 +74,7 @@ const EXCEPTIONS: BoException[] = [
   { id: 'EX7', module: 'M28', kind: 'sla-risk', severity: 'warning', title: 'ข้อร้องเรียน CMP-2609-010 ต้องตอบกลับภายใน 5 ชั่วโมง', detail: 'ระดับรุนแรง · SLA 24 ชม. · รออนุมัติเปิด RCA',
     at: '2026-09-24 09:30', source: 'ข้อร้องเรียน', ref: 'CMP-2609-010', link: '/backoffice/quality/complaints' },
   { id: 'EX8', module: 'M31', kind: 'sla-risk', severity: 'info', title: 'DSAR-2609-004 เหลือ 6 วันจากกำหนด 30 วัน', detail: 'รอบันทึกตรวจสอบจาก AX-2609-002 · ผู้รับผิดชอบ DPO',
-    at: '2026-09-24 08:00', source: 'DSAR', ref: 'DSAR-2609-004' },
+    at: '2026-09-24 08:00', source: 'DSAR', ref: 'DSAR-2609-004', link: '/backoffice/quality/dsar/DSAR-2609-004' },
   { id: 'EX9', module: 'M11', kind: 'payment-failure', severity: 'warning', title: 'บัตรเครดิตถูกปฏิเสธ · ฿980', detail: 'Sirinya M. · INV-2609-0031 · ลูกค้าจะชำระเงินสดในนัดถัดไป',
     at: '2026-09-23 16:20', source: 'รับชำระเงิน', ref: 'PAY-2609-0377', acknowledgedBy: 'นัทธมน (แคชเชียร์)', acknowledgedAt: '2026-09-23 16:25', note: 'ลูกค้าแจ้งจะชำระเงินสดวันนัด 2026-09-25' },
 ];
@@ -85,7 +87,7 @@ const ACTIVITY: ActivityEntry[] = [
   { id: 'A5', at: '2026-09-24 08:15', by: 'ภก. ธนพร', module: 'M14', action: 'ขอสิทธิ์ชั่วคราว', target: 'OV-2609-001', ref: 'finance.reports.view', detail: 'ถึง 2026-10-08' },
   { id: 'A6', at: '2026-09-24 06:00', by: 'ระบบ', module: 'M11', action: 'ส่งข้อมูลบัญชีไม่สำเร็จ', target: 'ACC-2609-23', ref: 'PEAK', detail: '3 รายการ · 401 token หมดอายุ' },
   { id: 'A7', at: '2026-09-23 17:40', by: 'พ.ส. ณิชา', module: 'M22', action: 'แจ้งอุปกรณ์เสีย', target: 'DT-2609-005', ref: 'EQ-OR1-ANES-01', detail: 'เครื่องดมยาสลบ ห้องผ่าตัด 1 · ไม่จ่ายแก๊ส' },
-  { id: 'A8', at: '2026-09-23 16:05', by: 'ปรีดา (DPO)', module: 'M13', action: 'ขอส่งออกบันทึกตรวจสอบ', target: 'AX-2609-002', ref: 'HN-130904', detail: 'เพื่อตอบ DSAR-2609-004' },
+  { id: 'A8', at: '2026-09-23 16:05', by: 'ปรีดา (DPO)', module: 'M13', action: 'ขอส่งออกบันทึกตรวจสอบ', target: 'AX-2609-002', ref: 'HN-180533', detail: 'เพื่อตอบ DSAR-2609-004' },
   { id: 'A9', at: '2026-09-23 14:30', by: 'ผู้จัดการ OPD', module: 'M28', action: 'ยกระดับข้อร้องเรียน', target: 'CMP-2609-010', ref: 'NM-2609-003', detail: 'ระดับรุนแรง · ขออนุมัติเปิด RCA' },
   { id: 'A10', at: '2026-09-23 09:02', by: 'วรรณา (ผู้จัดการการเงิน)', module: 'M11', action: 'ปฏิเสธคำขอคืนเงิน', target: 'RF-2609-002', ref: 'INV-2609-0031', detail: 'ให้ปรับลดรายการแทน', before: 'รออนุมัติ', after: 'ปฏิเสธ' },
   { id: 'A11', at: '2026-09-22 15:10', by: 'นัทธมน (แคชเชียร์)', module: 'M11', action: 'ขอคืนเงิน', target: 'RF-2609-002', ref: 'INV-2609-0031', detail: '฿280 · Doxycycline ไม่ได้จ่าย' },
@@ -704,6 +706,160 @@ const COMPLAINTS: Complaint[] = [
   pastComplaint('CMP-2604-001', '2026-04-08 10:00', 'phone', 'Somsak W.', 'operational', 'เวลารอ', 'low', 'รอรับยานาน', '2026-04-09 10:00', '2026-04-10 10:00', 'apology', 4),
 ];
 
+/* PDPA (M31): the requests, consents, breaches and records the DPO keeps (a design contract: no pdpa service yet) */
+const DPO = 'ปรีดา (DPO)';
+const DSARS: DsarRequest[] = [
+  { id: 'DSAR-2609-006', right: 'rectification', requester: 'Thanawat P.', ownerKey: 'Thanawat P.', pets: ['Pumpkin'], hns: ['HN-200311'], channel: 'phone',
+    scope: 'แก้เบอร์โทรศัพท์และที่อยู่ในทะเบียนเจ้าของ', receivedAt: '2026-09-20 10:00', statutoryDue: '2026-10-20', status: 'verified',
+    identity: { method: 'โทรกลับเบอร์ในทะเบียนและถามข้อมูลยืนยัน', by: DPO, at: '2026-09-21 09:00' }, collected: [],
+    history: [['2026-09-20 10:00', 'แผนกต้อนรับ', 'รับคำขอ DSAR', 'สิทธิขอแก้ไข · Thanawat P.'], ['2026-09-21 09:00', DPO, 'ยืนยันตัวตนผู้ขอ', 'โทรกลับเบอร์ในทะเบียนและถามข้อมูลยืนยัน']] },
+  { id: 'DSAR-2609-005', right: 'erasure', requester: 'Prasit N.', pets: ['Taro'], hns: ['HN-150221'], channel: 'line', scope: 'ลบข้อมูลติดต่อและการเชื่อม LINE เพราะย้ายไปโรงพยาบาลอื่น',
+    receivedAt: '2026-09-12 14:00', statutoryDue: '2026-10-12', status: 'intake', collected: [],
+    history: [['2026-09-12 14:00', DPO, 'รับคำขอ DSAR', 'สิทธิขอลบ · Prasit N.']] },
+  { id: 'DSAR-2609-004', right: 'access', requester: 'Kanokwan R.', ownerKey: 'Kanokwan R.', pets: ['Mali'], hns: ['HN-180533'], channel: 'email',
+    scope: 'สำเนาประวัติการรักษาของ Mali ทั้งหมด และรายชื่อผู้ที่เข้าถึงเวชระเบียน', receivedAt: '2026-08-31 10:00', statutoryDue: '2026-09-30', status: 'collecting',
+    identity: { method: 'บัตรประชาชนตรงกับทะเบียนเจ้าของ', by: DPO, at: '2026-09-22 11:30' }, collected: ['EMR', 'ผลแล็บ'], exportId: 'AX-2609-002',
+    history: [['2026-08-31 10:00', DPO, 'รับคำขอ DSAR', 'สิทธิเข้าถึงและขอสำเนา · Kanokwan R.'], ['2026-09-22 11:30', DPO, 'ยืนยันตัวตนผู้ขอ', 'บัตรประชาชนตรงกับทะเบียนเจ้าของ'],
+      ['2026-09-23 15:40', DPO, 'รวบรวมข้อมูลแล้ว', 'EMR'], ['2026-09-23 15:50', DPO, 'รวบรวมข้อมูลแล้ว', 'ผลแล็บ'], ['2026-09-23 16:05', DPO, 'ขอส่งออกบันทึกตรวจสอบ', 'AX-2609-002']] },
+  { id: 'DSAR-2609-003', right: 'withdraw-consent', requester: 'Arisa K.', ownerKey: 'Arisa K.', pets: [], hns: [], channel: 'line', scope: 'ถอนความยินยอมการแจ้งเตือนทาง LINE',
+    receivedAt: '2026-09-10 20:15', statutoryDue: '2026-10-10', status: 'closed', identity: { method: 'ยืนยันผ่านบัญชี LINE ที่เชื่อมไว้', by: 'ระบบ', at: '2026-09-10 20:15' }, collected: [],
+    outcome: 'ถอนทันทีทาง LINE ระบบหยุดส่งการแจ้งเตือนแล้ว',
+    history: [['2026-09-10 20:15', 'ระบบ', 'รับคำขอ DSAR', 'สิทธิถอนความยินยอม · Arisa K.'], ['2026-09-10 20:15', 'ระบบ', 'ปิดคำขอแล้ว', 'ถอนทันทีทาง LINE ระบบหยุดส่งการแจ้งเตือนแล้ว']] },
+  { id: 'DSAR-2609-001', right: 'access', requester: 'ญาติของ Somsak W.', ownerKey: 'Somsak W.', pets: ['Luna'], hns: ['HN-190412'], channel: 'in-person', scope: 'ขอประวัติการรักษาของ Luna',
+    receivedAt: '2026-09-03 11:00', statutoryDue: '2026-10-03', status: 'rejected', collected: [], outcome: 'ผู้ขอไม่ใช่เจ้าของและไม่มีหนังสือมอบอำนาจ แจ้งเจ้าของแล้ว',
+    history: [['2026-09-03 11:00', 'แผนกต้อนรับ', 'รับคำขอ DSAR', 'สิทธิเข้าถึงและขอสำเนา · ญาติของ Somsak W.'], ['2026-09-04 10:00', DPO, 'ปฏิเสธคำขอ', 'ผู้ขอไม่ใช่เจ้าของและไม่มีหนังสือมอบอำนาจ แจ้งเจ้าของแล้ว']] },
+  { id: 'DSAR-2608-002', right: 'portability', requester: 'Patcharee L.', ownerKey: 'Patcharee L.', pets: ['Bolt'], hns: ['HN-240118'], channel: 'email',
+    scope: 'ประวัติวัคซีนและผลตรวจในไฟล์ที่อ่านด้วยเครื่องได้', receivedAt: '2026-08-05 09:00', statutoryDue: '2026-09-04', status: 'closed',
+    identity: { method: 'บัตรประชาชนตรงกับทะเบียนเจ้าของ', by: DPO, at: '2026-08-06 10:00' }, collected: ['EMR', 'ผลแล็บ'],
+    delivery: { method: 'ลิงก์ดาวน์โหลดทางอีเมล', artifact: 'DSAR-2608-002.zip', expires: '2026-09-03', by: DPO, at: '2026-08-20 14:00' }, outcome: 'ส่งมอบครบ เจ้าของยืนยันรับแล้ว',
+    history: [['2026-08-05 09:00', DPO, 'รับคำขอ DSAR', 'สิทธิขอรับและโอนย้ายข้อมูล · Patcharee L.'], ['2026-08-20 14:00', DPO, 'ส่งมอบข้อมูลแล้ว', 'ลิงก์ดาวน์โหลดทางอีเมล'],
+      ['2026-08-22 10:00', DPO, 'ปิดคำขอแล้ว', 'ส่งมอบครบ เจ้าของยืนยันรับแล้ว']] },
+];
+
+const CONSENTS: ConsentGrant[] = [
+  { id: 'CNS-006', ownerKey: 'Kanokwan R.', purpose: 'insurance', status: 'granted', version: 'v3', at: '2026-09-23 16:45', channel: 'แบบฟอร์มที่โรงพยาบาล' },
+  { id: 'CNS-005', ownerKey: 'Waraporn D.', purpose: 'case-study', status: 'withdrawn', version: 'v3', at: '2026-04-20 13:20', channel: 'แบบฟอร์มที่โรงพยาบาล', withdrawnAt: '2026-09-15 09:30' },
+  { id: 'CNS-004', ownerKey: 'Somsak W.', purpose: 'case-study', status: 'granted', version: 'v2', at: '2025-11-02 10:00', channel: 'แบบฟอร์มที่โรงพยาบาล' },
+  { id: 'CNS-003', ownerKey: 'Napat T.', purpose: 'case-study', status: 'declined', version: 'v3', at: '2026-03-03 15:10', channel: 'LINE' },
+  { id: 'CNS-002', ownerKey: 'Arisa K.', purpose: 'insurance', status: 'declined', version: 'v3', at: '2026-05-09 11:45', channel: 'แบบฟอร์มที่โรงพยาบาล' },
+  { id: 'CNS-001', ownerKey: 'Patcharee L.', purpose: 'insurance', status: 'granted', version: 'v2', at: '2026-02-01 09:10', channel: 'แบบฟอร์มที่โรงพยาบาล' },
+];
+
+const BREACHES: Breach[] = [
+  { id: 'BR-2609-003', title: 'ส่งรายชื่อเจ้าของออกนอกระบบ', discoveredAt: '2026-09-24 09:10', reportedBy: 'วรรณา (ผู้จัดการการเงิน)', source: 'อีเมลขาออก',
+    description: 'ไฟล์รายชื่อและเบอร์โทรเจ้าของ 40 รายถูกส่งให้ผู้ขายอาหารสัตว์ทางอีเมล โดยไม่มีสัญญาประมวลผลข้อมูล', statutoryDue: '2026-09-27 09:10',
+    affected: { count: 40, kinds: ['ชื่อ', 'เบอร์โทร'] }, status: 'open', notifications: [],
+    history: [['2026-09-24 09:20', 'วรรณา (ผู้จัดการการเงิน)', 'บันทึกเหตุละเมิด', 'กระทบ 40 ราย · ส่งรายชื่อเจ้าของออกนอกระบบ']] },
+  { id: 'BR-2609-002', title: 'ส่งลิงก์ชำระเงินผิดเจ้าของทาง LINE', discoveredAt: '2026-09-21 16:00', reportedBy: 'นัทธมน (แคชเชียร์)', source: 'LINE CRM (M15)',
+    description: 'ลิงก์ชำระพร้อมชื่อสัตว์และยอดค้างของเจ้าของรายหนึ่ง ส่งไปยังบัญชี LINE ของอีกราย ผู้รับแจ้งกลับมา', statutoryDue: '2026-09-24 16:00',
+    severity: 'medium', assessment: { dpia: 'ข้อมูลการเงินและชื่อสัตว์ 1 ราย ผู้รับลบข้อความแล้ว ความเสี่ยงต่ำต่อสิทธิแต่ต้องแจ้ง สคส.', by: DPO, at: '2026-09-22 09:00' },
+    affected: { count: 1, kinds: ['ชื่อสัตว์', 'ยอดค้างชำระ'] }, status: 'assessed', notifications: [],
+    history: [['2026-09-21 16:20', 'นัทธมน (แคชเชียร์)', 'บันทึกเหตุละเมิด', 'กระทบ 1 ราย · ส่งลิงก์ชำระเงินผิดเจ้าของทาง LINE'],
+      ['2026-09-22 09:00', DPO, 'ประเมินความรุนแรงแล้ว', 'ปานกลาง · ข้อมูลการเงินและชื่อสัตว์ 1 ราย ผู้รับลบข้อความแล้ว ความเสี่ยงต่ำต่อสิทธิแต่ต้องแจ้ง สคส.']] },
+  { id: 'BR-2609-001', title: 'แท็บเล็ตวอร์ดหาย', discoveredAt: '2026-09-05 07:30', reportedBy: 'พ.ส. อรุณี', source: 'วอร์ด', description: 'แท็บเล็ตบันทึกการรักษาของ Dog ward หายระหว่างเปลี่ยนเวร',
+    statutoryDue: '2026-09-08 07:30', severity: 'low', assessment: { dpia: 'เครื่องเข้ารหัสทั้งเครื่องและล็อกระยะไกลแล้ว ไม่มีความเสี่ยงต่อสิทธิ ไม่ต้องแจ้ง', by: DPO, at: '2026-09-05 10:00' },
+    affected: { count: 0, kinds: [] }, status: 'closed', notifications: [], closedAt: '2026-09-07 15:00', outcome: 'ล้างเครื่องจากระยะไกลแล้ว พบเครื่องในห้องเก็บของวันที่ 7',
+    history: [['2026-09-05 07:40', 'พ.ส. อรุณี', 'บันทึกเหตุละเมิด', 'กระทบ 0 ราย · แท็บเล็ตวอร์ดหาย'], ['2026-09-05 10:00', DPO, 'ประเมินความรุนแรงแล้ว', 'ต่ำ (ไม่มีความเสี่ยงต่อสิทธิ)'],
+      ['2026-09-07 15:00', DPO, 'ปิดเหตุแล้ว', 'ล้างเครื่องจากระยะไกลแล้ว พบเครื่องในห้องเก็บของวันที่ 7']] },
+  { id: 'BR-2607-001', title: 'ระบบนัดหมายของผู้ให้บริการภายนอกถูกเจาะ', discoveredAt: '2026-07-21 18:00', reportedBy: 'สมชาย (ผู้ดูแลระบบ)', source: 'แจ้งจากผู้ให้บริการ',
+    description: 'ผู้ให้บริการระบบนัดหมายออนไลน์แจ้งว่าฐานข้อมูลถูกเข้าถึง มีชื่อ เบอร์โทร และอีเมลเจ้าของของโรงพยาบาล', statutoryDue: '2026-07-24 18:00', severity: 'high',
+    assessment: { dpia: 'ข้อมูลติดต่อ 212 ราย เสี่ยงถูกนำไปหลอกลวง ต้องแจ้ง สคส. และเจ้าของข้อมูล', by: DPO, at: '2026-07-22 09:00' }, affected: { count: 212, kinds: ['ชื่อ', 'เบอร์โทร', 'อีเมล'] },
+    status: 'closed', notifications: [['pdpc', '2026-07-23 10:00', DPO, 'PDPC-6907-0112'], ['subjects', '2026-07-23 15:00', DPO, 'SMS และอีเมล 212 ราย']],
+    signOff: { by: 'น.สพ. นรินทร์', at: '2026-08-15 10:00', note: 'ยกเลิกสัญญาผู้ให้บริการ ย้ายระบบนัดหมายเข้าระบบโรงพยาบาลแล้ว' }, closedAt: '2026-08-15 10:00',
+    outcome: 'ยกเลิกสัญญาผู้ให้บริการ ย้ายระบบนัดหมายเข้าระบบโรงพยาบาลแล้ว',
+    history: [['2026-07-21 18:30', 'สมชาย (ผู้ดูแลระบบ)', 'บันทึกเหตุละเมิด', 'กระทบ 212 ราย · ระบบนัดหมายของผู้ให้บริการภายนอกถูกเจาะ'], ['2026-07-22 09:00', DPO, 'ประเมินความรุนแรงแล้ว', 'สูง'],
+      ['2026-07-23 10:00', DPO, 'แจ้งเหตุแล้ว', 'สำนักงานคณะกรรมการคุ้มครองข้อมูลส่วนบุคคล (สคส.) · PDPC-6907-0112'], ['2026-07-23 15:00', DPO, 'แจ้งเหตุแล้ว', 'เจ้าของข้อมูลที่ได้รับผลกระทบ · SMS และอีเมล 212 ราย'],
+      ['2026-08-15 10:00', 'น.สพ. นรินทร์', 'ผู้อำนวยการลงนามปิดเหตุ', 'ยกเลิกสัญญาผู้ให้บริการ ย้ายระบบนัดหมายเข้าระบบโรงพยาบาลแล้ว']] },
+];
+
+const RETENTION: RetentionDataset[] = [
+  { id: 'RT-01', dataset: 'เวชระเบียนและผลตรวจ', module: 'M02 EMR', policy: '10 ปีหลังการรักษาครั้งสุดท้าย', basis: 'มาตรฐานวิชาชีพสัตวแพทย์', records: 18_420, pastWindow: 312 },
+  { id: 'RT-02', dataset: 'ใบแจ้งหนี้และใบเสร็จ', module: 'M11 Billing', policy: '5 ปีตามกฎหมายบัญชี', basis: 'พ.ร.บ.การบัญชี', records: 41_200, pastWindow: 0 },
+  { id: 'RT-03', dataset: 'ข้อมูลติดต่อเจ้าของ', module: 'M01 EMPI', policy: '3 ปีหลังติดต่อครั้งล่าสุด', basis: 'ความยินยอมและการให้บริการ', records: 6_380, pastWindow: 147, hold: 'DSAR-2609-005 · รอตรวจก่อนลบ' },
+  { id: 'RT-04', dataset: 'บันทึกข้อความ LINE', module: 'M15 LINE CRM', policy: '1 ปี', basis: 'ความยินยอม', records: 9_870, pastWindow: 1_204 },
+  { id: 'RT-05', dataset: 'ภาพจากกล้องวงจรปิด', module: 'อาคารสถานที่', policy: '30 วัน', basis: 'ประโยชน์โดยชอบด้วยกฎหมาย', records: 30, pastWindow: 0 },
+  { id: 'RT-06', dataset: 'บันทึกตรวจสอบ (audit)', module: 'M13 Audit', policy: '7 ปี', basis: 'กฎหมายและการตรวจสอบ', records: 98_400, pastWindow: 0, hold: 'ห้ามลบก่อนครบ 7 ปี' },
+];
+
+const ROPA: RopaRecord[] = [
+  { id: 'ROPA-01', activity: 'การรักษาและเวชระเบียน', purpose: 'ตรวจ รักษา และติดตามผล', basis: 'สัญญา', dataKinds: 'ข้อมูลเจ้าของ ประวัติสัตว์ ผลตรวจ', subjects: 'เจ้าของสัตว์',
+    recipients: 'ห้องแล็บภายนอก (IDEXX)', retention: '10 ปีหลังการรักษาครั้งสุดท้าย', crossBorder: 'CB-03', owner: 'ผู้อำนวยการ', reviewedAt: '2026-03-01' },
+  { id: 'ROPA-02', activity: 'การเรียกเก็บเงินและบัญชี', purpose: 'ออกใบแจ้งหนี้ รับชำระ และส่งข้อมูลบัญชี', basis: 'หน้าที่ตามกฎหมาย', dataKinds: 'ชื่อ ที่อยู่ เลขผู้เสียภาษี ยอดชำระ',
+    subjects: 'เจ้าของสัตว์', recipients: 'PEAK (ระบบบัญชี)', retention: '5 ปี', owner: 'ผู้จัดการการเงิน', reviewedAt: '2026-03-01' },
+  { id: 'ROPA-03', activity: 'ข้อความบริการและการแจ้งเตือนทาง LINE', purpose: 'แจ้งนัด ผลตรวจ และลิงก์ชำระ', basis: 'ความยินยอม', dataKinds: 'LINE ID ชื่อ ชื่อสัตว์ นัดหมาย',
+    subjects: 'เจ้าของที่เชื่อม LINE', recipients: 'LY Corporation (LINE)', retention: '1 ปี', crossBorder: 'CB-02', owner: 'ผู้จัดการ OPD', reviewedAt: '2026-03-01' },
+  { id: 'ROPA-04', activity: 'เคลมประกันสัตว์เลี้ยง', purpose: 'ส่งเอกสารเคลมให้บริษัทประกัน', basis: 'ความยินยอม', dataKinds: 'ข้อมูลเจ้าของ กรมธรรม์ การวินิจฉัย ค่ารักษา',
+    subjects: 'เจ้าของที่มีกรมธรรม์', recipients: 'บริษัทประกัน', retention: '5 ปี', owner: 'ผู้จัดการการเงิน', reviewedAt: '2026-03-01' },
+  { id: 'ROPA-05', activity: 'สำรองข้อมูลระบบ', purpose: 'กู้คืนเมื่อระบบขัดข้อง', basis: 'ประโยชน์โดยชอบด้วยกฎหมาย', dataKinds: 'ข้อมูลทั้งระบบ (เข้ารหัส)', subjects: 'ทุกกลุ่ม',
+    recipients: 'AWS (สิงคโปร์)', retention: '35 วัน', crossBorder: 'CB-01', owner: 'สมชาย (ผู้ดูแลระบบ)', reviewedAt: '2025-08-15' },
+  { id: 'ROPA-06', activity: 'บุคลากรและตารางเวร', purpose: 'จ้างงาน ใบอนุญาต และจัดเวร', basis: 'สัญญาจ้าง', dataKinds: 'ข้อมูลพนักงาน ใบอนุญาต การลา', subjects: 'บุคลากร',
+    recipients: 'ไม่มี', retention: '10 ปีหลังพ้นสภาพ', owner: 'ฝ่ายบุคคล', reviewedAt: '2026-03-01' },
+];
+
+const CROSS_BORDER: CrossBorder[] = [
+  { id: 'CB-01', destination: 'สิงคโปร์', vendor: 'AWS (ap-southeast-1)', data: 'สำรองข้อมูลทั้งระบบ เข้ารหัสก่อนส่ง', safeguard: 'สัญญาประมวลผลข้อมูลและข้อสัญญามาตรฐาน', status: 'assessed', assessedAt: '2025-08-15' },
+  { id: 'CB-02', destination: 'ญี่ปุ่น', vendor: 'LY Corporation (LINE)', data: 'LINE ID และข้อความที่ส่ง', safeguard: 'นโยบายคุ้มครองข้อมูลของผู้ให้บริการ', status: 'assessed', assessedAt: '2026-03-01' },
+  { id: 'CB-03', destination: 'สหรัฐอเมริกา', vendor: 'IDEXX VetConnect PLUS', data: 'ผลแล็บและชื่อสัตว์', safeguard: 'รอสัญญาประมวลผลข้อมูลฉบับลงนาม', status: 'pending' },
+];
+
+const ROPA_EXPORTS: RopaExport[] = [
+  { id: 'ROPA-2603-001', at: '2026-03-01 10:00', by: DPO, records: 6, seconds: 10, artifact: 'ROPA-2603-001.pdf' },
+];
+
+/* Audit (M13): events as /audit/v1/events gives them, with the risk the backend set and the hash it checked */
+const audit = (id: string, occurredAt: string, actor: string, actorRole: string, action: string, entityType: string, entityId: string, riskLevel: RiskLevel,
+  patientId?: string, result: AuditEvent['result'] = 'success', hashCheck: AuditEvent['hashCheck'] = 'verified'): AuditEvent => {
+  const base = { occurredAt, actor, actorRole, action, entityType, entityId, patientId, result, riskLevel, requestId: `req-${id.slice(-4)}${occurredAt.slice(8, 10)}` };
+  return { id, ...base, eventHash: hashOf(base), hashCheck };
+};
+const AUDIT_EVENTS: AuditEvent[] = [
+  audit('EV-260924-0021', '2026-09-24 11:05', 'นัทธมน (แคชเชียร์)', 'Reception', 'billing.payment.capture', 'payment', 'PAY-2609-0391', 'medium', undefined, 'error'),
+  audit('EV-260924-0020', '2026-09-24 10:58', 'ภก. ธนพร', 'Pharmacist', 'pharmacy.controlled.dispense', 'prescription', 'RX-260924-20', 'high', 'HN-210877'),
+  audit('EV-260924-0019', '2026-09-24 10:41', 'สพ.ญ. ลลิตา', 'Vet', 'emr.record.read', 'patient', 'HN-130904', 'low', 'HN-130904'),
+  audit('EV-260924-0018', '2026-09-24 08:15', 'ภก. ธนพร', 'Pharmacist', 'iam.override.request', 'permission', 'OV-2609-001', 'high'),
+  audit('EV-260924-0017', '2026-09-24 08:10', 'พ.ส. กมล', 'RVN', 'emr.treatment.record', 'treatment', 'TS-180533-0924', 'low', 'HN-180533'),
+  audit('EV-260923-0016', '2026-09-23 17:40', 'พ.ส. ณิชา', 'RVN', 'equipment.downtime.open', 'downtime', 'DT-2609-005', 'low'),
+  audit('EV-260923-0015', '2026-09-23 16:10', 'น.สพ. นรินทร์', 'Vet', 'emr.note.sign', 'clinical_note', 'CN-180533-0923', 'medium', 'HN-180533'),
+  audit('EV-260923-0014', '2026-09-23 16:05', DPO, 'DPOCompliance', 'audit.export.request', 'audit_export', 'AX-2609-002', 'medium'),
+  audit('EV-260923-0013', '2026-09-23 09:02', 'วรรณา (ผู้จัดการการเงิน)', 'Manager', 'billing.refund.reject', 'refund', 'RF-2609-002', 'high'),
+  audit('EV-260922-0012', '2026-09-22 15:10', 'นัทธมน (แคชเชียร์)', 'Reception', 'billing.refund.request', 'refund', 'RF-2609-002', 'high'),
+  audit('EV-260922-0011', '2026-09-22 11:30', DPO, 'DPOCompliance', 'empi.owner.pii_read', 'owner', 'Kanokwan R.', 'medium', 'HN-180533'),
+  audit('EV-260920-0010', '2026-09-20 08:55', 'นัทธมน (แคชเชียร์)', 'Reception', 'emr.record.read', 'patient', 'HN-180533', 'low', 'HN-180533', 'denied'),
+  audit('EV-260918-0009', '2026-09-18 15:30', 'สมชาย (ผู้ดูแลระบบ)', 'Admin', 'empi.patient.merge', 'patient', 'HN-250299 → HN-250207', 'critical', 'HN-250207'),
+  audit('EV-260915-0008', '2026-09-15 16:40', 'ภก. ธนพร', 'Pharmacist', 'pharmacy.prescription.read', 'prescription', 'RX-260915-07', 'low', 'HN-180533'),
+  audit('EV-260912-0007', '2026-09-12 12:00', 'พ.ส. ณิชา', 'RVN', 'emr.consent.record', 'consent', 'DNR-130904', 'medium', 'HN-130904'),
+  audit('EV-260912-0006', '2026-09-12 10:05', 'นัทธมน (แคชเชียร์)', 'Reception', 'billing.invoice.read', 'invoice', 'INV-2609-0122', 'low', 'HN-180533'),
+  audit('EV-260910-0005', '2026-09-10 20:15', 'Arisa K.', 'Owner (LINE)', 'consent.withdraw', 'consent', 'LINE-Arisa K.-reminder', 'medium'),
+  audit('EV-260908-0004', '2026-09-08 07:05', 'พ.ส. กมล', 'RVN', 'emr.treatment.record', 'treatment', 'TS-230622-0908', 'low', 'HN-230622'),
+  audit('EV-260908-0003', '2026-09-08 05:40', 'พ.ส. ปวีณา', 'RVN', 'emr.record.read', 'patient', 'HN-230622', 'low', 'HN-230622'),
+  audit('EV-260905-0002', '2026-09-05 14:20', 'พ.ส. อรุณี', 'RVN', 'emr.record.read', 'patient', 'HN-180533', 'low', 'HN-180533'),
+  audit('EV-260901-0001', '2026-09-01 09:12', 'น.สพ. นรินทร์', 'Vet', 'emr.record.read', 'patient', 'HN-180533', 'low', 'HN-180533'),
+  audit('EV-260830-0004', '2026-08-30 18:20', 'สพ.ญ. ลลิตา', 'Vet', 'emr.record.read', 'patient', 'HN-200311', 'low', 'HN-200311'),
+  audit('EV-260819-0003', '2026-08-19 10:30', 'สพ.ญ. พิชญา', 'Vet', 'emr.note.amend', 'clinical_note', 'CN-220145-0819', 'medium', 'HN-220145', 'success', 'mismatch'),
+  audit('EV-260814-0002', '2026-08-14 16:00', 'พ.ส. สุดา', 'RVN', 'lab.specimen.relabel', 'specimen', 'SP-0814-022', 'medium', 'HN-240118'),
+  audit('EV-260803-0001', '2026-08-03 10:00', 'แผนกต้อนรับ', 'Reception', 'appointment.book', 'appointment', 'APT-0803-14', 'low'),
+  audit('EV-260714-0002', '2026-07-14 09:35', 'พ.ส. สุดา', 'RVN', 'lab.specimen.collect', 'specimen', 'SP-0714-008', 'low', 'HN-230622'),
+  audit('EV-260702-0001', '2026-07-02 11:00', 'สมชาย (ผู้ดูแลระบบ)', 'Admin', 'iam.role.grant', 'role', 'Pharmacist → ภก. ธนพร', 'high'),
+];
+
+const AUDIT_EXPORTS: AuditExport[] = [
+  { id: 'AX-2609-003', requestedBy: 'พ.ส. อรุณี', requestedAt: '2026-09-22 14:00', shape: 'patient', value: 'HN-230622', from: '2026-09-07', to: '2026-09-09',
+    purpose: 'สอบสวนอุบัติการณ์หรือเหตุละเมิด', reference: 'INC-2609-001', status: 'approved', decidedBy: DPO, decidedAt: '2026-09-22 16:00', decision: 'ขอบเขตตรงกับเวลาที่เกิดเหตุ' },
+  { id: 'AX-2609-002', requestedBy: DPO, requestedAt: '2026-09-23 16:05', shape: 'patient', value: 'HN-180533', from: '2026-09-01', to: '2026-09-24',
+    purpose: 'ตอบคำขอ DSAR', reference: 'DSAR-2609-004', status: 'pending' },
+  { id: 'AX-2609-001', requestedBy: DPO, requestedAt: '2026-09-02 10:00', shape: 'actor', value: 'นัทธมน', from: '2026-08-01', to: '2026-08-31', purpose: 'ตรวจสอบภายใน',
+    reference: 'IA-2609-01', status: 'expired', decidedBy: 'น.สพ. นรินทร์', decidedAt: '2026-09-03 09:00', decision: 'ตรวจการเข้าถึงข้อมูลของแคชเชียร์ตามแผนตรวจสอบ',
+    performedAt: '2026-09-03 09:30', artifact: 'AX-2609-001.csv', expires: '2026-09-10', rows: 0 },
+  { id: 'AX-2608-003', requestedBy: 'วรรณา (ผู้จัดการการเงิน)', requestedAt: '2026-08-28 11:00', shape: 'tenant', value: '', from: '2026-07-29', to: '2026-08-27', purpose: 'ตรวจสอบภายใน',
+    reference: 'FIN-Q3', status: 'rejected', decidedBy: DPO, decidedAt: '2026-08-28 15:00', decision: 'ขอบเขตทั้งโรงพยาบาลกว้างเกินวัตถุประสงค์ ให้ระบุผู้ใช้งาน' },
+];
+
+const INTEGRITY: IntegrityPeriod[] = [
+  { period: '2026-09', gaps: [['2026-09-14 02:00', 20]], checkedAt: '2026-09-24 06:00' },
+  { period: '2026-08', gaps: [['2026-08-02 03:00', 12]], checkedAt: '2026-09-01 06:00' },
+  { period: '2026-07', gaps: [], checkedAt: '2026-08-01 06:00' },
+];
+
 /** A fresh copy of the sample, for the store to change */
 export function createBackofficeSeed(): BackofficeData {
   return structuredClone({
@@ -713,5 +869,7 @@ export function createBackofficeSeed(): BackofficeData {
     staff: STAFF, licenses: LICENSES, ce: CE_RECORDS, privileges: PRIVILEGES_SEED, privilegeLog: PRIVILEGE_LOG, shifts: rota(), leaves: LEAVES, onCall: ON_CALL, callOuts: CALL_OUTS,
     equipment: equipment(), pm: PM_TASKS, calibrations: CALIBRATIONS, downtime: DOWNTIME, contracts: CONTRACTS, decommissions: DECOMMISSIONS,
     incidents: INCIDENTS, nearMisses: NEAR_MISSES, rcas: RCAS, kpis: KPIS, surveys: SURVEYS, mm: MM_REVIEWS, complaints: COMPLAINTS,
+    dsars: DSARS, consents: CONSENTS, breaches: BREACHES, retention: RETENTION, ropa: ROPA, crossBorder: CROSS_BORDER, ropaExports: ROPA_EXPORTS,
+    auditEvents: AUDIT_EVENTS, auditExports: AUDIT_EXPORTS, integrity: INTEGRITY,
   });
 }

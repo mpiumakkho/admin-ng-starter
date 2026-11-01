@@ -123,7 +123,7 @@ export const EN_BO: Record<string, string> = {
   /* the sample\'s own words */
   'คืนเงิน ฿650 · Subcutaneous fluids ไม่ได้ทำ': 'Refund ฿650 · Subcutaneous fluids not done',
   'ส่วนลด 15% · ค่ารักษา Mali วันที่ 2': '15% discount · Mali\'s day-2 treatment',
-  'ส่งออกบันทึกตรวจสอบ · การเข้าถึงเวชระเบียน Nala': 'Audit export · access to Nala\'s record',
+  'ส่งออกบันทึกตรวจสอบ · การเข้าถึงเวชระเบียน Mali': 'Audit export · access to Mali\'s record',
   'ข้อร้องเรียนระดับรุนแรง · ยาผิดตัว (near miss)': 'Severe complaint · wrong drug (near miss)',
   'สิทธิ์ชั่วคราว · ภก. ธนพร ดูรายงานการเงินคลังยา': 'Permission override · Pharm. Thanaporn sees the pharmacy finance reports',
   'คืนเงิน ฿280 · ยาที่ไม่ได้รับ': 'Refund ฿280 · drug not received',
