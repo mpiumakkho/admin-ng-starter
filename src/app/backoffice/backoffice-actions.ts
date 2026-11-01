@@ -6,12 +6,18 @@ import type { Invoice } from '../clinic/data/types';
 import { printClaim, printInvoice, printReceipt } from '../clinic/shared/documents';
 import { BackofficeUi, type DialogField } from './backoffice-ui';
 import { BackofficeStore } from './backoffice.store';
+import {
+  backups, bedsAt, CALIBRATION_RESULT, type CalibrationInput, CONTRACT_KIND, type ContractInput, contractsOf, costProblem, CRITICALITY, decideBlock, decommissionImpact, DECOMMISSION_METHOD,
+  type DecommissionInput, DOWNTIME_KIND, downtimeHours, type DowntimeInput, EQUIPMENT_CLASS, type EquipmentInput, equipmentOf, feeProblem, fixProblem, LOCATIONS, moveProblems, type PmInput,
+  renewDateProblem, retireImpact, testedProblem,
+} from './data/assets';
 import { DISCOUNT_THRESHOLD, methodOf, PAYMENT_METHODS, refundable, REFUND_THRESHOLD, statusOf } from './data/finance';
 import { APPROVAL_KIND, canDecide } from './data/home';
 import { canResolve, INVESTIGATION, type LedgerDispenseInput, RECALL_NEXT, RECALL_SEVERITY, RECALL_STATUS, type ReceiptInput, type WasteInput, wasteReason } from './data/inventory';
 import { CLAIM_KIND, CLAIM_STATUS, type ClaimInput, linkOf, MESSAGE_KIND, type OutboxItem, policyOf, PURPOSE_LABEL } from './data/sales';
 import type {
-  AccountingExport, Approval, BoException, CeRecord, Claim, CountRecord, LeaveRequest, License, OnCallSlot, Privilege, Recall, RecallStatus, Shift, StaffMember, StockReceipt,
+  AccountingExport, Approval, BoException, CalibrationRecord, CeRecord, Claim, CountRecord, Criticality, Decommission, Downtime, Equipment, LeaveRequest, License, OnCallSlot, PmTask,
+  Privilege, Recall, RecallStatus, ServiceContract, Shift, StaffMember, StockReceipt,
 } from './data/types';
 import {
   canVerify, catalogCourse, CE_STATUS, type CeInput, ceReviewBlock, coverage, daysOf, DEPARTMENTS, EMPLOYMENT, fairness, gaps, LEAVE_STATUS, LEAVE_TYPE, leaveBlock, leaveDays, leaveImpact,
@@ -807,6 +813,277 @@ export class BackofficeActions {
       onConfirm: () => {
         const n = this.store.publishOnCall(from, to);
         this.ui.toast('ประกาศเวร on-call {n} คืนแล้ว', { n });
+      },
+    });
+  }
+
+  /* Assets and maintenance (data/assets.ts) */
+
+  openEquipment(id: string) {
+    this.router.navigate(['/backoffice/assets/equipment', id]);
+  }
+
+  addEquipment(input: EquipmentInput, onDone?: (e: Equipment) => void) {
+    this.ui.ask({
+      title: `ขึ้นทะเบียนอุปกรณ์ · ${input.name.trim()}`,
+      facts: [
+        ['ชนิด', this.t(EQUIPMENT_CLASS[input.cls].label)], ['ผู้ผลิต / รุ่น', `${input.maker} ${input.model}`.trim() || '—'], ['หมายเลขเครื่อง', input.serial],
+        ['ที่ตั้ง', [this.t(input.location), input.bed].filter(Boolean).join(' · ')], ['ความสำคัญ', this.t(CRITICALITY[input.criticality].label)],
+        ['รอบ PM / สอบเทียบ', `${input.pmMonths} / ${input.calibrationMonths || '—'} ${this.t('เดือน')}`],
+      ],
+      intro: ['PM ครั้งแรกจะวางแผนไว้หนึ่งรอบจากวันนี้ · อุปกรณ์ที่ต้องสอบเทียบจะแสดงว่าเกินกำหนดจนกว่าจะบันทึกผลครั้งแรก · ราคาซื้อเป็นข้อมูลการดำเนินงาน ไม่ใช่ทะเบียนสินทรัพย์ทางบัญชี'],
+      confirmLabel: 'ขึ้นทะเบียน',
+      onConfirm: () => {
+        const e = this.store.addEquipment(input);
+        this.ui.toast('ขึ้นทะเบียน {name} แล้ว · {id}', { name: this.t(e.name), id: e.id });
+        onDone?.(e);
+      },
+    });
+  }
+
+  /** Where it stands and how much it matters; the bed must be in the place it stands */
+  moveEquipment(e: Equipment) {
+    const beds = Object.keys(LOCATIONS).flatMap(l => bedsAt(l));
+    this.ui.ask({
+      title: `แก้ไขที่ตั้ง · ${e.name}`,
+      intro: ['การผูกเตียงใช้แสดงอุปกรณ์ในผังเตียง (M10) · สถานะการใช้งานเปลี่ยนผ่านการแจ้งขัดข้องเท่านั้น'],
+      fields: [
+        { name: 'location', label: 'ที่ตั้ง', type: 'select', value: e.location, options: Object.keys(LOCATIONS).map(v => ({ value: v, label: this.t(v) })) },
+        {
+          name: 'bed', label: 'เตียง (M10)', type: 'select', value: e.bed ?? '', options: [{ value: '', label: this.t('ไม่ผูกเตียง') }, ...beds.map(b => ({ value: b, label: b }))],
+          validate: (v, all) => (v && !bedsAt(all['location']).includes(v) ? this.t('เตียงต้องอยู่ในจุดที่ตั้งเดียวกัน') : null),
+        },
+        { name: 'criticality', label: 'ความสำคัญ', type: 'select', value: e.criticality, options: (Object.keys(CRITICALITY) as Criticality[]).map(k => ({ value: k, label: this.t(CRITICALITY[k].label) })) },
+      ],
+      confirmLabel: 'บันทึก',
+      onConfirm: v => {
+        this.store.moveEquipment(e, { location: v['location'], bed: v['bed'], criticality: v['criticality'] as Criticality });
+        this.ui.toast('บันทึกที่ตั้ง {name} แล้ว', { name: this.t(e.name) });
+      },
+    });
+  }
+
+  completePm(t: PmTask, input: PmInput, onDone?: () => void) {
+    const e = equipmentOf(this.store.data(), t.equipmentId)!;
+    const fail = input.outcome === 'fail';
+    this.ui.ask({
+      title: `บันทึก PM · ${t.id}`,
+      tone: fail ? 'danger' : 'primary',
+      facts: [['อุปกรณ์', e.name], ['กำหนด', t.due], ['วันที่ทำ', input.doneAt], ['ผล', this.t(fail ? 'ไม่ผ่าน' : 'ผ่าน')], ...(input.cost ? [['ค่าใช้จ่าย', baht(Number(input.cost))] as [string, string]] : [])],
+      intro: [this.t('PM ครั้งถัดไปจะวางแผนไว้ {n} เดือนจากวันที่ทำ', { n: e.pmMonths })],
+      warning: fail ? this.t('PM ไม่ผ่าน: อุปกรณ์จะถูกบันทึกว่าขัดข้องและหยุดใช้จนกว่าจะซ่อมและทดสอบ') : undefined,
+      confirmLabel: 'บันทึก PM',
+      onConfirm: () => {
+        const { next, downtime } = this.store.completePm(t, input);
+        if (downtime) {
+          this.ui.toast('{id} บันทึกแล้ว · เปิด {dt} หยุดใช้งาน', { id: t.id, dt: downtime.id }, 'info');
+        } else {
+          this.ui.toast('{id} บันทึกแล้ว · ครั้งถัดไป {due}', { id: t.id, due: next.due });
+        }
+        onDone?.();
+      },
+    });
+  }
+
+  movePm(t: PmTask) {
+    const e = equipmentOf(this.store.data(), t.equipmentId)!;
+    const check = (v: string) => moveProblems(this.store.data(), t, v.trim());
+    this.ui.ask({
+      title: `เลื่อน PM · ${t.id}`,
+      facts: [['อุปกรณ์', e.name], ['กำหนดเดิม', t.movedFrom ?? t.due], ['ความสำคัญ', this.t(CRITICALITY[e.criticality].label)]],
+      intro: [e.criticality === 'critical' ? 'อุปกรณ์ critical เลื่อนได้ไม่เกิน 14 วันจากกำหนดเดิม' : 'เลื่อนได้ไม่เกิน 30 วันจากกำหนดเดิม'],
+      fields: [
+        { name: 'due', label: 'วันที่ใหม่ (YYYY-MM-DD)', type: 'input', placeholder: 'เช่น 2026-10-02', validate: v => (check(v) ? this.t(check(v)!) : null) },
+        {
+          name: 'reason', label: this.t('เหตุผล (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: 'เช่น ผู้ให้บริการนัดได้วันที่ 2 ต.ค.',
+          validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null),
+        },
+      ],
+      confirmLabel: 'เลื่อน PM',
+      onConfirm: v => {
+        this.store.movePm(t, v['due'].trim(), v['reason'].trim());
+        this.ui.toast('{id} เลื่อนเป็น {due}', { id: t.id, due: t.due });
+      },
+    });
+  }
+
+  addCalibration(input: CalibrationInput, onDone?: (r: CalibrationRecord) => void) {
+    const e = equipmentOf(this.store.data(), input.equipmentId)!;
+    const fail = input.result === 'fail';
+    this.ui.ask({
+      title: `บันทึกการสอบเทียบ · ${e.name}`,
+      tone: fail ? 'danger' : 'primary',
+      facts: [['วันที่', input.date], ['ผู้สอบเทียบ', input.by], ['ผล', this.t(CALIBRATION_RESULT[input.result].label)], ['ใบรับรอง', input.certificate || '—'], ['ครั้งถัดไป', input.nextDue]],
+      warning: fail ? this.t('สอบเทียบไม่ผ่าน: อุปกรณ์จะถูกบันทึกว่าขัดข้องและหยุดใช้จนกว่าจะแก้ไขและสอบเทียบใหม่') : undefined,
+      confirmLabel: 'บันทึกผล',
+      onConfirm: () => {
+        const { record, downtime } = this.store.addCalibration(input);
+        if (downtime) {
+          this.ui.toast('{id} บันทึกแล้ว · เปิด {dt} หยุดใช้งาน', { id: record.id, dt: downtime.id }, 'info');
+        } else {
+          this.ui.toast('{id} บันทึกแล้ว · ครั้งถัดไป {due}', { id: record.id, due: record.nextDue });
+        }
+        onDone?.(record);
+      },
+    });
+  }
+
+  /** Out of service from now: what it leaves without the device, and the units that can stand in */
+  openDowntime(input: DowntimeInput, onDone?: (d: Downtime) => void) {
+    const d = this.store.data();
+    const e = equipmentOf(d, input.equipmentId)!;
+    const standIns = backups(d, e);
+    this.ui.ask({
+      title: `${this.t(DOWNTIME_KIND[input.kind])} · ${e.name}`,
+      tone: input.kind === 'failure' ? 'danger' : 'primary',
+      facts: [
+        ['อุปกรณ์', `${e.id} · ${this.t(e.location)}${e.bed ? ` · ${e.bed}` : ''}`], ['อาการ', input.problem.trim()], ['ผลกระทบ', input.impact.trim() || '—'],
+        ['เครื่องที่ใช้แทนได้', standIns.length ? standIns.map(b => `${this.t(b.name)} (${this.t(b.location)})`).join(', ') : this.t('ไม่มี')],
+        ['สัญญาบริการ', contractsOf(d, e.id).map(c => `${c.id} · ${c.vendor} · ${this.t('ตอบสนอง {n} ชม.', { n: c.responseHours })}`).join(', ') || this.t('ไม่มี')],
+      ],
+      warning: e.criticality === 'critical' ? this.t('อุปกรณ์ critical: แจ้งผู้ใช้งานและหัวหน้าเวรทันที') : undefined,
+      confirmLabel: input.kind === 'failure' ? 'แจ้งขัดข้อง' : 'หยุดใช้ตามแผน',
+      onConfirm: () => {
+        const dt = this.store.openDowntime(input);
+        this.ui.toast('เปิด {id} แล้ว · {name} หยุดใช้งาน', { id: dt.id, name: this.t(e.name) }, 'info');
+        onDone?.(dt);
+      },
+    });
+  }
+
+  /** Back in service, with what was done and the test that shows it works */
+  closeDowntime(dt: Downtime) {
+    const e = equipmentOf(this.store.data(), dt.equipmentId)!;
+    const shown = (p: string | null) => (p ? this.t(p) : null);
+    this.ui.ask({
+      title: `กลับมาใช้งาน · ${dt.id}`,
+      facts: [['อุปกรณ์', e.name], ['อาการ', dt.problem], ['เริ่ม', dt.from], ['หยุดใช้มาแล้ว', this.t('{n} ชม.', { n: downtimeHours(dt).toFixed(1) })]],
+      fields: [
+        { name: 'fix', label: 'สิ่งที่แก้ไข', type: 'textarea', placeholder: 'เช่น เปลี่ยน flow sensor และทดสอบรั่วผ่าน', validate: v => shown(fixProblem(v)) },
+        { name: 'cost', label: 'ค่าซ่อม (บาท)', type: 'input', optional: true, placeholder: 'เช่น 9800', validate: v => shown(costProblem(v.trim())) },
+        { name: 'tested', label: 'ทดสอบการทำงานก่อนกลับมาใช้แล้ว', type: 'checkbox', validate: v => shown(testedProblem(v === 'yes')) },
+      ],
+      confirmLabel: 'กลับมาใช้งาน',
+      onConfirm: v => {
+        this.store.closeDowntime(dt, v['fix'], v['cost'].trim());
+        this.ui.toast('{name} กลับมาใช้งานแล้ว · {id}', { name: this.t(e.name), id: dt.id });
+      },
+    });
+  }
+
+  addContract(input: ContractInput, onDone?: (c: ServiceContract) => void) {
+    this.ui.ask({
+      title: `บันทึกสัญญาบริการ · ${input.vendor.trim()}`,
+      facts: [
+        ['ขอบเขต', this.t(CONTRACT_KIND[input.kind].label)], ['ระยะเวลา', `${input.from} → ${input.to}`], ['ค่าบริการต่อปี', baht(Number(input.annualFee))],
+        ['ตอบสนอง', this.t('{n} ชม.', { n: input.responseHours })], ['อุปกรณ์', this.t('{n} รายการ', { n: input.equipmentIds.length })],
+      ],
+      intro: ['ค่าบริการเป็นข้อมูลติดตามการดำเนินงาน การตั้งหนี้และจ่ายเงินทำในระบบบัญชี'],
+      confirmLabel: 'บันทึกสัญญา',
+      onConfirm: () => {
+        const c = this.store.addContract(input);
+        this.ui.toast('บันทึกสัญญา {id} แล้ว', { id: c.id });
+        onDone?.(c);
+      },
+    });
+  }
+
+  renewContract(c: ServiceContract) {
+    this.ui.ask({
+      title: `ต่อสัญญา · ${c.id}`,
+      facts: [['ผู้ให้บริการ', c.vendor], ['สิ้นสุดเดิม', c.to], ['ค่าบริการเดิม', baht(c.annualFee)]],
+      fields: [
+        {
+          name: 'to', label: 'วันสิ้นสุดใหม่ (YYYY-MM-DD)', type: 'input', placeholder: 'เช่น 2027-10-31',
+          validate: v => (renewDateProblem(c, v.trim()) ? this.t(renewDateProblem(c, v.trim())!) : null),
+        },
+        { name: 'fee', label: 'ค่าบริการต่อปี (บาท)', type: 'input', value: String(c.annualFee), validate: v => (feeProblem(v.trim()) ? this.t(feeProblem(v.trim())!) : null) },
+      ],
+      confirmLabel: 'ต่อสัญญา',
+      onConfirm: v => {
+        this.store.renewContract(c, v['to'].trim(), v['fee'].trim());
+        this.ui.toast('{id} ต่อถึง {date}', { id: c.id, date: c.to });
+      },
+    });
+  }
+
+  /** Retired, with why; the devices it leaves without repair cover are named first */
+  retireContract(c: ServiceContract) {
+    const left = retireImpact(this.store.data(), c);
+    this.ui.ask({
+      title: `ยกเลิกสัญญา · ${c.id}`,
+      tone: 'danger',
+      facts: [['ผู้ให้บริการ', c.vendor], ['ขอบเขต', this.t(CONTRACT_KIND[c.kind].label)], ['สิ้นสุด', c.to]],
+      warning: left.length ? this.t('อุปกรณ์ที่จะไม่มีสัญญาซ่อม: {list}', { list: left.map(e => this.t(e.name)).join(', ') }) : undefined,
+      fields: [{ name: 'reason', label: this.t('เหตุผล (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null) }],
+      confirmLabel: 'ยกเลิกสัญญา',
+      onConfirm: v => {
+        this.store.retireContract(c, v['reason'].trim());
+        this.ui.toast('ยกเลิกสัญญา {id} แล้ว', { id: c.id }, 'info');
+      },
+    });
+  }
+
+  requestDecommission(input: DecommissionInput, onDone?: (r: Decommission) => void) {
+    const e = equipmentOf(this.store.data(), input.equipmentId)!;
+    const impact = decommissionImpact(this.store.data(), e);
+    const severe = impact.find(i => i.severe);
+    this.ui.ask({
+      title: `ขอเลิกใช้งาน · ${e.name}`,
+      facts: [['อุปกรณ์', `${e.id} · ${e.serial}`], ['วิธี', this.t(DECOMMISSION_METHOD[input.method])], ['เหตุผล', input.reason.trim()], ['เครื่องทดแทน', input.replacement.trim() || '—']],
+      intro: [...impact.filter(i => !i.severe).map(i => i.text), 'คำขอต้องให้ผู้อื่นอนุมัติ · ประวัติของอุปกรณ์เก็บไว้ทั้งหมด'],
+      warning: severe ? this.t(severe.text) : undefined,
+      confirmLabel: 'ส่งคำขอ',
+      onConfirm: () => {
+        const r = this.store.requestDecommission(input);
+        this.ui.toast('ส่งคำขอ {id} แล้ว · รออนุมัติ', { id: r.id });
+        onDone?.(r);
+      },
+    });
+  }
+
+  /** Decided by someone other than the requester, with why */
+  decideDecommission(r: Decommission, status: 'approved' | 'rejected') {
+    const block = decideBlock(r, this.store.userName());
+    if (block) {
+      this.ui.toast(block, undefined, 'info');
+      return;
+    }
+    const d = this.store.data();
+    const e = equipmentOf(d, r.equipmentId)!;
+    const severe = decommissionImpact(d, e).find(i => i.severe);
+    const approve = status === 'approved';
+    this.ui.ask({
+      title: `${approve ? 'อนุมัติ' : 'ไม่อนุมัติ'} · ${r.id}`,
+      tone: approve ? 'primary' : 'danger',
+      facts: [['อุปกรณ์', e.name], ['เหตุผล', r.reason], ['ขอโดย', `${r.requestedBy} · ${r.requestedAt}`]],
+      warning: approve && severe ? this.t(severe.text) : undefined,
+      fields: [{
+        name: 'note', label: this.t('เหตุผล (≥{n} ตัวอักษร)', { n: REASON_MIN }), type: 'textarea', placeholder: approve ? 'เช่น มีเครื่องทดแทนแล้ว' : 'เช่น ยังซ่อมได้ ขอใบเสนอราคาก่อน',
+        validate: v => (reasonCheck(v) ? this.t(reasonCheck(v)!, { n: REASON_MIN }) : null),
+      }],
+      confirmLabel: approve ? 'อนุมัติ' : 'ไม่อนุมัติการเลิกใช้',
+      onConfirm: v => {
+        this.store.decideDecommission(r, status, v['note'].trim());
+        this.ui.toast('{id} → {status}', { id: r.id, status: this.t(approve ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ') }, approve ? 'success' : 'info');
+      },
+    });
+  }
+
+  /** Done, with the disposal evidence; the record and its history stay */
+  completeDecommission(r: Decommission) {
+    const d = this.store.data();
+    const e = equipmentOf(d, r.equipmentId)!;
+    this.ui.ask({
+      title: `เลิกใช้งาน · ${e.name}`,
+      tone: 'danger',
+      facts: [['คำขอ', r.id], ['วิธี', this.t(DECOMMISSION_METHOD[r.method])], ['อนุมัติโดย', `${r.decidedBy} · ${r.decidedAt}`]],
+      intro: decommissionImpact(d, e).filter(i => !i.severe).map(i => i.text),
+      fields: [{ name: 'evidence', label: 'หลักฐานการจำหน่าย', type: 'input', placeholder: 'เช่น ใบรับซาก RC-6609-031', validate: v => (v.trim() ? null : this.t('ใส่หลักฐานการจำหน่าย')) }],
+      confirmLabel: 'ยืนยันการเลิกใช้',
+      onConfirm: v => {
+        this.store.completeDecommission(r, v['evidence']);
+        this.ui.toast('{name} เลิกใช้แล้ว · {id}', { name: this.t(e.name), id: r.id }, 'info');
       },
     });
   }

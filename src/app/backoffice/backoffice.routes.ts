@@ -4,6 +4,14 @@ import { ActivityComponent } from './pages/home/activity.component';
 import { AlertsComponent } from './pages/home/alerts.component';
 import { ApprovalsComponent } from './pages/home/approvals.component';
 import { OverviewComponent } from './pages/home/overview.component';
+import { CalibrationComponent } from './pages/assets/calibration.component';
+import { ContractsComponent } from './pages/assets/contracts.component';
+import { CriticalComponent } from './pages/assets/critical.component';
+import { DecommissionComponent } from './pages/assets/decommission.component';
+import { DowntimeComponent } from './pages/assets/downtime.component';
+import { EquipmentDetailComponent } from './pages/assets/equipment-detail.component';
+import { PmComponent } from './pages/assets/pm.component';
+import { RegistryComponent } from './pages/assets/registry.component';
 import { AdjustmentsComponent } from './pages/finance/adjustments.component';
 import { ExportsComponent } from './pages/finance/exports.component';
 import { FinanceOverviewComponent } from './pages/finance/finance-overview.component';
@@ -80,6 +88,15 @@ export const BACKOFFICE_ROUTES: Routes = [
       { path: 'workforce/leave', component: LeaveComponent },
       { path: 'workforce/on-call', component: OnCallComponent },
       { path: 'workforce/overtime', component: OvertimeComponent },
+      { path: 'assets', pathMatch: 'full', redirectTo: 'assets/registry' },
+      { path: 'assets/registry', component: RegistryComponent },
+      { path: 'assets/equipment/:id', component: EquipmentDetailComponent },
+      { path: 'assets/pm', component: PmComponent },
+      { path: 'assets/calibration', component: CalibrationComponent },
+      { path: 'assets/downtime', component: DowntimeComponent },
+      { path: 'assets/critical', component: CriticalComponent },
+      { path: 'assets/contracts', component: ContractsComponent },
+      { path: 'assets/decommission', component: DecommissionComponent },
       { path: '**', redirectTo: 'home/overview' },
     ],
   },

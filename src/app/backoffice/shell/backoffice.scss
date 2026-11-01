@@ -1887,3 +1887,90 @@
 .backoffice .bo-table.staff td:first-child {
   min-width: 230px;
 }
+
+/* Assets and maintenance */
+.backoffice .bo-table.equipment td:first-child,
+.backoffice .bo-table.pm td:nth-child(2),
+.backoffice .bo-table.calibration td:first-child,
+.backoffice .bo-table.critical td:first-child {
+  min-width: 220px;
+}
+.backoffice .bo-table.dt-months {
+  min-width: 0;
+
+  th[scope='row'] {
+    min-width: 200px;
+    color: var(--ui-text);
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  td {
+    min-width: 44px;
+    font-size: 12px;
+  }
+
+  td.failure {
+    background: var(--ui-danger-soft);
+    color: var(--ui-danger-text);
+    font-weight: 600;
+  }
+
+  td.failure.open {
+    box-shadow: inset 0 0 0 2px var(--ui-danger-text);
+  }
+
+  td.planned {
+    background: var(--ui-neutral-soft);
+    color: var(--ui-neutral-text);
+  }
+}
+.backoffice .pick-list {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  overflow-y: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+
+  legend {
+    padding: 0 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ui-muted);
+  }
+
+  .check {
+    padding: 2px 0;
+    border: 0;
+  }
+}
+.backoffice .action-card .link-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover span:first-child {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ui-focus);
+  }
+}
+.backoffice .bo-table.contracts td:nth-child(2) {
+  min-width: 180px;
+}
+.backoffice .bo-table.contracts td:first-child {
+  white-space: nowrap;
+}
+.backoffice .bo-table.contracts td:nth-child(3) {
+  min-width: 140px;
+}

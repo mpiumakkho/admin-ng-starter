@@ -4,6 +4,11 @@ import { ClinicStore } from '../clinic/clinic.store';
 import { NOW, TODAY } from '../clinic/data/model';
 import { fullName, Session } from '../user-management';
 import { DISCOUNT_THRESHOLD, issue, newInvoice, outstanding, queueExport, REFUND_THRESHOLD, retryExport, settle, statusOf } from './data/finance';
+import {
+  addCalibration, addContract, addEquipment, CALIBRATION_RESULT, type CalibrationInput, closeDowntime, completeDecommission, completePm, type ContractInput, decideDecommission,
+  DECOMMISSION_METHOD, type DecommissionInput, type DowntimeInput, type EquipmentInput, equipmentOf, moveEquipment, movePm, openDowntime, type PmInput, renewContract, requestDecommission,
+  retireContract,
+} from './data/assets';
 import { approvalAging, severityCounts, worklist } from './data/home';
 import {
   INVESTIGATION, ledgerDispense, type LedgerDispenseInput, openRecall, quarantine, RECALL_STATUS, receive, type ReceiptInput, recordCount, recordWaste, resolveInvestigation, stockItems, updateRecall,
@@ -18,8 +23,8 @@ import {
 import { balanceOf } from '../clinic/data/rail';
 import type { Invoice, InvoiceLine, Refund } from '../clinic/data/types';
 import type {
-  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, CeRecord, Claim, CountRecord, LeaveRequest, LedgerDispense, License, Module, OnCallSlot, Privilege, Recall, RecallStatus,
-  ServiceMessage, Shift, StaffMember, StockReceipt, WasteRecord,
+  AccountingExport, ActivityEntry, Approval, BackofficeData, BoException, CalibrationRecord, CeRecord, Claim, CountRecord, Criticality, Decommission, Downtime, Equipment, LeaveRequest,
+  LedgerDispense, License, Module, OnCallSlot, PmTask, Privilege, Recall, RecallStatus, ServiceContract, ServiceMessage, Shift, StaffMember, StockReceipt, WasteRecord,
 } from './data/types';
 
 /** Who works in the back office when nobody is signed in, as in tests: the finance manager the sample is drawn for */
@@ -513,6 +518,124 @@ export class BackofficeStore {
       this.log(d, 'M24', 'ประกาศตารางเวร on-call', `${from}–${to}`, `${n} คืน`, undefined, 'ฉบับร่าง', 'ประกาศแล้ว');
     });
     return n;
+  }
+
+  /* Assets and maintenance (data/assets.ts): each step goes into M22's audit */
+
+  private eq(d: BackofficeData, id: string) {
+    return equipmentOf(d, id)?.name ?? id;
+  }
+
+  addEquipment(input: EquipmentInput): Equipment {
+    let e!: Equipment;
+    this.mutate(d => {
+      e = addEquipment(d, input, this.userName());
+      this.log(d, 'M22', 'ขึ้นทะเบียนอุปกรณ์', e.id, e.name, `${e.serial} · ${e.location}${e.bed ? ` · ${e.bed}` : ''}`);
+    });
+    return e;
+  }
+
+  moveEquipment(e: Equipment, patch: { location: string; bed: string; criticality: Criticality }) {
+    const before = [e.location, e.bed, e.criticality].filter(Boolean).join(' · ');
+    this.mutate(d => {
+      moveEquipment(e, patch, this.userName());
+      this.log(d, 'M22', 'แก้ไขที่ตั้งอุปกรณ์', e.id, e.name, undefined, before, [e.location, e.bed, e.criticality].filter(Boolean).join(' · '));
+    });
+  }
+
+  completePm(t: PmTask, input: PmInput): { next: PmTask; downtime?: Downtime } {
+    let out!: { next: PmTask; downtime?: Downtime };
+    this.mutate(d => {
+      out = completePm(d, t, input, this.userName());
+      this.log(d, 'M22', 'บันทึก PM', t.id, this.eq(d, t.equipmentId), [input.outcome === 'pass' ? 'ผ่าน' : 'ไม่ผ่าน', input.findings.trim()].filter(Boolean).join(' · '), 'ค้าง', `เสร็จ · ครั้งถัดไป ${out.next.due}`);
+      if (out.downtime) {
+        this.log(d, 'M22', 'แจ้งขัดข้อง', out.downtime.id, this.eq(d, t.equipmentId), out.downtime.problem, 'พร้อมใช้งาน', 'ขัดข้อง');
+      }
+    });
+    return out;
+  }
+
+  movePm(t: PmTask, due: string, reason: string) {
+    const before = t.due;
+    this.mutate(d => {
+      movePm(d, t, due, reason, this.userName());
+      this.log(d, 'M22', 'เลื่อน PM', t.id, this.eq(d, t.equipmentId), reason, before, due);
+    });
+  }
+
+  addCalibration(input: CalibrationInput): { record: CalibrationRecord; downtime?: Downtime } {
+    let out!: { record: CalibrationRecord; downtime?: Downtime };
+    this.mutate(d => {
+      out = addCalibration(d, input, this.userName());
+      this.log(d, 'M22', 'บันทึกผลสอบเทียบ', out.record.id, this.eq(d, input.equipmentId), `${CALIBRATION_RESULT[out.record.result].label} · ${out.record.by}`, undefined, `ครั้งถัดไป ${out.record.nextDue}`);
+      if (out.downtime) {
+        this.log(d, 'M22', 'แจ้งขัดข้อง', out.downtime.id, this.eq(d, input.equipmentId), out.downtime.problem, 'พร้อมใช้งาน', 'ขัดข้อง');
+      }
+    });
+    return out;
+  }
+
+  openDowntime(input: DowntimeInput): Downtime {
+    let dt!: Downtime;
+    this.mutate(d => {
+      dt = openDowntime(d, input, this.userName());
+      this.log(d, 'M22', dt.kind === 'failure' ? 'แจ้งขัดข้อง' : 'หยุดใช้ตามแผน', dt.id, this.eq(d, dt.equipmentId), dt.problem, 'พร้อมใช้งาน', 'ขัดข้อง');
+    });
+    return dt;
+  }
+
+  closeDowntime(dt: Downtime, fix: string, cost: string) {
+    this.mutate(d => {
+      closeDowntime(d, dt, fix, cost, this.userName());
+      this.log(d, 'M22', 'ปิดรายการขัดข้อง', dt.id, this.eq(d, dt.equipmentId), dt.fix, 'ขัดข้อง', 'พร้อมใช้งาน');
+    });
+  }
+
+  addContract(input: ContractInput): ServiceContract {
+    let c!: ServiceContract;
+    this.mutate(d => {
+      c = addContract(d, input, this.userName());
+      this.log(d, 'M22', 'บันทึกสัญญาบริการ', c.id, c.vendor, `${c.from} → ${c.to} · ${c.equipmentIds.length} รายการ`);
+    });
+    return c;
+  }
+
+  renewContract(c: ServiceContract, to: string, fee: string) {
+    const before = c.to;
+    this.mutate(d => {
+      renewContract(c, to, fee, this.userName());
+      this.log(d, 'M22', 'ต่อสัญญาบริการ', c.id, c.vendor, undefined, `สิ้นสุด ${before}`, `สิ้นสุด ${to}`);
+    });
+  }
+
+  retireContract(c: ServiceContract, reason: string) {
+    this.mutate(d => {
+      retireContract(c, reason, this.userName());
+      this.log(d, 'M22', 'ยกเลิกสัญญาบริการ', c.id, c.vendor, reason, 'มีผล', 'ยกเลิกสัญญาแล้ว');
+    });
+  }
+
+  requestDecommission(input: DecommissionInput): Decommission {
+    let r!: Decommission;
+    this.mutate(d => {
+      r = requestDecommission(d, input, this.userName());
+      this.log(d, 'M22', 'ขอเลิกใช้อุปกรณ์', r.id, this.eq(d, r.equipmentId), `${DECOMMISSION_METHOD[r.method]} · ${r.reason}`, undefined, 'รออนุมัติ');
+    });
+    return r;
+  }
+
+  decideDecommission(r: Decommission, status: 'approved' | 'rejected', note: string) {
+    this.mutate(d => {
+      decideDecommission(d, r, status, note, this.userName());
+      this.log(d, 'M22', status === 'approved' ? 'อนุมัติการเลิกใช้' : 'ปฏิเสธการเลิกใช้', r.id, this.eq(d, r.equipmentId), note, 'รออนุมัติ', status === 'approved' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ');
+    });
+  }
+
+  completeDecommission(r: Decommission, evidence: string) {
+    this.mutate(d => {
+      completeDecommission(d, r, evidence, this.userName());
+      this.log(d, 'M22', 'เลิกใช้อุปกรณ์', r.id, this.eq(d, r.equipmentId), evidence, 'อนุมัติแล้ว', 'เลิกใช้แล้ว');
+    });
   }
 
   /** Seen, and what was done about it or where it went; the exception is settled in its own workflow */

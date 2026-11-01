@@ -401,6 +401,111 @@ export interface OnCallSlot { date: string; staffId: string; status: 'draft' | '
 /** A call-out while on call: the hours worked count as overtime */
 export interface CallOut { id: string; date: string; staffId: string; hours: number; reason: string }
 
+/* Assets and maintenance (M22 Equipment & PM Registry; ux/menus/06-assets-and-maintenance.md). Its costs are operational, not the fixed-asset ledger */
+
+export type EquipmentClass = 'anaesthesia' | 'monitor' | 'infusion' | 'oxygen' | 'defibrillator' | 'imaging' | 'lab' | 'sterilisation' | 'dental';
+export type Criticality = 'critical' | 'high' | 'standard';
+export interface Equipment {
+  id: string;
+  name: string;
+  cls: EquipmentClass;
+  maker: string;
+  model: string;
+  serial: string;
+  location: string;
+  /** The ward bed it serves (M10), when it is kept at one */
+  bed?: string;
+  criticality: Criticality;
+  status: 'in-service' | 'down' | 'decommissioned';
+  purchasedAt: string;
+  purchaseCost: number;
+  /** Months between preventive maintenance */
+  pmMonths: number;
+  /** Months between calibrations; none when the device needs none */
+  calibrationMonths?: number;
+  /** Operational costs after purchase: when, what, how much (not the accounting ledger) */
+  costs: [date: string, kind: string, amount: number, note: string][];
+  history: [at: string, by: string, action: string, note: string][];
+}
+
+/** A preventive-maintenance task: the next one is planned when one is done */
+export interface PmTask {
+  id: string;
+  equipmentId: string;
+  due: string;
+  status: 'open' | 'done' | 'cancelled';
+  doneAt?: string;
+  doneBy?: string;
+  outcome?: 'pass' | 'fail';
+  findings?: string;
+  cost?: number;
+  /** Moved from this date, and why */
+  movedFrom?: string;
+  moveReason?: string;
+}
+
+export interface CalibrationRecord {
+  id: string;
+  equipmentId: string;
+  date: string;
+  by: string;
+  result: 'pass' | 'adjusted' | 'fail';
+  /** The certificate or report, as uploaded */
+  certificate?: string;
+  reading?: string;
+  nextDue: string;
+  enteredBy: string;
+}
+
+export interface Downtime {
+  id: string;
+  equipmentId: string;
+  kind: 'failure' | 'planned';
+  from: string;
+  to?: string;
+  reportedBy: string;
+  problem: string;
+  /** What it stopped: cases moved, beds without the device */
+  impact: string;
+  fix?: string;
+  closedBy?: string;
+}
+
+export type ContractKind = 'full' | 'pm' | 'calibration' | 'repair';
+export interface ServiceContract {
+  id: string;
+  vendor: string;
+  contact: string;
+  kind: ContractKind;
+  from: string;
+  to: string;
+  /** A year's fee, as the contract states it */
+  annualFee: number;
+  /** Hours to arrive on a call */
+  responseHours: number;
+  equipmentIds: string[];
+  status: 'active' | 'retired';
+  history: [at: string, by: string, action: string, note: string][];
+}
+
+export interface Decommission {
+  id: string;
+  equipmentId: string;
+  reason: string;
+  method: 'sell' | 'donate' | 'scrap' | 'return';
+  replacement?: string;
+  status: 'requested' | 'approved' | 'rejected' | 'completed';
+  requestedBy: string;
+  requestedAt: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  decisionNote?: string;
+  completedBy?: string;
+  completedAt?: string;
+  /** The disposal evidence: certificate of destruction, buyer's receipt, return slip */
+  evidence?: string;
+}
+
 export interface BackofficeData {
   workItems: WorkItem[];
   approvals: Approval[];
@@ -428,4 +533,10 @@ export interface BackofficeData {
   leaves: LeaveRequest[];
   onCall: OnCallSlot[];
   callOuts: CallOut[];
+  equipment: Equipment[];
+  pm: PmTask[];
+  calibrations: CalibrationRecord[];
+  downtime: Downtime[];
+  contracts: ServiceContract[];
+  decommissions: Decommission[];
 }

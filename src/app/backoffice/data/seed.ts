@@ -1,7 +1,8 @@
 /* The morning of 24 September 2026 in the hospital's back office: what waits for the people who run it */
 import type {
-  AccountingExport, ActivityEntry, Approval, Area, BackofficeData, BoException, CallOut, CeRecord, Claim, ControlSystem, CountRecord, DrugRecord, LeaveRequest, LedgerDispense, License,
-  LineLink, OnCallSlot, Policy, Privilege, PrivilegeChange, Recall, ServiceMessage, Shift, ShiftKind, StaffMember, StockReceipt, VaccineDue, WasteRecord, WorkItem,
+  AccountingExport, ActivityEntry, Approval, Area, BackofficeData, BoException, CalibrationRecord, CallOut, CeRecord, Claim, ContractKind, ControlSystem, CountRecord, Criticality,
+  Decommission, Downtime, DrugRecord, Equipment, EquipmentClass, LeaveRequest, LedgerDispense, License, LineLink, OnCallSlot, PmTask, Policy, Privilege, PrivilegeChange, Recall,
+  ServiceContract, ServiceMessage, Shift, ShiftKind, StaffMember, StockReceipt, VaccineDue, WasteRecord, WorkItem,
 } from './types';
 
 /* Work the modules without a page of their own yet hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
@@ -15,9 +16,9 @@ const WORK_ITEMS: WorkItem[] = [
   { id: 'W4', module: 'M28', kind: 'ข้อร้องเรียน', title: 'ใบเสร็จไม่ตรงกับประมาณการ · คุณ Arisa K.', detail: 'เรียกเก็บค่า X-ray เกินประมาณการ ฿400 · รอการเงินตรวจสอบ',
     priority: 'normal', due: '2026-09-27', owner: 'การเงิน', status: 'open', ref: 'CMP-2609-012' },
   { id: 'W5', module: 'M22', kind: 'PM', title: 'บำรุงรักษาเครื่องดมยาสลบ · ห้องผ่าตัด 1', detail: 'PM ประจำ 6 เดือน เกินกำหนด 4 วัน · อุปกรณ์ critical',
-    priority: 'critical', due: '2026-09-20', owner: 'ช่างซ่อมบำรุง', status: 'open', ref: 'EQ-OR1-ANES-01' },
+    priority: 'critical', due: '2026-09-20', owner: 'ช่างซ่อมบำรุง', status: 'open', ref: 'EQ-OR1-ANES-01', link: '/backoffice/assets/pm' },
   { id: 'W6', module: 'M22', kind: 'Calibration', title: 'สอบเทียบเครื่องตรวจเลือด CBC', detail: 'ครบกำหนดสอบเทียบประจำปี · นัดผู้ขาย 2026-09-26',
-    priority: 'normal', due: '2026-09-26', owner: 'ห้องปฏิบัติการ', status: 'waiting', ref: 'EQ-LAB-CBC-02' },
+    priority: 'normal', due: '2026-09-26', owner: 'ห้องปฏิบัติการ', status: 'waiting', ref: 'EQ-LAB-CBC-02', link: '/backoffice/assets/calibration' },
   { id: 'W7', module: 'M24', kind: 'ใบอนุญาต', title: 'ใบอนุญาตประกอบวิชาชีพ สพ.ญ. ลลิตา หมดอายุใน 21 วัน', detail: 'หมดอายุ 2026-10-15 · ยังไม่ได้ยื่นต่ออายุ',
     priority: 'high', due: '2026-10-15', owner: 'ฝ่ายบุคคล', status: 'open', ref: 'LIC-VET-0042', link: '/backoffice/workforce/credentials' },
   { id: 'W8', module: 'M24', kind: 'ตารางเวร', title: 'เวรดึกวันเสาร์ 27 ก.ย. ยังไม่มีพยาบาล', detail: 'ต้องการ 1 คน ยังไม่มี · พ.ส. กมล ลาพักร้อน 26–28 ก.ย.',
@@ -65,7 +66,7 @@ const EXCEPTIONS: BoException[] = [
   { id: 'EX5', module: 'M24', kind: 'credential-expiry', severity: 'warning', title: 'ใบอนุญาต สพ.ญ. ลลิตา หมดอายุใน 21 วัน', detail: 'หมดอายุ 2026-10-15 · ถ้าไม่ต่ออายุจะจัดเวรตรวจไม่ได้',
     at: '2026-09-24 00:00', source: 'ใบอนุญาตและ Credential', ref: 'LIC-VET-0042', link: '/backoffice/workforce/credentials' },
   { id: 'EX6', module: 'M22', kind: 'downtime', severity: 'critical', title: 'เครื่องดมยาสลบ ห้องผ่าตัด 1 ใช้งานไม่ได้', detail: 'แจ้งเสีย 2026-09-23 17:40 · อุปกรณ์ critical · ผ่าตัดพรุ่งนี้ 2 เคสต้องย้ายห้อง',
-    at: '2026-09-23 17:40', source: 'Downtime', ref: 'DT-2609-005' },
+    at: '2026-09-23 17:40', source: 'Downtime', ref: 'DT-2609-005', link: '/backoffice/assets/downtime' },
   { id: 'EX7', module: 'M28', kind: 'sla-risk', severity: 'warning', title: 'ข้อร้องเรียน CMP-2609-010 ต้องตอบกลับภายใน 5 ชั่วโมง', detail: 'ระดับรุนแรง · SLA 24 ชม. · รออนุมัติเปิด RCA',
     at: '2026-09-24 09:30', source: 'ข้อร้องเรียน', ref: 'CMP-2609-010' },
   { id: 'EX8', module: 'M31', kind: 'sla-risk', severity: 'info', title: 'DSAR-2609-004 เหลือ 6 วันจากกำหนด 30 วัน', detail: 'รอบันทึกตรวจสอบจาก AX-2609-002 · ผู้รับผิดชอบ DPO',
@@ -354,6 +355,116 @@ const CALL_OUTS: CallOut[] = [
   { id: 'CO-2609-05', date: '2026-09-23', staffId: 'S03', hours: 1.5, reason: 'สุนัขชักต่อเนื่อง' },
 ];
 
+/*
+ * The hospital's equipment: OR 1's anaesthesia machine down since last night with its PM four days late, a monitor
+ * at ICU bed I-02 out of calibration, the defibrillator and the oxygen concentrator with their repair contract
+ * lapsed, the CBC analyser due for calibration on Saturday, an old ECG waiting to be retired.
+ */
+const TECH = 'ช่างเอก (ช่างซ่อมบำรุง)';
+type Row = [id: string, name: string, cls: EquipmentClass, maker: string, model: string, serial: string, location: string, bed: string, criticality: Criticality,
+  bought: string, cost: number, pm: number, cal: number];
+const EQUIPMENT_ROWS: Row[] = [
+  ['EQ-OR1-ANES-01', 'เครื่องดมยาสลบ ห้องผ่าตัด 1', 'anaesthesia', 'Mindray', 'WATO EX-35 Vet', 'WEX35-21-0417', 'ห้องผ่าตัด 1', '', 'critical', '2021-03-15', 1_250_000, 6, 12],
+  ['EQ-OR2-ANES-02', 'เครื่องดมยาสลบ ห้องผ่าตัด 2', 'anaesthesia', 'Mindray', 'WATO EX-20 Vet', 'WEX20-23-1182', 'ห้องผ่าตัด 2', '', 'critical', '2023-06-01', 890_000, 6, 12],
+  ['EQ-OR1-MON-01', 'เครื่องติดตามสัญญาณชีพ ห้องผ่าตัด 1', 'monitor', 'Mindray', 'ePM 12M Vet', 'EPM12-22-3310', 'ห้องผ่าตัด 1', '', 'critical', '2022-01-10', 320_000, 6, 12],
+  ['EQ-ICU-MON-02', 'เครื่องติดตามสัญญาณชีพ ICU เตียง 1', 'monitor', 'Mindray', 'uMEC 10 Vet', 'UMEC-23-5521', 'ICU', 'I-01', 'critical', '2023-02-20', 185_000, 6, 12],
+  ['EQ-ICU-MON-03', 'เครื่องติดตามสัญญาณชีพ ICU เตียง 2', 'monitor', 'Mindray', 'uMEC 10 Vet', 'UMEC-23-5522', 'ICU', 'I-02', 'critical', '2023-02-20', 185_000, 6, 12],
+  ['EQ-ICU-INF-01', 'เครื่องให้สารน้ำ ICU', 'infusion', 'Mindray', 'SK-600II', 'SK6-24-0081', 'ICU', 'I-01', 'high', '2024-01-15', 45_000, 12, 12],
+  ['EQ-DW-INF-01', 'เครื่องให้สารน้ำ Dog ward', 'infusion', 'Mindray', 'SK-600II', 'SK6-24-0082', 'Dog ward', 'D-03', 'high', '2024-01-15', 45_000, 12, 12],
+  ['EQ-ICU-O2-01', 'เครื่องผลิตออกซิเจน ICU', 'oxygen', 'DeVilbiss', '525KS', 'DV525-22-7781', 'ICU', '', 'critical', '2022-05-01', 68_000, 6, 0],
+  ['EQ-ICU-DEF-01', 'เครื่องกระตุกหัวใจ', 'defibrillator', 'Mindray', 'BeneHeart D3', 'BHD3-21-0092', 'ICU', '', 'critical', '2021-08-01', 210_000, 6, 12],
+  ['EQ-LAB-CBC-02', 'เครื่องตรวจเลือด CBC', 'lab', 'IDEXX', 'ProCyte One', 'PC1-22-4410', 'ห้องปฏิบัติการ', '', 'high', '2022-09-01', 420_000, 6, 12],
+  ['EQ-LAB-CHEM-01', 'เครื่องตรวจเคมีในเลือด', 'lab', 'IDEXX', 'Catalyst One', 'C1-21-9902', 'ห้องปฏิบัติการ', '', 'high', '2021-11-01', 380_000, 6, 6],
+  ['EQ-XR-IMG-01', 'เครื่องเอกซเรย์ดิจิทัล', 'imaging', 'Fujifilm', 'FDR D-EVO II', 'FDR-23-0551', 'ห้องเอกซเรย์', '', 'high', '2023-03-01', 1_850_000, 6, 12],
+  ['EQ-OPD-IMG-02', 'เครื่องอัลตราซาวด์', 'imaging', 'Mindray', 'Vetus 8', 'VET8-24-0317', 'OPD', '', 'high', '2024-04-01', 950_000, 12, 0],
+  ['EQ-CSSD-STR-01', 'หม้อนึ่งฆ่าเชื้อแรงดันไอน้ำ', 'sterilisation', 'Tuttnauer', '3870EA', 'TT3870-20-1127', 'ห้องฆ่าเชื้อ', '', 'critical', '2020-07-01', 290_000, 3, 12],
+  ['EQ-DEN-DEN-01', 'เครื่องขูดหินปูนและกรอฟัน', 'dental', 'iM3', 'GS Deluxe', 'IM3-22-0663', 'ห้องทันตกรรม', '', 'standard', '2022-02-01', 160_000, 12, 0],
+  ['EQ-OPD-MON-00', 'เครื่อง ECG 3 ลีด (รุ่นเดิม)', 'monitor', 'Edan', 'VE-300', 'VE300-16-0041', 'OPD', '', 'standard', '2016-05-01', 95_000, 12, 12],
+  ['EQ-XR-IMG-00', 'เครื่องเอกซเรย์ฟิล์ม (รุ่นเดิม)', 'imaging', 'Toshiba', 'KXO-15', 'KXO15-12-0007', 'ห้องเอกซเรย์', '', 'high', '2012-01-01', 900_000, 6, 12],
+];
+const EQUIPMENT_COSTS: Record<string, [string, string, number, string][]> = {
+  'EQ-OR1-ANES-01': [['2025-10-14', 'ซ่อม', 8_500, 'DT-2510-001'], ['2025-11-10', 'สอบเทียบ', 4_500, 'CAL-25-004'], ['2026-01-23', 'ซ่อม', 22_000, 'DT-2601-001'], ['2026-03-20', 'PM', 6_500, 'PM-003']],
+  'EQ-XR-IMG-01': [['2026-03-12', 'ซ่อม', 15_000, 'DT-2603-002']],
+  'EQ-CSSD-STR-01': [['2026-05-06', 'ซ่อม', 3_200, 'DT-2605-001']],
+};
+function equipment(): Equipment[] {
+  return EQUIPMENT_ROWS.map(([id, name, cls, maker, model, serial, location, bed, criticality, bought, cost, pm, cal]) => ({
+    id, name, cls, maker, model, serial, location, bed: bed || undefined, criticality, status: id === 'EQ-OR1-ANES-01' ? 'down' : id === 'EQ-XR-IMG-00' ? 'decommissioned' : 'in-service',
+    purchasedAt: bought, purchaseCost: cost, pmMonths: pm, calibrationMonths: cal || undefined, costs: EQUIPMENT_COSTS[id] ?? [],
+    history: [[`${bought} 09:00`, TECH, 'ขึ้นทะเบียน', `${serial} · ${location}${bed ? ` · ${bed}` : ''}`]],
+  }));
+}
+
+/** One open PM for each device in service, and the ones done before it */
+const PM_TASKS: PmTask[] = [
+  { id: 'PM-001', equipmentId: 'EQ-CSSD-STR-01', due: '2026-04-10', status: 'done', doneAt: '2026-04-08', doneBy: TECH, outcome: 'pass' },
+  { id: 'PM-002', equipmentId: 'EQ-OR1-MON-01', due: '2026-04-10', status: 'done', doneAt: '2026-04-05', doneBy: TECH, outcome: 'pass' },
+  { id: 'PM-003', equipmentId: 'EQ-OR1-ANES-01', due: '2026-03-20', status: 'done', doneAt: '2026-03-20', doneBy: 'บจก. เมดิแคร์ เวท เอ็นจิเนียริ่ง', outcome: 'pass', cost: 6_500, findings: 'เปลี่ยน soda lime canister และ O-ring' },
+  { id: 'PM-004', equipmentId: 'EQ-LAB-CHEM-01', due: '2026-03-18', status: 'done', doneAt: '2026-03-18', doneBy: 'IDEXX Laboratories (Thailand)', outcome: 'pass' },
+  { id: 'PM-005', equipmentId: 'EQ-OR2-ANES-02', due: '2026-07-01', status: 'done', doneAt: '2026-07-02', doneBy: 'บจก. เมดิแคร์ เวท เอ็นจิเนียริ่ง', outcome: 'pass' },
+  { id: 'PM-006', equipmentId: 'EQ-CSSD-STR-01', due: '2026-07-08', status: 'done', doneAt: '2026-07-10', doneBy: TECH, outcome: 'pass', findings: 'ล้าง chamber และเปลี่ยนซีลประตู' },
+  ...([
+    ['EQ-OR1-ANES-01', '2026-09-20'], ['EQ-OR2-ANES-02', '2027-01-02'], ['EQ-OR1-MON-01', '2026-10-05'], ['EQ-ICU-MON-02', '2026-12-15'], ['EQ-ICU-MON-03', '2026-12-15'],
+    ['EQ-ICU-INF-01', '2027-01-20'], ['EQ-DW-INF-01', '2026-10-20'], ['EQ-ICU-O2-01', '2026-09-30'], ['EQ-ICU-DEF-01', '2027-02-01'], ['EQ-LAB-CBC-02', '2026-11-15'],
+    ['EQ-LAB-CHEM-01', '2026-09-18'], ['EQ-XR-IMG-01', '2026-12-01'], ['EQ-OPD-IMG-02', '2027-04-01'], ['EQ-CSSD-STR-01', '2026-10-10'], ['EQ-DEN-DEN-01', '2027-02-01'],
+    ['EQ-OPD-MON-00', '2026-11-01'],
+  ] as const).map(([equipmentId, due], i): PmTask => ({ id: `PM-${String(i + 7).padStart(3, '0')}`, equipmentId, due, status: 'open' })),
+];
+
+const CALIBRATIONS: CalibrationRecord[] = [
+  ['CAL-24-011', 'EQ-OR1-ANES-01', '2024-11-05', '2025-11-05', 'pass'], ['CAL-25-004', 'EQ-OR1-ANES-01', '2025-11-10', '2026-11-10', 'pass'],
+  ['CAL-26-003', 'EQ-OR2-ANES-02', '2026-03-01', '2027-03-01', 'pass'], ['CAL-25-002', 'EQ-OR1-MON-01', '2025-10-12', '2026-10-12', 'pass'],
+  ['CAL-26-002', 'EQ-ICU-MON-02', '2026-02-20', '2027-02-20', 'pass'], ['CAL-25-001', 'EQ-ICU-MON-03', '2025-09-10', '2026-09-10', 'pass'],
+  ['CAL-26-001', 'EQ-ICU-INF-01', '2026-01-15', '2027-01-15', 'adjusted'], ['CAL-26-005', 'EQ-DW-INF-01', '2026-01-15', '2027-01-15', 'pass'],
+  ['CAL-26-008', 'EQ-ICU-DEF-01', '2026-08-01', '2027-08-01', 'pass'], ['CAL-25-003', 'EQ-LAB-CBC-02', '2025-09-26', '2026-09-26', 'pass'],
+  ['CAL-25-005', 'EQ-LAB-CHEM-01', '2025-10-01', '2026-04-01', 'pass'], ['CAL-26-006', 'EQ-LAB-CHEM-01', '2026-04-01', '2026-10-01', 'pass'],
+  ['CAL-26-004', 'EQ-XR-IMG-01', '2026-03-01', '2027-03-01', 'pass'], ['CAL-26-007', 'EQ-CSSD-STR-01', '2026-01-20', '2027-01-20', 'pass'],
+  ['CAL-25-006', 'EQ-OPD-MON-00', '2025-06-01', '2026-06-01', 'pass'],
+].map(([id, equipmentId, date, nextDue, result]) => ({
+  id, equipmentId, date, nextDue, result: result as CalibrationRecord['result'], by: equipmentId.includes('LAB') ? 'IDEXX Laboratories (Thailand)' : 'บจก. เมดิแคร์ เวท เอ็นจิเนียริ่ง',
+  certificate: `${id}.pdf`, enteredBy: TECH,
+}));
+
+const DOWNTIME: Downtime[] = [
+  { id: 'DT-2510-001', equipmentId: 'EQ-OR1-ANES-01', kind: 'failure', from: '2025-10-14 08:20', to: '2025-10-14 15:20', reportedBy: 'สพ.ญ. พิชญา', problem: 'วาล์วหายใจออกรั่ว',
+    impact: 'ย้ายเคสเช้าไปห้องผ่าตัด 2', fix: 'เปลี่ยนซีลวาล์วหายใจออก ทดสอบรั่วผ่าน', closedBy: 'บจก. เมดิแคร์ เวท เอ็นจิเนียริ่ง' },
+  { id: 'DT-2601-001', equipmentId: 'EQ-OR1-ANES-01', kind: 'failure', from: '2026-01-22 10:00', to: '2026-01-23 10:00', reportedBy: 'สพ.ญ. พิชญา', problem: 'vaporiser ล็อกเข้าที่ไม่ได้',
+    impact: 'งดผ่าตัดห้อง 1 หนึ่งวัน', fix: 'เปลี่ยนชุดล็อก vaporiser', closedBy: 'บจก. เมดิแคร์ เวท เอ็นจิเนียริ่ง' },
+  { id: 'DT-2603-002', equipmentId: 'EQ-XR-IMG-01', kind: 'failure', from: '2026-03-11 13:00', to: '2026-03-12 17:00', reportedBy: 'พ.ส. อรุณี', problem: 'แผ่นรับภาพไม่เชื่อมต่อเครื่อง',
+    impact: 'ส่ง X-ray ไปโรงพยาบาลเครือข่าย 3 ราย', fix: 'เปลี่ยนแบตเตอรี่แผ่นรับภาพและจับคู่ใหม่', closedBy: 'บจก. ฟูจิฟิล์ม (ประเทศไทย)' },
+  { id: 'DT-2605-001', equipmentId: 'EQ-CSSD-STR-01', kind: 'failure', from: '2026-05-06 08:00', to: '2026-05-06 14:00', reportedBy: 'พ.ส. กมล', problem: 'แรงดันไม่ถึง 2.1 bar',
+    impact: 'ใช้ชุดเครื่องมือสำรอง', fix: 'เปลี่ยน safety valve', closedBy: TECH },
+  { id: 'DT-2607-003', equipmentId: 'EQ-LAB-CHEM-01', kind: 'failure', from: '2026-07-18 09:00', to: '2026-07-18 11:30', reportedBy: 'พ.ส. สุดา', problem: 'centrifuge ภายในมีเสียงดัง',
+    impact: 'ส่งตรวจเคมีนอกโรงพยาบาลช่วงเช้า', fix: 'ทำความสะอาดและปรับสมดุลโรเตอร์', closedBy: 'IDEXX Laboratories (Thailand)' },
+  { id: 'DT-2609-003', equipmentId: 'EQ-ICU-O2-01', kind: 'failure', from: '2026-09-05 22:10', to: '2026-09-06 09:30', reportedBy: 'พ.ส. ณิชา', problem: 'เตือนความเข้มข้นออกซิเจนต่ำกว่า 85%',
+    impact: 'ใช้ถังออกซิเจนสำรองใน ICU', fix: 'เปลี่ยนไส้กรองอากาศและ sieve bed', closedBy: TECH },
+  { id: 'DT-2609-004', equipmentId: 'EQ-LAB-CBC-02', kind: 'planned', from: '2026-09-10 09:00', to: '2026-09-10 12:00', reportedBy: TECH, problem: 'อัปเดตซอฟต์แวร์ตามผู้ผลิต',
+    impact: 'งดตรวจ CBC ช่วงเช้า', fix: 'อัปเดตเป็นเวอร์ชัน 2.4 ทดสอบ QC ผ่าน', closedBy: 'IDEXX Laboratories (Thailand)' },
+  { id: 'DT-2609-005', equipmentId: 'EQ-OR1-ANES-01', kind: 'failure', from: '2026-09-23 17:40', reportedBy: 'พ.ส. ณิชา', problem: 'ไม่จ่ายแก๊ส · flow meter ไม่ขึ้น',
+    impact: 'ผ่าตัดพรุ่งนี้ 2 เคสต้องย้ายไปห้องผ่าตัด 2' },
+];
+
+const CONTRACTS: ServiceContract[] = [
+  ['SC-001', 'บจก. เมดิแคร์ เวท เอ็นจิเนียริ่ง', 'คุณอนุชา · 02-118-4400', 'full', '2025-11-01', '2026-10-31', 180_000, 4, ['EQ-OR1-ANES-01', 'EQ-OR2-ANES-02', 'EQ-OR1-MON-01', 'EQ-ICU-MON-02', 'EQ-ICU-MON-03']],
+  ['SC-002', 'IDEXX Laboratories (Thailand)', 'Service desk · 02-670-0900', 'full', '2026-01-01', '2026-12-15', 95_000, 24, ['EQ-LAB-CBC-02', 'EQ-LAB-CHEM-01']],
+  ['SC-003', 'บจก. ไบโอเมด ซัพพลาย', 'คุณวีระ · 081-552-0193', 'repair', '2024-09-01', '2026-08-31', 24_000, 8, ['EQ-ICU-DEF-01', 'EQ-ICU-O2-01']],
+  ['SC-004', 'บจก. ฟูจิฟิล์ม (ประเทศไทย)', 'Medical service · 02-270-6000', 'full', '2024-03-01', '2027-02-28', 120_000, 8, ['EQ-XR-IMG-01']],
+  ['SC-005', 'บจก. สเตอริเทค', 'คุณปรางค์ · 089-411-2280', 'full', '2026-01-01', '2027-06-30', 36_000, 12, ['EQ-CSSD-STR-01']],
+  ['SC-006', 'บจก. เมดิแคร์ เวท เอ็นจิเนียริ่ง', 'คุณอนุชา · 02-118-4400', 'calibration', '2026-01-01', '2026-12-31', 18_000, 48, ['EQ-ICU-INF-01', 'EQ-DW-INF-01', 'EQ-OPD-MON-00']],
+].map(([id, vendor, contact, kind, from, to, annualFee, responseHours, equipmentIds]) => ({
+  id: id as string, vendor: vendor as string, contact: contact as string, kind: kind as ContractKind, from: from as string, to: to as string, annualFee: annualFee as number,
+  responseHours: responseHours as number, equipmentIds: equipmentIds as string[], status: 'active' as const,
+  history: [[`${from} 09:00`, 'วรรณา (ผู้จัดการการเงิน)', 'บันทึกสัญญา', `${from} → ${to}`]] as ServiceContract['history'],
+}));
+
+const DECOMMISSIONS: Decommission[] = [
+  { id: 'DEC-2609-001', equipmentId: 'EQ-OPD-MON-00', reason: 'ใช้งานมา 10 ปี อะไหล่เลิกผลิตแล้ว และสอบเทียบเกินกำหนดตั้งแต่เดือนมิถุนายน', method: 'scrap',
+    replacement: 'ใช้เครื่องติดตามสัญญาณชีพ ePM 12M แทน', status: 'requested', requestedBy: TECH, requestedAt: '2026-09-21 10:00' },
+  { id: 'DEC-2605-001', equipmentId: 'EQ-XR-IMG-00', reason: 'แทนด้วยเครื่องเอกซเรย์ดิจิทัล FDR D-EVO II ตั้งแต่ปี 2023', method: 'scrap', status: 'completed', requestedBy: TECH,
+    requestedAt: '2026-05-08 14:00', decidedBy: 'น.สพ. นรินทร์', decidedAt: '2026-05-12 10:00', decisionNote: 'อนุมัติ · ตรวจแล้วไม่มีการใช้งานตั้งแต่ปี 2023',
+    completedBy: TECH, completedAt: '2026-05-20 15:00', evidence: 'ใบรับซากและหนังสือรับรองการทำลาย RC-6605-118 · ปลดทะเบียนเครื่องกำเนิดรังสีกับ ปส. แล้ว' },
+];
+
 /** A fresh copy of the sample, for the store to change */
 export function createBackofficeSeed(): BackofficeData {
   return structuredClone({
@@ -361,5 +472,6 @@ export function createBackofficeSeed(): BackofficeData {
     drugs: DRUGS, receipts: RECEIPTS, ledgerDispenses: LEDGER_DISPENSES, wastes: WASTES, counts: COUNTS, recalls: RECALLS,
     lineLinks: LINE_LINKS, messages: MESSAGES, vaccinesDue: VACCINES_DUE, policies: POLICIES, claims: CLAIMS,
     staff: STAFF, licenses: LICENSES, ce: CE_RECORDS, privileges: PRIVILEGES_SEED, privilegeLog: PRIVILEGE_LOG, shifts: rota(), leaves: LEAVES, onCall: ON_CALL, callOuts: CALL_OUTS,
+    equipment: equipment(), pm: PM_TASKS, calibrations: CALIBRATIONS, downtime: DOWNTIME, contracts: CONTRACTS, decommissions: DECOMMISSIONS,
   });
 }
