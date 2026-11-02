@@ -2238,3 +2238,85 @@
 .backoffice .bo-table.report-rows td:last-child {
   min-width: 260px;
 }
+
+/* Integration center */
+.backoffice .segmented.steps {
+  flex-wrap: wrap;
+  align-self: flex-start;
+}
+.backoffice .config-form {
+  > .data-grid,
+  > .target-list,
+  > .checklist {
+    margin: 0;
+    padding: 12px 16px;
+  }
+
+  .target-list,
+  .checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    list-style: none;
+    font-size: 13px;
+  }
+
+  .target-list li,
+  .checklist li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+  }
+
+  .target-list li.current {
+    font-weight: 600;
+  }
+}
+.backoffice .config-rail {
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+
+  .rail-title {
+    margin: 4px 0 0;
+    color: var(--ui-muted);
+    font-size: 12px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  button {
+    align-self: flex-start;
+  }
+}
+.backoffice .test-log,
+.backoffice ol.attempts,
+.backoffice ul.plain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.backoffice .lab-connections .device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+  min-height: 26px;
+}
+@media (max-width: 900px) {
+  .backoffice .split.with-drawer:has(> .config-rail) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.backoffice .bo-table.jobs td:nth-child(2) {
+  min-width: 240px;
+}

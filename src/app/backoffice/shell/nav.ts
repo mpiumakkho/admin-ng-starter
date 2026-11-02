@@ -102,7 +102,15 @@ export const BACKOFFICE_NAV: NavGroup[] = [
     { path: '/backoffice/reports/quality', label: 'Quality & Safety' },
     { path: '/backoffice/reports/compliance', label: 'Audit & Compliance' },
   ] },
-  { key: 'integrations', label: 'Integration Center', icon: lucidePlug, links: [] },
+  { key: 'integrations', label: 'Integration Center', icon: lucidePlug, links: [
+    { path: '/backoffice/integrations/overview', label: 'ภาพรวมการเชื่อมต่อ' },
+    { path: '/backoffice/integrations/accounting/config', label: 'Adapter Configuration', section: 'Accounting Adapters' },
+    { path: '/backoffice/integrations/accounting/queue', label: 'Delivery Queue' },
+    { path: '/backoffice/integrations/accounting/reconciliation', label: 'Reconciliation' },
+    { path: '/backoffice/integrations/lab-imaging', label: 'Lab & Imaging Connections', section: 'Connectors' },
+    { path: '/backoffice/integrations/insurance', label: 'Insurance Adapters (P4)' },
+    { path: '/backoffice/integrations/import-export', label: 'Import/Export History' },
+  ] },
   { key: 'settings', label: 'ตั้งค่าระบบ', icon: lucideSettings, links: [] },
 ];
 

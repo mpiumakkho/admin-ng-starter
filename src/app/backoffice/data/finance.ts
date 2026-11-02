@@ -251,6 +251,7 @@ export function retryExport(x: AccountingExport, at = `${TODAY} ${NOW}`) {
   x.status = 'delivered';
   x.deliveredAt = at;
   x.externalRef = `PEAK-${x.document.replace(/[^0-9]/g, '').slice(-6)}-${x.attempts}`;
+  x.priorError = x.errorCode ?? x.priorError;
   x.errorCode = undefined;
   x.errorText = undefined;
 }

@@ -7,6 +7,7 @@ import type {
   ComplaintSeverity, ContractKind, ControlSystem, CountRecord, Criticality, Decommission, Downtime, DrugRecord, Equipment, EquipmentClass, HarmLevel, Incident, KpiDefinition, LeaveRequest,
   LedgerDispense, License, LineLink, MmReview, NearMiss, OnCallSlot, PmTask, Policy, Privilege, PrivilegeChange, Rca, Recall, Remedy, SafetyCategory, SafetySurvey, ServiceContract,
   ServiceMessage, Shift, ShiftKind, StaffMember, StockReceipt, VaccineDue, WasteRecord, WorkItem,
+  ConnectionTest,
 } from './types';
 
 /* Work the modules hold: credentials, equipment, complaints, PDPA (M24, M22, M28, M31) */
@@ -861,6 +862,13 @@ const INTEGRITY: IntegrityPeriod[] = [
 ];
 
 /** A fresh copy of the sample, for the store to change */
+/* Integration center: the adapter's connection tests, newest first. The 06:00 run found the PEAK token expired; it was rotated at 08:15 and not tested since */
+const ADAPTER_TESTS: ConnectionTest[] = [
+  { id: 'CT-0014', at: '2026-09-24 06:02', by: 'ระบบ (รอบส่ง 06:00)', result: 'auth-failed', code: 'AUTH_401', ms: 412 },
+  { id: 'CT-0013', at: '2026-09-23 23:01', by: 'ระบบ (รอบส่ง 23:00)', result: 'passed', ms: 388 },
+  { id: 'CT-0012', at: '2026-09-23 06:01', by: 'ระบบ (รอบส่ง 06:00)', result: 'passed', ms: 371 },
+];
+
 export function createBackofficeSeed(): BackofficeData {
   return structuredClone({
     workItems: WORK_ITEMS, approvals: APPROVALS, exceptions: EXCEPTIONS, activity: ACTIVITY, accountingExports: ACCOUNTING_EXPORTS, reconciliations: [],
@@ -870,6 +878,6 @@ export function createBackofficeSeed(): BackofficeData {
     equipment: equipment(), pm: PM_TASKS, calibrations: CALIBRATIONS, downtime: DOWNTIME, contracts: CONTRACTS, decommissions: DECOMMISSIONS,
     incidents: INCIDENTS, nearMisses: NEAR_MISSES, rcas: RCAS, kpis: KPIS, surveys: SURVEYS, mm: MM_REVIEWS, complaints: COMPLAINTS,
     dsars: DSARS, consents: CONSENTS, breaches: BREACHES, retention: RETENTION, ropa: ROPA, crossBorder: CROSS_BORDER, ropaExports: ROPA_EXPORTS,
-    auditEvents: AUDIT_EVENTS, auditExports: AUDIT_EXPORTS, integrity: INTEGRITY,
+    auditEvents: AUDIT_EVENTS, auditExports: AUDIT_EXPORTS, integrity: INTEGRITY, adapterTests: ADAPTER_TESTS,
   });
 }

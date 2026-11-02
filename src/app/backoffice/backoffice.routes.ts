@@ -49,6 +49,13 @@ import { RcaComponent } from './pages/quality/rca.component';
 import { ResolutionComponent } from './pages/quality/resolution.component';
 import { RetentionComponent } from './pages/quality/retention.component';
 import { RopaComponent } from './pages/quality/ropa.component';
+import { AdapterConfigComponent } from './pages/integrations/adapter-config.component';
+import { DeliveryQueueComponent } from './pages/integrations/delivery-queue.component';
+import { DeliveryReconciliationComponent } from './pages/integrations/delivery-reconciliation.component';
+import { ImportExportComponent } from './pages/integrations/import-export.component';
+import { InsuranceAdaptersComponent } from './pages/integrations/insurance-adapters.component';
+import { IntegrationOverviewComponent } from './pages/integrations/integration-overview.component';
+import { LabImagingComponent } from './pages/integrations/lab-imaging.component';
 import { ReportComponent } from './pages/reports/report.component';
 import { ClaimsComponent } from './pages/sales/claims.component';
 import { LineCrmComponent } from './pages/sales/line-crm.component';
@@ -147,6 +154,14 @@ export const BACKOFFICE_ROUTES: Routes = [
       { path: 'reports/assets', component: ReportComponent, data: { report: 'assets' } },
       { path: 'reports/quality', component: ReportComponent, data: { report: 'quality' } },
       { path: 'reports/compliance', component: ReportComponent, data: { report: 'compliance' } },
+      { path: 'integrations', pathMatch: 'full', redirectTo: 'integrations/overview' },
+      { path: 'integrations/overview', component: IntegrationOverviewComponent },
+      { path: 'integrations/accounting/config', component: AdapterConfigComponent },
+      { path: 'integrations/accounting/queue', component: DeliveryQueueComponent },
+      { path: 'integrations/accounting/reconciliation', component: DeliveryReconciliationComponent },
+      { path: 'integrations/lab-imaging', component: LabImagingComponent },
+      { path: 'integrations/insurance', component: InsuranceAdaptersComponent },
+      { path: 'integrations/import-export', component: ImportExportComponent },
       { path: '**', redirectTo: 'home/overview' },
     ],
   },

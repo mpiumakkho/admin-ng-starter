@@ -211,6 +211,24 @@ export class BackofficeActions {
     });
   }
 
+  /** A test of the accounting adapter's connection; it checks the connection only */
+  testAdapter() {
+    this.ui.ask({
+      title: 'ทดสอบการเชื่อมต่อ · PEAK',
+      facts: [['ระบบบัญชี', 'PEAK'], ['ข้อมูลลับ', 'peak-api-token ••••a41f']],
+      intro: ['ผลนี้ยืนยันเฉพาะการเชื่อมต่อ ไม่ยืนยันการจับคู่ข้อมูลหรือการลงบัญชี · การทดสอบถูกบันทึกใน audit โดยไม่มีค่าข้อมูลลับ'],
+      confirmLabel: 'ทดสอบการเชื่อมต่อ',
+      onConfirm: () => {
+        const t = this.store.testAdapter();
+        if (t.result === 'passed') {
+          this.ui.toast('เชื่อมต่อ PEAK ได้ ({ms} ms) · ผลนี้ยืนยันเฉพาะการเชื่อมต่อ', { ms: t.ms ?? 0 }, 'success');
+        } else {
+          this.ui.toast('ยืนยันตัวตนไม่ผ่าน ({code})', { code: t.code ?? '' }, 'info');
+        }
+      },
+    });
+  }
+
   /** The day signed off: what was found, and what was done about it */
   saveReconciliation(date: string, variances: number) {
     this.ui.ask({

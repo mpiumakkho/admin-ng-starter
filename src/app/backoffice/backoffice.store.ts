@@ -14,6 +14,7 @@ import {
   emit, type ExportInput, fulfil, generateRopa, intakeDsar, notify, NOTIFY_TO, performExport, recordConsent, recordFinding, reportBreach, requestExport, SHAPE, verifyIdentity, withdraw,
 } from './data/governance';
 import { approvalAging, severityCounts, worklist } from './data/home';
+import { testConnection } from './data/integrations';
 import {
   addRcaAction, addWhy, ANONYMOUS, CHANNEL, closeIncident, closeSurvey, COMPLAINT_SEVERITY, completeAction, type ComplaintInput, decideRca, escalate, escalateNearMiss, HARM,
   type IncidentInput, logContact, type MmInput, type NearMissInput, openRca, preventNearMiss, recordFindings, recordMm, recordNearMiss, recordSatisfaction, REMEDY, receiveComplaint,
@@ -32,7 +33,7 @@ import {
 import { balanceOf } from '../clinic/data/rail';
 import type { Invoice, InvoiceLine, Refund } from '../clinic/data/types';
 import type {
-  AccountingExport, ActivityEntry, Approval, AuditExport, BackofficeData, Breach, ConsentGrant, DsarRequest, IntegrityPeriod, RopaExport, BoException, CalibrationRecord, CeRecord, Claim, Complaint, ComplaintChannel, ComplaintSeverity, CountRecord, Criticality,
+  AccountingExport, ActivityEntry, Approval, AuditExport, ConnectionTest, BackofficeData, Breach, ConsentGrant, DsarRequest, IntegrityPeriod, RopaExport, BoException, CalibrationRecord, CeRecord, Claim, Complaint, ComplaintChannel, ComplaintSeverity, CountRecord, Criticality,
   Decommission, Downtime, Equipment, HarmLevel, Incident, KpiDefinition, LeaveRequest, LedgerDispense, License, MmReview, Module, NearMiss, OnCallSlot, PmTask, Privilege, Rca, RcaAction,
   Recall, RecallStatus, Remedy, SafetySurvey, ServiceContract, ServiceMessage, Shift, StaffMember, StockReceipt, WasteRecord,
 } from './data/types';
@@ -254,6 +255,16 @@ export class BackofficeStore {
       retryExport(x);
       this.log(d, 'M11', 'ส่งข้อมูลบัญชีใหม่', x.id, x.document, x.externalRef, 'ส่งไม่สำเร็จ', 'ส่งแล้ว');
     });
+  }
+
+  /** The adapter's connection tested, as an audited action: it says the connection works, nothing about mapping or posting */
+  testAdapter(): ConnectionTest {
+    let t!: ConnectionTest;
+    this.mutate(d => {
+      t = testConnection(d, this.userName());
+      this.log(d, 'M11', 'ทดสอบการเชื่อมต่อ adapter', t.id, 'PEAK', t.result === 'passed' ? 'ผ่าน' : t.code);
+    });
+    return t;
   }
 
   /** The day signed off, with what was found */

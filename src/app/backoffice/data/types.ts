@@ -114,6 +114,8 @@ export interface AccountingExport {
   externalRef?: string;
   errorCode?: string;
   errorText?: string;
+  /** The error the last failed try gave, kept once another try has succeeded */
+  priorError?: string;
   retryable: boolean;
   idempotencyKey: string;
 }
@@ -885,4 +887,17 @@ export interface BackofficeData {
   auditEvents: AuditEvent[];
   auditExports: AuditExport[];
   integrity: IntegrityPeriod[];
+  adapterTests: ConnectionTest[];
+}
+
+/* Integration center (ux/pages/integrations/00–07) */
+
+/** One test of the accounting adapter's connection: it says the connection works, never that the mapping or posting is right (INT-ACC-01) */
+export interface ConnectionTest {
+  id: string;
+  at: string;
+  by: string;
+  result: 'passed' | 'auth-failed';
+  code?: string;
+  ms?: number;
 }
