@@ -60,6 +60,8 @@ test('an anonymous incident keeps no name, in the report or in the audit log', a
 
   // Through the menu: the sample lives in memory, so a reload would start it over
   const menu = page.getByRole('navigation', { name: 'Main menu' });
+  // One group is open at a time: the home group opens first
+  await menu.getByRole('button', { name: 'Home' }).click();
   await menu.getByRole('link', { name: 'Recent Activity', exact: true }).click();
   const row = page.locator('.bo-table tbody tr', { hasText: 'INC-2609-006' });
   await expect(row).toContainText('Incident reported');

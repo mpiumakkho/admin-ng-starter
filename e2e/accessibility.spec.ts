@@ -161,6 +161,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.getByRole('group', { name: 'Two-step sign-in required for' }).getByRole('checkbox', { name: 'Viewer' }).check();
       await page.getByRole('button', { name: 'Save changes' }).click();
       await expect(page.locator('ui-toaster')).toContainText('Settings saved.');
+      await expectAccessible(page, 'a toast', 'ui-toaster');
       await signOut(page);
 
       await signInAs(page, 'Viewer');

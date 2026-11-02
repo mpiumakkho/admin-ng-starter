@@ -6,9 +6,15 @@
 .backoffice {
   --bo-shell: 64px;
   --bo-sidebar: 280px;
+  // Folded to its icons (seph1-fe's rail)
+  --bo-rail: 72px;
+  --bo-sidebar-now: var(--bo-sidebar);
+  // How the menu folds and unfolds: a gentle start and end
+  --bo-fold: .4s cubic-bezier(.65, 0, .35, 1);
   --bo-gap: 16px;
   // The current page in the menu, as the admin's sidebar marks it: navy on a blue-grey tint
   --bo-menu-active-text: #000572;
+  --bo-menu-active-bg: #e7e8f6;
   --bo-menu-accent: #000572;
   --bo-search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
   --bo-r: var(--ui-radius-lg);
@@ -137,6 +143,7 @@
   --navbar-surface: var(--ui-bg);
   --navbar-control: var(--ui-surface);
   --bo-menu-active-text: var(--ui-heading);
+  --bo-menu-active-bg: #334155;
   --bo-menu-accent: #818cf8;
 }
 
@@ -165,13 +172,16 @@
   flex: none;
   align-items: center;
   gap: 4px;
-  width: var(--bo-sidebar);
+  width: var(--bo-sidebar-now);
   padding: 0 1rem 0 .75rem;
+  overflow: hidden;
+  transition: width var(--bo-fold), padding var(--bo-fold);
   border-inline-end: 1px solid var(--ui-border);
   background: var(--ui-surface);
 }
 
-.backoffice .menu-button {
+// Only below 992px, where the menu slides in; wider, the round button on its edge folds it
+.backoffice .icon-button.menu-button {
   display: none;
 }
 
@@ -389,8 +399,9 @@
 .backoffice .body {
   position: relative;
   display: grid;
-  grid-template-columns: var(--bo-sidebar) minmax(0, 1fr);
+  grid-template-columns: var(--bo-sidebar-now) minmax(0, 1fr);
   min-height: 0;
+  transition: grid-template-columns var(--bo-fold);
 }
 
 .backoffice .sidebar {
@@ -459,14 +470,39 @@
   }
 }
 
+.backoffice .nav-links-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows .3s cubic-bezier(.4, 0, .2, 1), visibility 0s .3s;
+}
+
+.backoffice .nav-group.open > .nav-links-wrap {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows .3s cubic-bezier(.4, 0, .2, 1), visibility 0s;
+}
+
 .backoffice .nav-links {
-  display: none;
+  position: relative;
+  display: flex;
   flex-direction: column;
-  margin: 0 0 6px;
+  min-height: 0;
+  margin: 0;
   margin-inline-start: 21px;
-  padding: 2px 0;
-  border-inline-start: 1px solid var(--ui-border);
+  padding: 2px 0 6px;
+  overflow: hidden;
   list-style: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 6px;
+    inset-inline-start: 0;
+    width: 1px;
+    background: var(--ui-border);
+  }
 
   a {
     position: relative;
@@ -503,7 +539,7 @@
         position: absolute;
         top: 7px;
         bottom: 7px;
-        inset-inline-start: -11.5px;
+        inset-inline-start: -10px;
         width: 2px;
         border-radius: 2px;
         background: var(--bo-menu-accent);
@@ -517,9 +553,6 @@
   }
 }
 
-.backoffice .nav-group.open .nav-links {
-  display: flex;
-}
 
 .backoffice .nav-section {
   margin: 10px 0 2px;
@@ -628,7 +661,7 @@
     gap: 4px 12px;
     margin-top: 4px;
     color: var(--ui-muted);
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .freshness {
@@ -664,9 +697,9 @@
 .backoffice .kpi {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
-  padding: 14px 18px;
+  padding: 18px 22px;
   border: 1px solid var(--ui-border);
   border-radius: var(--bo-r);
   background: var(--ui-surface);
@@ -680,7 +713,7 @@
     align-items: baseline;
     gap: 6px;
     color: var(--ui-heading);
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     letter-spacing: -.02em;
@@ -697,8 +730,9 @@
   }
 
   .kpi-label {
+    order: -1;
     color: var(--ui-muted);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.4;
   }
 
@@ -1208,7 +1242,7 @@
     background: var(--navbar-surface);
   }
 
-  .backoffice .menu-button {
+  .backoffice .icon-button.menu-button {
     display: inline-flex;
   }
 
@@ -2482,5 +2516,183 @@
     td:last-child {
       padding-inline-end: 16px;
     }
+  }
+}
+
+/* ---------- folding the menu (seph1-fe): a round button on its edge; folded, one icon per group, its pages beside it ---------- */
+.backoffice .sidebar-collapser {
+  position: absolute;
+  top: 18px;
+  left: var(--bo-sidebar-now);
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid var(--ui-surface);
+  border-radius: 50%;
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+  font-size: 14px;
+  box-shadow: 1px 1px 4px rgb(26 22 37 / .35);
+  transform: translateX(-50%);
+  transition: left var(--bo-fold), filter .15s ease;
+
+  ng-icon,
+  svg {
+    transition: transform .45s cubic-bezier(.65, 0, .35, 1);
+  }
+
+  &:hover {
+    filter: brightness(1.1);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-ring);
+  }
+}
+
+// Folding is for wide screens; below 992px the menu slides in whole from the menu button
+@container backoffice (max-width: 991px) {
+  .backoffice .sidebar-collapser {
+    display: none;
+  }
+
+  .backoffice .nav-links-wrap.flyout {
+    display: grid;
+  }
+}
+
+@container backoffice (min-width: 992px) {
+  .backoffice.collapsed .navbar-brand-wrapper,
+  .backoffice .body.collapsed {
+    --bo-sidebar-now: var(--bo-rail);
+  }
+
+  .backoffice .body.collapsed {
+    .sidebar {
+      padding: 12px 10px;
+      overflow-x: hidden;
+    }
+
+    .sidebar-collapser ng-icon,
+    .sidebar-collapser svg {
+      transform: rotate(180deg);
+    }
+
+    .nav-group-button {
+      justify-content: center;
+      padding: 10px 0;
+    }
+
+    .nav-title,
+    .nav-arrow,
+    .nav-note {
+      display: none;
+    }
+
+    // The group with the current page, marked on its icon
+    .nav-group.current > .nav-group-button {
+      background: var(--bo-menu-active-bg);
+      color: var(--bo-menu-active-text);
+
+      .nav-icon {
+        color: var(--bo-menu-accent);
+      }
+    }
+
+    .nav-group:not(.current) > .nav-group-button .nav-icon {
+      color: var(--ui-muted);
+    }
+
+    // A group's pages, beside its icon
+    .nav-links-wrap.flyout {
+      position: fixed;
+      left: calc(var(--bo-rail) + 6px);
+      z-index: 60;
+      display: none;
+      visibility: visible;
+      transition: none;
+
+      &.shown {
+        display: block;
+      }
+
+      .nav-links {
+        min-width: 240px;
+        max-height: 70vh;
+        margin: 0;
+        padding: 4px;
+        overflow-y: auto;
+        border: 1px solid var(--ui-border);
+        border-radius: var(--ui-radius-lg);
+        background: var(--ui-surface);
+        box-shadow: var(--ui-shadow-lg);
+        animation: bo-flyout-in .15s ease-out;
+
+        &::before {
+          display: none;
+        }
+      }
+
+      .flyout-title {
+        margin: 0 -4px 4px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--ui-border);
+        color: var(--ui-heading);
+        font-weight: 600;
+      }
+
+      .nav-section {
+        padding-inline-start: 12px;
+      }
+
+      a {
+        margin: 0;
+
+        &.active {
+          background: var(--bo-menu-active-bg);
+
+          &::before {
+            display: none;
+          }
+        }
+      }
+    }
+  }
+
+  .backoffice.collapsed .navbar-brand-wrapper {
+    justify-content: center;
+    padding: 0;
+
+    // Out of sight, still the link's name
+    .brand-name {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+  }
+}
+
+@keyframes bo-flyout-in {
+  from {
+    opacity: 0;
+    transform: scale(.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backoffice .body,
+  .backoffice .navbar-brand-wrapper,
+  .backoffice .nav-links-wrap,
+  .backoffice .sidebar-collapser,
+  .backoffice .sidebar-collapser ng-icon,
+  .backoffice .sidebar-collapser svg {
+    transition: none;
   }
 }

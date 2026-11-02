@@ -96,3 +96,33 @@ test('alerts: an exception is acknowledged with a note and moves to the acknowle
   await page.locator('.bo-table tbody tr', { hasText: 'BU-2411-02' }).getByRole('link', { name: 'Open workflow' }).click();
   await expect(page).toHaveURL(/\/clinic\/ward$/);
 });
+
+test('the menu folds to its icons from the button on its edge: a group shows its pages beside it, and the fold is remembered', async ({ page }) => {
+  await openBackoffice(page);
+  const menu = page.getByRole('navigation', { name: 'Main menu' });
+  // One group open at a time, as the admin's menu
+  await menu.getByRole('button', { name: 'Finance & Revenue' }).click();
+  await expect(menu.getByRole('button', { name: 'Finance & Revenue' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.getByRole('button', { name: 'Home' })).toHaveAttribute('aria-expanded', 'false');
+
+  await page.getByRole('button', { name: 'Collapse menu' }).click();
+  await expect(page.locator('.body.collapsed')).toHaveCount(1);
+  await menu.getByRole('button', { name: 'Inventory' }).hover();
+  await menu.getByRole('link', { name: 'Medication inventory', exact: true }).click();
+  await expect(page).toHaveURL('/backoffice/inventory/stock');
+  await expectAccessible(page, 'the folded menu');
+
+  // By keyboard: the icon's pages open on focus and Escape hands focus back
+  await menu.getByRole('button', { name: 'Workforce & Scheduling' }).focus();
+  await expect(menu.getByRole('button', { name: 'Workforce & Scheduling' })).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Escape');
+  await expect(menu.getByRole('button', { name: 'Workforce & Scheduling' })).toBeFocused();
+  await expect(menu.getByRole('button', { name: 'Workforce & Scheduling' })).toHaveAttribute('aria-expanded', 'false');
+
+  await page.reload();
+  await expect(page.locator('.body.collapsed')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Expand menu' }).click();
+  await expect(page.locator('.body.collapsed')).toHaveCount(0);
+  await expect(menu.getByRole('button', { name: 'Inventory' })).toHaveAttribute('aria-expanded', 'true');
+});

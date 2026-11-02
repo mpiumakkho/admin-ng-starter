@@ -3,6 +3,8 @@
 export const EN_BO: Record<string, string> = {
   /* the shell */
   'เส้นทาง': 'Breadcrumb',
+  'ย่อเมนู': 'Collapse menu',
+  'ขยายเมนู': 'Expand menu',
   'SLV BackOffice — โรงพยาบาลสวนหลวงสัตวแพทย์': 'SLV BackOffice — Suan Luang Veterinary Hospital',
   'โรงพยาบาลสวนหลวงสัตวแพทย์': 'Suan Luang Veterinary Hospital',
   'ข้ามไปเนื้อหาหลัก': 'Skip to main content',

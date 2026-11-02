@@ -60,7 +60,9 @@ export async function expectAccessible(page: Page, label = new URL(page.url()).p
     .filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity))
     .map(animation => animation.finished.catch(() => undefined))));
   const axe = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']);
-  const { violations } = await (within ? axe.include(within) : axe).analyze();
+  // A toast left from an earlier step fades out on its own timer, maybe halfway through a page's check; toasts are checked
+  // on their own (within: 'ui-toaster') while they show
+  const { violations } = await (within ? axe.include(within) : axe.exclude('ui-toaster')).analyze();
   const found = violations.map(violation => `${violation.id}: ${violation.help} (${violation.nodes.map(node => node.target.join(' ')).join(', ')})`);
   expect(found, `accessibility of ${label}`).toEqual([]);
 }
