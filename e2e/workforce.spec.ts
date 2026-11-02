@@ -55,6 +55,8 @@ test('a draft week goes out only once its conflicts are resolved: the locum\'s l
 
   // The licence, checked by someone other than its holder
   await workforceLink(page, 'Licences and credentials');
+  // More licences than one page holds: fifty rows a page
+  await page.getByRole('combobox', { name: 'Rows per page' }).selectOption('50');
   await page.locator('.bo-table tbody tr', { hasText: 'LIC-VET-0101' }).click();
   await page.locator('.drawer').getByRole('button', { name: 'Verified' }).click();
   const dialog = page.locator('dialog[open]');

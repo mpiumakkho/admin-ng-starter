@@ -6,10 +6,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { JOB_STATUS, type JobStatus, jobs } from '../../data/integrations';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-import-export',
-  imports: [RouterLink, TxPipe, PageHead, Drawer, ModuleTag],
+  imports: [PagerFoot, RouterLink, TxPipe, PageHead, Drawer, ModuleTag],
   template: `
     <bo-page-head [heading]="'ประวัติการนำเข้าและส่งออก'" [source]="'INT-IEX-01 · M11 accounting_export_log · M31 RoPA · ประวัติอ่านอย่างเดียว ไม่ใช่คิวที่สอง · ส่งออกสำเร็จไม่ได้แปลว่าปลายทางยอมรับ'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -43,7 +44,7 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
               <th scope="col" class="w-ref">{{ 'ไฟล์ผลลัพธ์' | tx }}</th>
             </tr></thead>
             <tbody>
-              @for (j of rows(); track j.id) {
+              @for (j of pager.rows(); track j.id) {
                 <tr [class.selected]="j.id === selectedId()" tabindex="0" (click)="pick(j.id)" (keydown.enter)="pick(j.id)" [attr.aria-selected]="j.id === selectedId()">
                   <td class="num">{{ j.at }}</td>
                   <td><b>{{ j.title | tx }}</b><div class="secondary">{{ (j.kind === 'export' ? 'ส่งออก' : 'นำเข้า') | tx }} · {{ j.id }}</div></td>
@@ -58,6 +59,7 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as j) {
@@ -86,6 +88,8 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class ImportExportComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly JOB_STATUS = JOB_STATUS;
   protected readonly statusKeys = Object.keys(JOB_STATUS) as JobStatus[];

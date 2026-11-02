@@ -12,13 +12,14 @@ import {
 } from '../../data/workforce';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const TYPES = Object.keys(LEAVE_TYPE) as LeaveType[];
 const FROM = weekOf(TODAY);
 
 @Component({
   selector: 'bo-leave',
-  imports: [RouterLink, TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead],
   template: `
     @let k = kpis();
     <bo-page-head [heading]="'การลาและวันหยุด'" [source]="'M24 P2 · คำขอลาและผลต่อจำนวนคนในเวร · ผู้ขอตัดสินคำขอของตัวเองไม่ได้ · การอนุมัติไม่ลบเวร ตารางเวรแสดงเวรที่ต้องหาคนแทน · ต้นแบบก่อนสัญญาหน้าของ M24 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
@@ -48,7 +49,7 @@ const FROM = weekOf(TODAY);
                 </tr>
               </thead>
               <tbody>
-                @for (l of rows(); track l.id) {
+                @for (l of pager.rows(); track l.id) {
                   <tr tabindex="0" [class.selected]="l.id === selectedId()" [attr.aria-selected]="l.id === selectedId()" (click)="pick(l.id)" (keydown.enter)="pick(l.id)">
                     <td><b>{{ l.id }}</b><div class="secondary">{{ l.requestedAt }}</div></td>
                     <td>{{ name(l) | tx }}<div class="secondary">{{ role(l) | tx }}</div></td>
@@ -61,6 +62,7 @@ const FROM = weekOf(TODAY);
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
 
         <div class="panel">
@@ -132,6 +134,8 @@ const FROM = weekOf(TODAY);
   host: { class: 'page' },
 })
 export class LeaveComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly TYPE = LEAVE_TYPE;

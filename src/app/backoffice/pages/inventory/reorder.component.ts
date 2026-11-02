@@ -8,10 +8,11 @@ import { CONTROL_SYSTEM, stockList } from '../../data/inventory';
 import type { StockItem } from '../../data/inventory';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-reorder',
-  imports: [TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'รายการยาที่ต้องเติม'" [source]="'M06 · รายการที่คงเหลือถึงจุดสั่งเติม (is_low) · อ่านอย่างเดียว ไม่มีการรับทราบ มอบหมาย หรือปิดรายการ'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -36,7 +37,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (i of rows(); track i.drug.id) {
+              @for (i of pager.rows(); track i.drug.id) {
                 <tr tabindex="0" [class.selected]="i.drug.id === selectedId()" [attr.aria-selected]="i.drug.id === selectedId()" (click)="pick(i)" (keydown.enter)="pick(i)">
                   <td><b>{{ i.drug.name }}</b><div class="secondary">{{ i.drug.id }} · {{ i.location | tx }}</div></td>
                   <td class="num text-danger">{{ i.onHand ?? '—' }} {{ i.drug.unit | tx }}</td>
@@ -51,6 +52,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as i) {
@@ -73,6 +75,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class ReorderComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly CONTROL = CONTROL_SYSTEM;

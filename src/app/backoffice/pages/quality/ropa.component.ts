@@ -7,10 +7,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { ropaStale } from '../../data/governance';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-ropa',
-  imports: [TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, TxPipe, UiButton, PageHead],
   template: `
     <bo-page-head [heading]="'RoPA และการโอนข้อมูลข้ามประเทศ'" [source]="'GOV-RET-01 · M31 · บันทึกกิจกรรมการประมวลผลจาก ropa_record · สร้างเอกสารภายใน 5 นาที · การโอนข้ามประเทศจาก cross_border_assessment · สัญญาการออกแบบ (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="actions.generateRopa()">{{ 'สร้าง/ส่งออก RoPA' | tx }}</button>
@@ -30,7 +31,7 @@ import { PageHead } from '../../shared/parts';
             <th scope="col" class="w-due">{{ 'ทบทวนล่าสุด' | tx }}</th>
           </tr></thead>
           <tbody>
-            @for (r of ropa(); track r.id) {
+            @for (r of pager.rows(); track r.id) {
               <tr class="static">
                 <td><b>{{ r.activity | tx }}</b><div class="secondary">{{ r.id }} · {{ r.purpose | tx }} · {{ 'ฐาน: {b}' | tx: { b: (r.basis | tx) } }}</div></td>
                 <td>{{ r.dataKinds | tx }}<div class="secondary">{{ r.subjects | tx }}</div></td>
@@ -42,6 +43,7 @@ import { PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
     </div>
 
     <div class="panel">
@@ -73,6 +75,8 @@ import { PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class RopaComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.ropa());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly stale = ropaStale;

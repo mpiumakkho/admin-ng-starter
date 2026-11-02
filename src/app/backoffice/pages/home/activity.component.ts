@@ -5,10 +5,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { MODULES, type ActivityEntry, type Module } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-activity',
-  imports: [TxPipe, PageHead, ModuleTag, Drawer],
+  imports: [PagerFoot, TxPipe, PageHead, ModuleTag, Drawer],
   template: `
     <bo-page-head [heading]="'กิจกรรมล่าสุด'" [source]="'จากบันทึกตรวจสอบของ BackOffice ตามสิทธิ์ · อ่านอย่างเดียว ไม่ส่งออก'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -37,7 +38,7 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (e of rows(); track e.id) {
+              @for (e of pager.rows(); track e.id) {
                 <tr [class.selected]="e.id === selected()?.id" (click)="pick(e)" tabindex="0" (keydown.enter)="pick(e)" [attr.aria-selected]="e.id === selected()?.id">
                   <td class="num">{{ e.at }}</td>
                   <td>{{ e.by | tx }}</td>
@@ -51,6 +52,7 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as e) {
@@ -73,6 +75,8 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class ActivityComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly modules = MODULES;
   protected readonly moduleKeys = Object.keys(MODULES) as Module[];

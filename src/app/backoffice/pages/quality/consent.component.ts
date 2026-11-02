@@ -10,12 +10,13 @@ import { CONSENT_PURPOSE, CONSENT_STATUS, CONSENT_VERSION, consentLedger, covera
 import type { ConsentGrant, ConsentPurpose } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const CHANNELS = ['แบบฟอร์มที่โรงพยาบาล', 'LINE', 'อีเมล'];
 
 @Component({
   selector: 'bo-consent',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'ทะเบียนความยินยอม'" [source]="'GOV-CNS-01 · M31 · consent_grant ต่อเจ้าของและวัตถุประสงค์ · ความยินยอมของ LINE อ่านจาก LINE CRM (M15) · แก้แบบฟอร์มที่ settings/10 · สัญญาการออกแบบ (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="recording.set(true)"><ng-icon [svg]="plus" aria-hidden="true" />{{ 'บันทึกความยินยอม' | tx }}</button>
@@ -75,7 +76,7 @@ const CHANNELS = ['แบบฟอร์มที่โรงพยาบาล'
               <th scope="col" class="w-send"><span class="visually-hidden">{{ 'การดำเนินการ' | tx }}</span></th>
             </tr></thead>
             <tbody>
-              @for (g of rows(); track g.id) {
+              @for (g of pager.rows(); track g.id) {
                 <tr class="static">
                   <td><b>{{ g.ownerKey }}</b><div class="secondary">{{ g.channel | tx }}</div></td>
                   <td>{{ PURPOSE[g.purpose].label | tx }}</td>
@@ -90,6 +91,7 @@ const CHANNELS = ['แบบฟอร์มที่โรงพยาบาล'
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (recording()) {
@@ -130,6 +132,8 @@ const CHANNELS = ['แบบฟอร์มที่โรงพยาบาล'
   host: { class: 'page' },
 })
 export class ConsentComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

@@ -8,10 +8,11 @@ import { accessLog, type AuditQuery, queryEvents, queryProblem, RANGE_DAYS, RELA
 import type { AuditEvent } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-audit-explorer',
-  imports: [RouterLink, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'ค้นประวัติ Audit'" [source]="'GOV-AUD-01 · M13 · GET /audit/v1/events · ค้นได้ 3 รูปแบบตาม index · เหตุการณ์แก้หรือลบไม่ได้ · ระดับความเสี่ยงจาก backend · ไม่มีคอลัมน์ IP'" [freshness]="'นำเข้าล่าสุด {at}' | tx: { at: relay.lastIngest }" />
     <p class="notice info">{{ 'ข้อมูล audit อาจยังไม่ครบ (อยู่ระหว่างนำเข้า) · relay ล่าช้าประมาณ {n} นาที' | tx: { n: relay.lagMinutes } }}</p>
@@ -62,7 +63,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               <th scope="col" class="w-kind">{{ 'ระดับความเสี่ยง' | tx }}</th>
             </tr></thead>
             <tbody>
-              @for (e of rows(); track e.id) {
+              @for (e of pager.rows(); track e.id) {
                 <tr tabindex="0" [class.selected]="e.id === selectedId()" [attr.aria-selected]="e.id === selectedId()" (click)="pick(e.id)" (keydown.enter)="pick(e.id)">
                   <td class="num">{{ e.occurredAt }}</td>
                   <td>{{ e.actor | tx }}<div class="secondary">{{ e.actorRole }}</div></td>
@@ -77,6 +78,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as e) {
@@ -104,6 +106,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class AuditExplorerComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly SHAPE = SHAPE;
   protected readonly RISK = RISK;

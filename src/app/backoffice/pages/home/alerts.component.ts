@@ -11,10 +11,11 @@ import { EXCEPTION_KIND, exceptionGroups, SEVERITY, severityCounts } from '../..
 import type { BoException, Severity } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { ModuleTag, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-alerts',
-  imports: [RouterLink, NgIcon, TxPipe, UiButton, PageHead, ModuleTag],
+  imports: [PagerFoot, RouterLink, NgIcon, TxPipe, UiButton, PageHead, ModuleTag],
   template: `
     <bo-page-head [heading]="'การแจ้งเตือนและข้อยกเว้น'" [source]="'การชำระ/ส่งออกไม่สำเร็จ สต็อกต่ำ ใกล้หมดอายุ ใบอนุญาต อุปกรณ์เสีย และความเสี่ยง SLA · รับทราบที่นี่ แก้ไขที่โมดูลเจ้าของ'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -79,7 +80,7 @@ import { ModuleTag, PageHead } from '../../shared/parts';
                 </tr>
               </thead>
               <tbody>
-                @for (x of acknowledged(); track x.id) {
+                @for (x of pager.rows(); track x.id) {
                   <tr class="static">
                     <td><span class="chip" [class]="'chip ' + SEVERITY[x.severity].cls">{{ SEVERITY[x.severity].label | tx }}</span></td>
                     <td><b>{{ x.title | tx }}</b><div class="secondary">{{ EXCEPTION_KIND[x.kind] | tx }} · {{ x.ref }}</div></td>
@@ -90,6 +91,7 @@ import { ModuleTag, PageHead } from '../../shared/parts';
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </details>
       }
     </div>
@@ -97,6 +99,8 @@ import { ModuleTag, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class AlertsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.acknowledged());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly SEVERITY = SEVERITY;

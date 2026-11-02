@@ -12,6 +12,7 @@ import {
 import type { Complaint, ComplaintCategory, ComplaintChannel } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 type View = 'open' | 'all' | 'resolved';
 const BLANK: ComplaintInput = { channel: 'line', ownerKey: '', pet: '', anonymous: false, category: 'operational', topic: '', subject: '', description: '' };
@@ -19,7 +20,7 @@ const RANK: Record<string, number> = { breached: 0, 'due-soon': 1, triage: 2, 'o
 
 @Component({
   selector: 'bo-complaints',
-  imports: [RouterLink, TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead],
   template: `
     @let c = counts();
     <bo-page-head [heading]="'ข้อร้องเรียนทั้งหมด'" [source]="'M28 P2 · TAHSA-13 · รับทุกช่องทาง · คัดกรองภายใน 4 ชม. · ตอบกลับ รุนแรง 24 ชม. ปานกลาง 72 ชม. ต่ำ 7 วัน · ข้อร้องเรียนรุนแรงผู้อำนวยการลงนาม · ต้นแบบก่อนสัญญาหน้าของ M28 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
@@ -62,7 +63,7 @@ const RANK: Record<string, number> = { breached: 0, 'due-soon': 1, triage: 2, 'o
                 </tr>
               </thead>
               <tbody>
-                @for (x of rows(); track x.id) {
+                @for (x of pager.rows(); track x.id) {
                   @let sla = slaOf(x);
                   <tr tabindex="0" [class.selected]="x.id === selectedId()" [attr.aria-selected]="x.id === selectedId()" (click)="pick(x.id)" (keydown.enter)="pick(x.id)">
                     <td><b>{{ x.id }}</b><div class="secondary">{{ x.receivedAt }}</div></td>
@@ -80,6 +81,7 @@ const RANK: Record<string, number> = { breached: 0, 'due-soon': 1, triage: 2, 'o
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
       </div>
 
@@ -169,6 +171,8 @@ const RANK: Record<string, number> = { breached: 0, 'due-soon': 1, triage: 2, 'o
   host: { class: 'page' },
 })
 export class ComplaintsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly CHANNEL = CHANNEL;

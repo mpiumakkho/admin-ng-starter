@@ -14,6 +14,7 @@ import {
 import type { Criticality, Equipment, EquipmentClass } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const STATUSES: Equipment['status'][] = ['in-service', 'down', 'decommissioned'];
 const BLANK: EquipmentInput = {
@@ -22,7 +23,7 @@ const BLANK: EquipmentInput = {
 
 @Component({
   selector: 'bo-equipment-registry',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'ทะเบียนอุปกรณ์'" [source]="'M22 P2 · ทะเบียนอุปกรณ์การแพทย์ตาม TAHSA-11 · ผูกเตียงกับผังเตียง M10 · ต้นทุนเป็นข้อมูลการดำเนินงาน ไม่ใช่ทะเบียนสินทรัพย์ทางบัญชี · ต้นแบบก่อนสัญญาหน้าของ M22 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="openCreate()"><ng-icon [svg]="plus" aria-hidden="true" />{{ 'ขึ้นทะเบียนอุปกรณ์' | tx }}</button>
@@ -59,7 +60,7 @@ const BLANK: EquipmentInput = {
               </tr>
             </thead>
             <tbody>
-              @for (e of rows(); track e.id) {
+              @for (e of pager.rows(); track e.id) {
                 @let r = ready(e);
                 @let pm = pmOf(e);
                 @let cal = calOf(e);
@@ -80,6 +81,7 @@ const BLANK: EquipmentInput = {
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (creating()) {
@@ -148,6 +150,8 @@ const BLANK: EquipmentInput = {
   host: { class: 'page' },
 })
 export class RegistryComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

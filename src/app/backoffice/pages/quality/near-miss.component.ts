@@ -14,13 +14,14 @@ import {
 import type { NearMiss } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 type View = 'open' | 'all';
 const BLANK: NearMissInput = { at: `${TODAY}T${NOW}`, category: '', location: '', description: '', caughtAt: '', caughtBy: '', anonymous: false };
 
 @Component({
   selector: 'bo-near-miss',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'เหตุเกือบพลาด'" [source]="'M12 P2 · ความผิดพลาดที่จับได้ก่อนถึงตัวผู้ป่วย · ทุกรายการต้องมีมาตรการป้องกัน · ยกระดับเป็นอุบัติการณ์ได้เมื่อพบว่าถึงตัวผู้ป่วยหรือเกิดซ้ำ · ต้นแบบก่อนสัญญาหน้าของ M12 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="startRecord()"><ng-icon [svg]="plus" aria-hidden="true" />{{ 'บันทึกเหตุเกือบพลาด' | tx }}</button>
@@ -52,7 +53,7 @@ const BLANK: NearMissInput = { at: `${TODAY}T${NOW}`, category: '', location: ''
               </tr>
             </thead>
             <tbody>
-              @for (n of rows(); track n.id) {
+              @for (n of pager.rows(); track n.id) {
                 <tr tabindex="0" [class.selected]="n.id === selectedId()" [attr.aria-selected]="n.id === selectedId()" (click)="pick(n.id)" (keydown.enter)="pick(n.id)">
                   <td><b>{{ n.id }}</b><div class="secondary">{{ n.at }}</div></td>
                   <td>{{ n.description | tx }}<div class="secondary">{{ CATEGORY[n.category] | tx }} · {{ n.location | tx }}</div></td>
@@ -66,6 +67,7 @@ const BLANK: NearMissInput = { at: `${TODAY}T${NOW}`, category: '', location: ''
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (recording()) {
@@ -134,6 +136,8 @@ const BLANK: NearMissInput = { at: `${TODAY}T${NOW}`, category: '', location: ''
   host: { class: 'page' },
 })
 export class NearMissComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

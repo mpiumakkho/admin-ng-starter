@@ -7,10 +7,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { ledger, PAYMENT_METHODS, PAYMENT_STATUS } from '../../data/finance';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-payments',
-  imports: [TxPipe, PageHead],
+  imports: [PagerFoot, TxPipe, PageHead],
   template: `
     <bo-page-head [heading]="'รายการชำระเงิน'" [source]="'M11 · การรับชำระและการคืนเงินข้ามทุกใบแจ้งหนี้ · รับชำระทำที่ใบแจ้งหนี้'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -53,7 +54,7 @@ import { PageHead } from '../../shared/parts';
             </tr>
           </thead>
           <tbody>
-            @for (r of rows(); track r.id) {
+            @for (r of pager.rows(); track r.id) {
               <tr tabindex="0" (click)="actions.openInvoice(r.invoice)" (keydown.enter)="actions.openInvoice(r.invoice)">
                 <td class="num">{{ r.at }}</td>
                 <td><b>{{ r.invoice.no }}</b><div class="secondary">{{ r.id }}</div></td>
@@ -73,11 +74,14 @@ import { PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
     </div>
   `,
   host: { class: 'page' },
 })
 export class PaymentsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly baht = baht;

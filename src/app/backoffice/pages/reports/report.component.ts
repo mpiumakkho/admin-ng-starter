@@ -8,11 +8,12 @@ import { BackofficeStore } from '../../backoffice.store';
 import { SEVERITY } from '../../data/home';
 import { CUTOFF, PERIODS, type Bar, report, type ReportKey } from '../../data/reports';
 import { TxPipe } from '../../i18n/bo-i18n';
+import { Pager, PagerFoot } from '../../shared/pager';
 import { ModuleTag, PageHead } from '../../shared/parts';
 
 @Component({
   selector: 'bo-report',
-  imports: [RouterLink, TxPipe, PageHead, ModuleTag],
+  imports: [PagerFoot, RouterLink, TxPipe, PageHead, ModuleTag],
   template: `
     @let r = view();
     <bo-page-head [heading]="r.title" [source]="r.source" [freshness]="'ตัดข้อมูล {at}' | tx: { at: cutoff }">
@@ -65,7 +66,7 @@ import { ModuleTag, PageHead } from '../../shared/parts';
             <th scope="col">{{ 'รายการ' | tx }}</th>
           </tr></thead>
           <tbody>
-            @for (x of r.rows; track $index) {
+            @for (x of pager.rows(); track $index) {
               <tr class="static">
                 <td><span class="chip" [class]="'chip ' + SEVERITY[x.severity].cls">{{ SEVERITY[x.severity].label | tx }}</span></td>
                 <td><bo-module [code]="x.module" /></td>
@@ -78,6 +79,7 @@ import { ModuleTag, PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
     </div>
 
     <details class="panel metric-contracts">
@@ -117,6 +119,8 @@ export class ReportComponent {
   private readonly key = toSignal(inject(ActivatedRoute).data.pipe(map(d => d['report'] as ReportKey)), { initialValue: 'executive' as ReportKey });
   protected readonly days = signal(30);
   protected readonly view = computed(() => report(this.key(), this.store.clinic.data(), this.store.data(), this.days()));
+  /** The ranked rows' pages */
+  protected readonly pager = new Pager(() => this.view().rows);
 
   protected max(list: Bar[]) {
     return Math.max(0, ...list.map(b => b.value));

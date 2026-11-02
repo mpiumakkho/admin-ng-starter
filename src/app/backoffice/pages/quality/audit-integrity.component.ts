@@ -8,10 +8,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { integrity, integrityCounts } from '../../data/governance';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-audit-integrity',
-  imports: [RouterLink, TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead],
   template: `
     @let c = counts();
     <bo-page-head [heading]="'ความถูกต้องและการเก็บ Audit'" [source]="'GOV-AUD-03 · M13 · event_hash ต่อเหตุการณ์ตรวจโดย server · การตรวจแบบลูกโซ่ (prev_hash) และการเก็บ 7 ปีแบ่งรายเดือนเป็น P3 · บันทึกแก้ ลบ หรือซ่อมไม่ได้'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
@@ -37,7 +38,7 @@ import { PageHead } from '../../shared/parts';
             <th scope="col" class="w-actions">{{ 'finding' }}</th>
           </tr></thead>
           <tbody>
-            @for (p of rows(); track p.period) {
+            @for (p of pager.rows(); track p.period) {
               <tr class="static">
                 <td><b>{{ p.period }}</b></td>
                 <td class="num">{{ p.events }}</td>
@@ -57,6 +58,7 @@ import { PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
       <p class="secondary foot-note">{{ 'hash ที่ไม่ตรงเปิดเป็น finding ให้ Security owner สอบสวน ไม่มีการแก้อัตโนมัติ' | tx }} <a class="link" routerLink="/backoffice/quality/audit">{{ 'เปิดใน Audit Explorer' | tx }}</a></p>
     </div>
 
@@ -68,6 +70,8 @@ import { PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class AuditIntegrityComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly rows = computed(() => integrity(this.store.data()));

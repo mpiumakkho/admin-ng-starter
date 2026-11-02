@@ -8,12 +8,13 @@ import { KPI_DOMAIN, kpiNow, kpiSeries, onTarget } from '../../data/quality';
 import type { KpiDefinition } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 type Domain = KpiDefinition['domain'];
 
 @Component({
   selector: 'bo-kpi-library',
-  imports: [TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'คลังตัวชี้วัดคุณภาพ'" [source]="'M12 P2 · kpi_definition และ kpi_snapshot รายเดือน · ตัวที่คำนวณตอนนี้อ่านจากโมดูลต้นทาง · ค่าเทียบมาตรฐานเป็นตัวอย่างจนกว่าจะได้เกณฑ์ TAHSA/AAHA ฉบับจริง · ต้นแบบก่อนสัญญาหน้าของ M12 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -38,7 +39,7 @@ type Domain = KpiDefinition['domain'];
               </tr>
             </thead>
             <tbody>
-              @for (r of rows(); track r.def.id) {
+              @for (r of pager.rows(); track r.def.id) {
                 <tr tabindex="0" [class.selected]="r.def.id === selectedId()" [attr.aria-selected]="r.def.id === selectedId()" (click)="pick(r.def.id)" (keydown.enter)="pick(r.def.id)">
                   <td><b>{{ r.def.name | tx }}</b><div class="secondary">{{ r.def.id }} · {{ DOMAIN[r.def.domain] | tx }} · {{ r.def.unit | tx }}@if (r.now.live) { · {{ 'คำนวณตอนนี้' | tx }}}</div></td>
                   <td class="num"><b [class.text-danger]="!r.now.met">{{ r.now.value }}</b>
@@ -51,6 +52,7 @@ type Domain = KpiDefinition['domain'];
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as k) {
@@ -92,6 +94,8 @@ type Domain = KpiDefinition['domain'];
   host: { class: 'page' },
 })
 export class KpiComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly DOMAIN = KPI_DOMAIN;

@@ -13,6 +13,7 @@ import { daysUntil } from '../../data/home';
 import type { ContractKind, ServiceContract } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const STRIP: ContractState[] = ['expired', 'd30', 'd60', 'd90', 'active'];
 /** The work a contract covers, as the pages name it */
@@ -22,7 +23,7 @@ const BLANK: ContractInput = { vendor: '', contact: '', kind: 'repair', from: TO
 
 @Component({
   selector: 'bo-contracts',
-  imports: [RouterLink, NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     @let c = counts();
     <bo-page-head [heading]="'สัญญาบริการอุปกรณ์'" [source]="'M22 P2 · ผู้ให้บริการ ขอบเขต และวันหมดอายุ 30/60/90 วัน · อุปกรณ์ critical ต้องมีสัญญาซ่อมที่มีผล · ค่าบริการเป็นข้อมูลติดตาม ไม่ใช่การตั้งหนี้ · ต้นแบบก่อนสัญญาหน้าของ M22 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
@@ -58,7 +59,7 @@ const BLANK: ContractInput = { vendor: '', contact: '', kind: 'repair', from: TO
               </tr>
             </thead>
             <tbody>
-              @for (k of rows(); track k.id) {
+              @for (k of pager.rows(); track k.id) {
                 <tr tabindex="0" [class.selected]="k.id === selectedId()" [attr.aria-selected]="k.id === selectedId()" (click)="pick(k.id)" (keydown.enter)="pick(k.id)">
                   <td><b>{{ k.id }}</b></td>
                   <td>{{ k.vendor | tx }}<div class="secondary">{{ k.contact | tx }}</div></td>
@@ -74,6 +75,7 @@ const BLANK: ContractInput = { vendor: '', contact: '', kind: 'repair', from: TO
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (creating()) {
@@ -146,6 +148,8 @@ const BLANK: ContractInput = { vendor: '', contact: '', kind: 'repair', from: TO
   host: { class: 'page' },
 })
 export class ContractsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

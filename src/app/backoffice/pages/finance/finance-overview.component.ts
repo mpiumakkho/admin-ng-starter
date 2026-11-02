@@ -8,10 +8,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { financeOverview, receivables, reconcile } from '../../data/finance';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-finance-overview',
-  imports: [RouterLink, TxPipe, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, PageHead],
   template: `
     @let o = overview();
     <bo-page-head [heading]="'ภาพรวมการเงิน'" [source]="'รวมจาก M11 ตามสิทธิ์ · ทุกตัวเลขมีที่มาและเปิดไปหน้าต้นทางได้ · ไม่แก้ไขที่หน้านี้'" [freshness]="'ตัดยอด ณ วันนี้ 11:32'" />
@@ -58,7 +59,7 @@ import { PageHead } from '../../shared/parts';
             </tr>
           </thead>
           <tbody>
-            @for (v of rows(); track v.reference + v.kind) {
+            @for (v of pager.rows(); track v.reference + v.kind) {
               <tr class="static">
                 <td>{{ v.kind | tx }}</td>
                 <td><b>{{ v.reference }}</b>@if (v.invoice) {<div class="secondary">{{ v.invoice.ownerKey }} · {{ v.invoice.pet }}</div>}</td>
@@ -73,11 +74,14 @@ import { PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
     </div>
   `,
   host: { class: 'page' },
 })
 export class FinanceOverviewComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly baht = baht;
   protected readonly overview = computed(() => financeOverview(this.store.clinic.data(), this.store.data()));

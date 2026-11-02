@@ -9,12 +9,13 @@ import type { OutboxItem } from '../../data/sales';
 import type { MessageKind } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const KINDS = Object.keys(MESSAGE_KIND) as MessageKind[];
 
 @Component({
   selector: 'bo-line-crm',
-  imports: [TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, TxPipe, UiButton, PageHead],
   template: `
     @let s = summary();
     <bo-page-head [heading]="'LINE CRM'" [source]="'M15 · ข้อความบริการผ่าน LINE OA · ส่งได้เฉพาะเจ้าของที่เชื่อม LINE และให้ความยินยอมตามวัตถุประสงค์ (M31) · แคมเปญและแต้มสะสมเป็น P2'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
@@ -52,7 +53,7 @@ const KINDS = Object.keys(MESSAGE_KIND) as MessageKind[];
                 </tr>
               </thead>
               <tbody>
-                @for (i of rows(); track i.key) {
+                @for (i of pager.rows(); track i.key) {
                   <tr class="static" [class.blocked]="i.block">
                     <td><span class="chip" [class]="'chip ' + KIND[i.kind].cls">{{ KIND[i.kind].label | tx }}</span></td>
                     <td><b>{{ i.ownerKey }}</b><div class="secondary">{{ i.pet }}</div></td>
@@ -69,6 +70,7 @@ const KINDS = Object.keys(MESSAGE_KIND) as MessageKind[];
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
 
         <div class="panel">
@@ -132,6 +134,8 @@ const KINDS = Object.keys(MESSAGE_KIND) as MessageKind[];
   host: { class: 'page' },
 })
 export class LineCrmComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly KIND = MESSAGE_KIND;

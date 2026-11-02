@@ -11,12 +11,13 @@ import { dimensionChange, MM_OUTCOME, mmBlock, mmProblems, type MmInput, respons
 import type { MmReview } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const BLANK: MmInput = { pet: '', outcome: 'complication', eventDate: TODAY, summary: '', presenter: '', reviewDate: TODAY, incidentId: '' };
 
 @Component({
   selector: 'bo-safety-culture',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'วัฒนธรรมความปลอดภัยและ M&M'" [source]="'M12 P2 · safety_culture_survey ทั้งโรงพยาบาล ร้อยละคำตอบเชิงบวกต่อมิติ · ทบทวนการเสียชีวิตและภาวะแทรกซ้อน · รายละเอียดแบบสำรวจรอสัญญาของ M12 · ต้นแบบก่อนสัญญาหน้าของ M12 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="startMm()"><ng-icon [svg]="plus" aria-hidden="true" />{{ 'นัดทบทวน M&M' | tx }}</button>
@@ -75,7 +76,7 @@ const BLANK: MmInput = { pet: '', outcome: 'complication', eventDate: TODAY, sum
                 <th scope="col" class="w-status">{{ 'สถานะ' | tx }}</th>
               </tr></thead>
               <tbody>
-                @for (m of mm(); track m.id) {
+                @for (m of pager.rows(); track m.id) {
                   <tr tabindex="0" [class.selected]="m.id === selectedId()" [attr.aria-selected]="m.id === selectedId()" (click)="pick(m.id)" (keydown.enter)="pick(m.id)">
                     <td><b>{{ m.id }}</b><div class="secondary">{{ m.eventDate }}</div></td>
                     <td><b>{{ m.pet }}</b> · {{ m.summary | tx }}<div class="secondary">{{ 'ผู้นำเสนอ {who}' | tx: { who: (m.presenter | tx) } }}@if (m.incidentId) { · {{ m.incidentId }}}</div></td>
@@ -87,6 +88,7 @@ const BLANK: MmInput = { pet: '', outcome: 'complication', eventDate: TODAY, sum
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
       </div>
 
@@ -137,6 +139,8 @@ const BLANK: MmInput = { pet: '', outcome: 'complication', eventDate: TODAY, sum
   host: { class: 'page' },
 })
 export class CultureComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.mm());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

@@ -12,10 +12,11 @@ import {
 import type { Complaint } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-investigation',
-  imports: [RouterLink, TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead],
   template: `
     <bo-page-head [heading]="'การสอบสวนข้อร้องเรียน'" [source]="'M28 P2 · สอบสวนเป็นขั้นตอนพร้อมบันทึกตรวจสอบ · เชื่อม RCA ของ M12 · ข้อร้องเรียนรุนแรงผู้อำนวยการลงนามคำตอบ ผู้ร่างลงนามเองไม่ได้ · ต้นแบบก่อนสัญญาหน้าของ M28 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -35,7 +36,7 @@ import { PageHead } from '../../shared/parts';
                 </tr>
               </thead>
               <tbody>
-                @for (x of rows(); track x.id) {
+                @for (x of pager.rows(); track x.id) {
                   @let sla = slaOf(x);
                   <tr tabindex="0" [class.selected]="x.id === selected()?.id" [attr.aria-selected]="x.id === selected()?.id" (click)="picked.set(x.id)" (keydown.enter)="picked.set(x.id)">
                     <td><b>{{ x.id }}</b><div class="secondary">{{ x.handler | tx }}</div></td>
@@ -50,6 +51,7 @@ import { PageHead } from '../../shared/parts';
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
       </div>
 
@@ -117,6 +119,8 @@ import { PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class InvestigationComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly CHANNEL = CHANNEL;

@@ -10,10 +10,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { reconcile, type Variance } from '../../data/finance';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-reconciliation',
-  imports: [RouterLink, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead, Drawer],
   template: `
     @let day = result();
     <bo-page-head [heading]="'กระทบยอดประจำวัน'" [source]="'M11 · ใบแจ้งหนี้ การรับชำระ การคืนเงิน และการส่งบัญชีของวันทำการ · ไม่ใช่การกระทบยอดธนาคารหรือปิดงวด'" [freshness]="'ตัดยอดสิ้นวันทำการ'">
@@ -57,7 +58,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (v of rows(); track v.kind + v.reference) {
+              @for (v of pager.rows(); track v.kind + v.reference) {
                 <tr [class.selected]="v === selected()" tabindex="0" (click)="pick(v)" (keydown.enter)="pick(v)" [attr.aria-selected]="v === selected()">
                   <td>{{ v.kind | tx }}</td>
                   <td><b>{{ v.reference }}</b>@if (v.invoice) {<div class="secondary">{{ v.invoice.ownerKey }}</div>}</td>
@@ -73,6 +74,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as v) {
@@ -96,6 +98,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class ReconciliationComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly baht = baht;

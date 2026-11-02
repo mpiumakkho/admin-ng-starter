@@ -9,10 +9,11 @@ import { CONTROL_SYSTEM, daysLeft, EXPIRY_BUCKETS, expiryBucket, locationsOf, mo
 import type { ReceiptInput } from '../../data/inventory';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-receipts',
-  imports: [TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, TxPipe, UiButton, PageHead],
   template: `
     <bo-page-head [heading]="'รับยาเข้าคลัง'" [source]="'M06 · รับได้เฉพาะยาในทะเบียน · การบันทึกเพิ่มคงเหลือเมื่อระบบยืนยัน · ไม่มีใบสั่งซื้อหรือ supplier master ในหน้านี้ (procurement reserved)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -62,7 +63,7 @@ import { PageHead } from '../../shared/parts';
                 </tr>
               </thead>
               <tbody>
-                @for (r of receipts(); track r.id) {
+                @for (r of pager.rows(); track r.id) {
                   <tr tabindex="0" (click)="actions.openItem(r.drug)" (keydown.enter)="actions.openItem(r.drug)">
                     <td class="num">{{ r.at }}</td>
                     <td><b>{{ r.drug }}</b><div class="secondary">{{ r.id }}@if (r.sourceRef) { · {{ r.sourceRef }}}</div></td>
@@ -79,6 +80,7 @@ import { PageHead } from '../../shared/parts';
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
       </div>
 
@@ -116,6 +118,8 @@ import { PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class ReceiptsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.receipts());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   private readonly route = inject(ActivatedRoute);

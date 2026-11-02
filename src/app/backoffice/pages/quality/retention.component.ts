@@ -5,10 +5,11 @@ import { RouterLink } from '@angular/router';
 import { BackofficeStore } from '../../backoffice.store';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-retention',
-  imports: [RouterLink, TxPipe, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, PageHead],
   template: `
     <bo-page-head [heading]="'นโยบายการเก็บรักษาข้อมูล'" [source]="'GOV-RET-01 · M31 · สถานะการเก็บต่อชุดข้อมูล (อ่านอย่างเดียว) · นโยบายตั้งที่ settings/11 · auto-purge เป็นงานของ backend · สัญญาการออกแบบ (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
     <p class="notice warn">{{ 'การบังคับนโยบายการเก็บยังไม่เปิดใช้งาน: ข้อมูลที่เกินระยะเก็บยังไม่ถูกลบอัตโนมัติ ตัวเลขด้านล่างเป็นข้อมูลตัวอย่าง' | tx }}</p>
@@ -31,7 +32,7 @@ import { PageHead } from '../../shared/parts';
             <th scope="col" class="w-status">{{ 'สถานะการลบ' | tx }}</th>
           </tr></thead>
           <tbody>
-            @for (d of rows(); track d.id) {
+            @for (d of pager.rows(); track d.id) {
               <tr class="static">
                 <td><b>{{ d.dataset | tx }}</b><div class="secondary">{{ d.module | tx }}@if (d.hold) { · <span class="text-danger">{{ 'ระงับการลบ: {why}' | tx: { why: (d.hold | tx) } }}</span>}</div></td>
                 <td>{{ d.policy | tx }}</td>
@@ -44,12 +45,15 @@ import { PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
       <p class="secondary foot-note">{{ 'แก้นโยบายที่ ตั้งค่าระบบ > นโยบายการเก็บรักษา (settings/11) · บันทึกตรวจสอบเก็บ 7 ปีตามกฎหมาย ดูที่' | tx }} <a class="link" routerLink="/backoffice/quality/audit-integrity">{{ 'ตรวจความถูกต้อง Audit' | tx }}</a></p>
     </div>
   `,
   host: { class: 'page' },
 })
 export class RetentionComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly rows = computed(() => this.store.data().retention);
   protected readonly past = computed(() => this.rows().reduce((n, d) => n + d.pastWindow, 0));

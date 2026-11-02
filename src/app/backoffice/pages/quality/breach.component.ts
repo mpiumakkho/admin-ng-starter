@@ -13,12 +13,13 @@ import { hoursLeft } from '../../data/quality';
 import type { Breach } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const BLANK: BreachInput = { title: '', discoveredAt: `${TODAY}T${NOW}`, source: '', description: '', count: '', kinds: '' };
 
 @Component({
   selector: 'bo-breach',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'เหตุละเมิดข้อมูล'" [source]="'GOV-BRC-01 · M31 · แจ้ง สคส. ภายใน 72 ชม. นับจากพบเหตุ (เส้นตายจาก backend) · ระดับความรุนแรงกำหนดว่าต้องแจ้งใคร · สัญญาการออกแบบ (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="reporting.set(true)"><ng-icon [svg]="plus" aria-hidden="true" />{{ 'บันทึกเหตุใหม่' | tx }}</button>
@@ -48,7 +49,7 @@ const BLANK: BreachInput = { title: '', discoveredAt: `${TODAY}T${NOW}`, source:
               <th scope="col" class="w-kind">{{ 'แจ้ง สคส. แล้ว' | tx }}</th>
             </tr></thead>
             <tbody>
-              @for (b of rows(); track b.id) {
+              @for (b of pager.rows(); track b.id) {
                 @let f = flag(b);
                 <tr tabindex="0" (click)="open$(b)" (keydown.enter)="open$(b)">
                   <td><b>{{ b.id }}</b><div class="secondary">{{ b.discoveredAt }}</div></td>
@@ -64,6 +65,7 @@ const BLANK: BreachInput = { title: '', discoveredAt: `${TODAY}T${NOW}`, source:
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (reporting()) {
@@ -89,6 +91,8 @@ const BLANK: BreachInput = { title: '', discoveredAt: `${TODAY}T${NOW}`, source:
   host: { class: 'page' },
 })
 export class BreachComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   private readonly actions = inject(BackofficeActions);
   private readonly router = inject(Router);

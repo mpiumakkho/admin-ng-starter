@@ -8,12 +8,13 @@ import { EXPORT_PURPOSES, EXPORT_STATUS, exportDecideBlock, exportProblems, type
 import type { AuditExport } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const BLANK: ExportInput = { shape: 'patient', value: '', days: 30, purpose: '', reference: '' };
 
 @Component({
   selector: 'bo-audit-exports',
-  imports: [TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, TxPipe, UiButton, PageHead],
   template: `
     <bo-page-head [heading]="'คำขอส่งออก Audit'" [source]="'GOV-AUD-02 · M13 · GET /audit/v1/events/export พร้อม purpose และ approval_id · การดูไม่ใช่การส่งออก · ผู้ขออนุมัติตัวเองไม่ได้ · ทุกการส่งออกบันทึก audit.export.performed'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
     <p class="notice warn">{{ 'การส่งออกต้องมีวัตถุประสงค์และการอนุมัติก่อน · backend ยังไม่บังคับ purpose/approval_id จึงยังไม่พร้อมใช้งานจริง' | tx }}</p>
@@ -32,7 +33,7 @@ const BLANK: ExportInput = { shape: 'patient', value: '', days: 30, purpose: '',
                 <th scope="col" class="w-owner">{{ 'ไฟล์ / หมดอายุ' | tx }}</th>
               </tr></thead>
               <tbody>
-                @for (x of rows(); track x.id) {
+                @for (x of pager.rows(); track x.id) {
                   <tr tabindex="0" [class.selected]="x.id === selectedId()" [attr.aria-selected]="x.id === selectedId()" (click)="pick(x.id)" (keydown.enter)="pick(x.id)">
                     <td><b>{{ x.id }}</b><div class="secondary">{{ x.requestedAt }}</div></td>
                     <td>{{ SHAPE[x.shape] | tx }}@if (x.value) { · {{ x.value | tx }}}<div class="secondary">{{ x.from }} → {{ x.to }} · {{ x.requestedBy | tx }}</div></td>
@@ -44,6 +45,7 @@ const BLANK: ExportInput = { shape: 'patient', value: '', days: 30, purpose: '',
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
       </div>
 
@@ -107,6 +109,8 @@ const BLANK: ExportInput = { shape: 'patient', value: '', days: 30, purpose: '',
   host: { class: 'page' },
 })
 export class AuditExportsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly SHAPE = SHAPE;

@@ -7,10 +7,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { AGING, type AgingKey, INVOICE_STATUS, receivables, statusOf } from '../../data/finance';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-receivables',
-  imports: [TxPipe, PageHead],
+  imports: [PagerFoot, TxPipe, PageHead],
   template: `
     <bo-page-head [heading]="'ลูกหนี้คงค้าง'" [source]="'M11 · ใบแจ้งหนี้ที่ออกแล้วและยังชำระไม่ครบ · อายุหนี้นับจากวันครบกำหนดของแต่ละใบ'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -42,7 +43,7 @@ import { PageHead } from '../../shared/parts';
             </tr>
           </thead>
           <tbody>
-            @for (r of rows(); track r.invoice.id) {
+            @for (r of pager.rows(); track r.invoice.id) {
               <tr tabindex="0" (click)="actions.openInvoice(r.invoice)" (keydown.enter)="actions.openInvoice(r.invoice)">
                 <td><b>{{ r.invoice.no }}</b><div class="secondary">{{ STATUS[statusOf(r.invoice)].label | tx }}</div></td>
                 <td>{{ r.invoice.ownerKey }}<div class="secondary">{{ r.invoice.pet }} · {{ r.invoice.title | tx }}</div></td>
@@ -59,11 +60,14 @@ import { PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
     </div>
   `,
   host: { class: 'page' },
 })
 export class ReceivablesComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly baht = baht;

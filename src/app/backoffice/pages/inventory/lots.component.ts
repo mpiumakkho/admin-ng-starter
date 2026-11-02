@@ -9,10 +9,11 @@ import { allLots, EXPIRY_BUCKETS, expiryCounts, LOT_STATE } from '../../data/inv
 import type { ExpiryBucket, LotRow } from '../../data/inventory';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-lots',
-  imports: [RouterLink, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'Lot และวันหมดอายุ'" [source]="'M06 · lot ของทุกรายการยา เรียงตามวันหมดอายุ · ช่วงเตือน 30/60/90 วันนับถึงวันสุดท้ายของเดือนที่ระบุ · Read API ของ lot ยังไม่อนุมัติ (GATED) — ข้อมูลตัวอย่าง'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -45,7 +46,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (l of rows(); track l.lot) {
+              @for (l of pager.rows(); track l.lot) {
                 <tr tabindex="0" [class.selected]="l.lot === selectedLot()" [attr.aria-selected]="l.lot === selectedLot()" (click)="pick(l)" (keydown.enter)="pick(l)">
                   <td><b>{{ l.lot }}</b></td>
                   <td>{{ l.drug }}</td>
@@ -61,6 +62,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as l) {
@@ -83,6 +85,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class LotsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   private readonly route = inject(ActivatedRoute);

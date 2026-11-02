@@ -12,10 +12,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { CHARGE_ITEMS, EXPORT_STATUS, exportsOf, INVOICE_STATUS, invoiceList, lineTotal, statusOf } from '../../data/finance';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-invoices',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'ใบแจ้งหนี้'" [source]="'M11 · คิวรอเก็บเงินและประวัติใบแจ้งหนี้ของเจ้าของ สัตว์ และ visit'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="creating.set(!creating())"><ng-icon [svg]="icons.plus" aria-hidden="true" />{{ 'สร้างใบแจ้งหนี้' | tx }}</button>
@@ -57,7 +58,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (i of rows(); track i.id) {
+              @for (i of pager.rows(); track i.id) {
                 @let st = statusOf(i);
                 <tr tabindex="0" (click)="actions.openInvoice(i)" (keydown.enter)="actions.openInvoice(i)">
                   <td><b>{{ i.no || (('ฉบับร่าง' | tx) + ' ' + i.id) }}</b>@if (i.encounter) {<div class="secondary">{{ i.encounter }}</div>}</td>
@@ -77,6 +78,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       <!-- A new bill: for whom, for what, from the charge items; a draft until it is issued -->
@@ -129,6 +131,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class InvoicesComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   private readonly route = inject(ActivatedRoute);

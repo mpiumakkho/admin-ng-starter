@@ -10,10 +10,11 @@ import { DOC_TYPE, EXPORT_STATUS } from '../../data/finance';
 import type { AccountingExport } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-exports',
-  imports: [RouterLink, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'ส่งข้อมูลบัญชี'" [source]="'M11 · คิวส่งไป PEAK ชุดเดียวกับ Integration Center · สถานะส่งแล้วคือระบบบัญชีรับข้อมูล ไม่ใช่ e-Tax'" [freshness]="'รอบส่งล่าสุด 06:00'" />
 
@@ -49,7 +50,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (x of rows(); track x.id) {
+              @for (x of pager.rows(); track x.id) {
                 <tr [class.selected]="x.id === selected()?.id" tabindex="0" (click)="pick(x)" (keydown.enter)="pick(x)" [attr.aria-selected]="x.id === selected()?.id">
                   <td><b>{{ x.id }}</b></td>
                   <td>{{ x.document }}<div class="secondary">{{ DOC_TYPE[x.docType] | tx }} · {{ 'วันทำการ' | tx }} {{ x.businessDate }}</div></td>
@@ -65,6 +66,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as x) {
@@ -94,6 +96,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class ExportsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly baht = baht;

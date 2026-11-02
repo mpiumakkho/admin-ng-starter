@@ -10,10 +10,11 @@ import { ageDays, APPROVAL_KIND, APPROVAL_STATUS, approvalAging, canDecide } fro
 import type { Approval } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-approvals',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, ModuleTag, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, ModuleTag, Drawer],
   template: `
     <bo-page-head [heading]="'รายการอนุมัติ'" [source]="'คืนเงิน ส่วนลด ส่งออกบันทึกตรวจสอบ ข้อร้องเรียนรุนแรง สิทธิ์ชั่วคราว · ตัดสินได้เฉพาะตามกฎของโมดูลเจ้าของ'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -49,7 +50,7 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (a of rows(); track a.id) {
+              @for (a of pager.rows(); track a.id) {
                 <tr [class.selected]="a.id === selected()?.id" (click)="pick(a)" tabindex="0" (keydown.enter)="pick(a)" [attr.aria-selected]="a.id === selected()?.id">
                   <td><b>{{ a.ref }}</b><div class="secondary"><bo-module [code]="a.module" /></div></td>
                   <td>{{ APPROVAL_KIND[a.kind] | tx }}</td>
@@ -65,6 +66,7 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as a) {
@@ -106,6 +108,8 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class ApprovalsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly APPROVAL_KIND = APPROVAL_KIND;

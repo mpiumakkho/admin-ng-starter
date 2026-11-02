@@ -8,10 +8,11 @@ import { DOC_TYPE, EXPORT_STATUS } from '../../data/finance';
 import { OUTCOME, type Outcome, PERIODS, RECON_FORMULA, reconcileDeliveries, reconSummary } from '../../data/integrations';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-delivery-reconciliation',
-  imports: [RouterLink, TxPipe, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, TxPipe, PageHead, Drawer],
   template: `
     @let s = summary();
     <bo-page-head [heading]="'กระทบยอดการส่งบัญชี'" [source]="'INT-ACC-03 · M11 · เหตุการณ์ต้นทางเทียบกับรายการส่ง · ไม่รวมกระทบยอดธนาคาร GL หรือ e-Tax · สูตรเป็นต้นแบบ (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32 · ตัดยอด 23:00'">
@@ -72,7 +73,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               <th scope="col" class="w-status">{{ 'ผล' | tx }}</th>
             </tr></thead>
             <tbody>
-              @for (r of rows(); track r.key) {
+              @for (r of pager.rows(); track r.key) {
                 <tr [class.selected]="r.key === selectedKey()" tabindex="0" (click)="pick(r.key)" (keydown.enter)="pick(r.key)" [attr.aria-selected]="r.key === selectedKey()">
                   <td><b>{{ r.document }}</b><div class="secondary">{{ DOC_TYPE[r.docType] | tx }}</div></td>
                   <td class="num">{{ r.at }}</td>
@@ -86,6 +87,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as r) {
@@ -118,6 +120,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class DeliveryReconciliationComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly baht = baht;
   protected readonly DOC_TYPE = DOC_TYPE;

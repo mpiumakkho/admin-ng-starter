@@ -11,10 +11,11 @@ import { CONTROL_SYSTEM, EXPIRY_BUCKETS, locationsOf, LOT_STATE, stockList } fro
 import type { ExpiryBucket, StockItem } from '../../data/inventory';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-stock',
-  imports: [RouterLink, NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'คลังยา'" [source]="'M06 · คงเหลือ จุดสั่งเติม และการนับล่าสุดเป็นของระบบ ไม่คำนวณใหม่ในหน้านี้ · ปรับสต็อกได้ผ่านการรับเข้าและการนับเท่านั้น'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -49,7 +50,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (i of rows(); track i.drug.id) {
+              @for (i of pager.rows(); track i.drug.id) {
                 <tr tabindex="0" [class.selected]="i.drug.id === selectedId()" [attr.aria-selected]="i.drug.id === selectedId()" (click)="pick(i)" (keydown.enter)="pick(i)">
                   <td><b>{{ i.drug.name }}</b><div class="secondary">{{ i.drug.id }} · {{ i.drug.form | tx }} · {{ i.location | tx }}</div></td>
                   <td class="num" [class.text-danger]="i.isLow">{{ i.onHand ?? '—' }} {{ i.drug.unit | tx }}</td>
@@ -67,6 +68,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as i) {
@@ -101,6 +103,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class StockComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   private readonly route = inject(ActivatedRoute);

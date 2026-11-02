@@ -11,13 +11,14 @@ import {
 import type { Decommission } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const baht = (n: number) => `฿${n.toLocaleString('en-US')}`;
 const BLANK: DecommissionInput = { equipmentId: 'EQ-DEN-DEN-01', reason: '', method: 'scrap', replacement: '' };
 
 @Component({
   selector: 'bo-decommission',
-  imports: [RouterLink, TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead],
   template: `
     <bo-page-head [heading]="'การเลิกใช้งานอุปกรณ์'" [source]="'M22 P2 · ขอ → ผู้อื่นอนุมัติ → จำหน่ายพร้อมหลักฐาน · ยกเลิกการผูกเตียง PM ที่ค้าง และสัญญาโดยอัตโนมัติ · ประวัติเก็บไว้ · การตัดจำหน่ายทางบัญชีอยู่นอกขอบเขต · ต้นแบบก่อนสัญญาหน้าของ M22 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" variant="secondary" type="button" (click)="selectedId.set(null)">{{ 'ขอเลิกใช้งาน' | tx }}</button>
@@ -39,7 +40,7 @@ const BLANK: DecommissionInput = { equipmentId: 'EQ-DEN-DEN-01', reason: '', met
                 </tr>
               </thead>
               <tbody>
-                @for (r of rows(); track r.id) {
+                @for (r of pager.rows(); track r.id) {
                   <tr tabindex="0" [class.selected]="r.id === selectedId()" [attr.aria-selected]="r.id === selectedId()" (click)="pick(r.id)" (keydown.enter)="pick(r.id)">
                     <td><b>{{ r.id }}</b><div class="secondary">{{ r.requestedAt }}</div></td>
                     <td>{{ name(r) | tx }}<div class="secondary">{{ r.equipmentId }}</div></td>
@@ -51,6 +52,7 @@ const BLANK: DecommissionInput = { equipmentId: 'EQ-DEN-DEN-01', reason: '', met
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
       </div>
 
@@ -118,6 +120,8 @@ const BLANK: DecommissionInput = { equipmentId: 'EQ-DEN-DEN-01', reason: '', met
   host: { class: 'page' },
 })
 export class DecommissionComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly STATUS = DECOMMISSION_STATUS;

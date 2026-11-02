@@ -7,6 +7,7 @@ import { BackofficeStore } from '../../backoffice.store';
 import { addDays, overtime, ROLE, weekOf } from '../../data/workforce';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const THIS_WEEK = weekOf(TODAY);
 const WEEKS = [THIS_WEEK, addDays(THIS_WEEK, 7)];
@@ -14,7 +15,7 @@ const hours = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 @Component({
   selector: 'bo-overtime',
-  imports: [TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, TxPipe, UiButton, PageHead],
   template: `
     @let t = totals();
     <bo-page-head [heading]="'สรุปการทำงานล่วงเวลา'" [source]="'M24 P2 · คำนวณจากเวรในตาราง (ไม่นับวันลา) เทียบชั่วโมงตามสัญญา และชั่วโมงที่ถูกเรียกเข้าตอนรับเวร on-call · ตัวเลขเพื่อการดำเนินงาน ไม่ใช่ข้อมูลเงินเดือน'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
@@ -50,7 +51,7 @@ const hours = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
             </tr>
           </thead>
           <tbody>
-            @for (r of rows(); track r.staff.id) {
+            @for (r of pager.rows(); track r.staff.id) {
               <tr class="static">
                 <td><b>{{ r.staff.name | tx }}</b><div class="secondary">{{ ROLE[r.staff.role].label | tx }}</div></td>
                 <td class="num">{{ r.shifts }}</td>
@@ -77,12 +78,15 @@ const hours = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
           </tfoot>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
       <p class="secondary foot-note">{{ 'ไม่มีอัตราค่าจ้าง ภาษี หรือสวัสดิการในหน้านี้ — การคำนวณเงินต้องมีกฎ payroll ที่อนุมัติแล้ว ซึ่งอยู่นอกขอบเขต' | tx }}</p>
     </div>
   `,
   host: { class: 'page' },
 })
 export class OvertimeComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly ROLE = ROLE;
   protected readonly weeks = WEEKS;

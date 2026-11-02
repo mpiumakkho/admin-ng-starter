@@ -13,13 +13,14 @@ import {
 } from '../../data/workforce';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const ROLES = Object.keys(ROLE) as StaffRole[];
 const EMPLOYMENTS = Object.keys(EMPLOYMENT) as StaffMember['employment'][];
 
 @Component({
   selector: 'bo-staff',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     @let k = kpis();
     <bo-page-head [heading]="'บุคลากรทั้งหมด'" [source]="'M24 P2 · ทะเบียนบุคลากรและสถานะการปฏิบัติงาน · ไม่ใช่บัญชีผู้ใช้ (M14 IAM) · ไม่มีเงินเดือนหรือสัญญาจ้าง · ต้นแบบก่อนสัญญาหน้าของ M24 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
@@ -56,7 +57,7 @@ const EMPLOYMENTS = Object.keys(EMPLOYMENT) as StaffMember['employment'][];
               </tr>
             </thead>
             <tbody>
-              @for (r of rows(); track r.staff.id) {
+              @for (r of pager.rows(); track r.staff.id) {
                 <tr tabindex="0" [class.selected]="r.staff.id === selectedId()" [attr.aria-selected]="r.staff.id === selectedId()" (click)="pick(r.staff.id)" (keydown.enter)="pick(r.staff.id)">
                   <td><b>{{ r.staff.name | tx }}</b><div class="secondary">{{ r.staff.position | tx }} · {{ EMPLOYMENT[r.staff.employment] | tx }}</div></td>
                   <td><span class="chip" [class]="'chip ' + ROLE[r.staff.role].cls">{{ ROLE[r.staff.role].label | tx }}</span></td>
@@ -79,6 +80,7 @@ const EMPLOYMENTS = Object.keys(EMPLOYMENT) as StaffMember['employment'][];
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (creating()) {
@@ -138,6 +140,8 @@ const EMPLOYMENTS = Object.keys(EMPLOYMENT) as StaffMember['employment'][];
   host: { class: 'page' },
 })
 export class StaffComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

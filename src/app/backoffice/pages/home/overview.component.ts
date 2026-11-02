@@ -10,10 +10,11 @@ import { daysUntil, PRIORITY, STATUS, workload } from '../../data/home';
 import { MODULES, type Module, type WorkItem } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-overview',
-  imports: [RouterLink, NgIcon, TxPipe, UiButton, PageHead, ModuleTag, Drawer],
+  imports: [PagerFoot, RouterLink, NgIcon, TxPipe, UiButton, PageHead, ModuleTag, Drawer],
   template: `
     <bo-page-head [heading]="'ภาพรวมงาน'" [source]="'รวมจาก M11 M06 M22 M24 M28 M31 ตามสิทธิ์ · เปิดรายการต้นทางเพื่อแก้ไข'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -56,7 +57,7 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
               </tr>
             </thead>
             <tbody>
-              @for (item of rows(); track item.id) {
+              @for (item of pager.rows(); track item.id) {
                 <tr [class.selected]="item.id === selected()?.id" (click)="pick(item)" tabindex="0" (keydown.enter)="pick(item)" [attr.aria-selected]="item.id === selected()?.id">
                   <td><span class="chip" [class]="'chip ' + PRIORITY[item.priority].cls">{{ PRIORITY[item.priority].label | tx }}</span></td>
                   <td><bo-module [code]="item.module" /></td>
@@ -71,6 +72,7 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (selected(); as item) {
@@ -98,6 +100,8 @@ import { Drawer, ModuleTag, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class OverviewComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly PRIORITY = PRIORITY;
   protected readonly STATUS = STATUS;

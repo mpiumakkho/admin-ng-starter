@@ -10,6 +10,7 @@ import { active, addMonths, CRITICALITY, DOWNTIME_KIND, downtimeHours, downtimeP
 import type { Downtime } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const hours = (n: number | null) => (n === null ? '—' : n >= 100 ? Math.round(n).toLocaleString('en-US') : Number.isInteger(n) ? String(n) : n.toFixed(1));
 /** The twelve months to this one: 2025-10 … 2026-09 */
@@ -18,7 +19,7 @@ type View = 'open' | 'all';
 
 @Component({
   selector: 'bo-downtime',
-  imports: [RouterLink, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead, Drawer],
   template: `
     @let k = kpis();
     <bo-page-head [heading]="'การขัดข้องและหยุดใช้งาน'" [source]="'M22 P2 · MTBF ชั่วโมงที่ใช้งานได้ระหว่างการขัดข้อง · MTTR ชั่วโมงเฉลี่ยที่ใช้ซ่อม · คิดย้อนหลัง 12 เดือน · กลับมาใช้ได้เมื่อทดสอบแล้ว · ต้นแบบก่อนสัญญาหน้าของ M22 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
@@ -82,7 +83,7 @@ type View = 'open' | 'all';
               </tr>
             </thead>
             <tbody>
-              @for (d of rows(); track d.id) {
+              @for (d of pager.rows(); track d.id) {
                 <tr tabindex="0" [class.selected]="d.id === selectedId()" [class.open]="!d.to" [attr.aria-selected]="d.id === selectedId()" (click)="pick(d.id)" (keydown.enter)="pick(d.id)">
                   <td><b>{{ d.id }}</b><div class="secondary">{{ KIND[d.kind] | tx }}</div></td>
                   <td>{{ eq(d).name | tx }}<div class="secondary"><span class="chip" [class]="'chip ' + CRIT[eq(d).criticality].cls">{{ CRIT[eq(d).criticality].label | tx }}</span></div></td>
@@ -96,6 +97,7 @@ type View = 'open' | 'all';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (creating()) {
@@ -146,6 +148,8 @@ type View = 'open' | 'all';
   host: { class: 'page' },
 })
 export class DowntimeComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   private readonly route = inject(ActivatedRoute);
   protected readonly actions = inject(BackofficeActions);

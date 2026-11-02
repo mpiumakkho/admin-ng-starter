@@ -13,12 +13,13 @@ import type { ClaimInput } from '../../data/sales';
 import type { Claim, ClaimStatus, Insurer } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const STATUS_KEYS = Object.keys(CLAIM_STATUS) as ClaimStatus[];
 
 @Component({
   selector: 'bo-claims',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     @let s = summary();
     <bo-page-head [heading]="'การเคลมประกันสัตว์เลี้ยง'" [source]="'M16 P1 · ออกเอกสารตามแบบของบริษัทประกัน ส่งเอง และบันทึกสถานะ · การส่งผ่าน API ของ Falcon MSIG Roojai เป็น P4'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
@@ -60,7 +61,7 @@ const STATUS_KEYS = Object.keys(CLAIM_STATUS) as ClaimStatus[];
               </tr>
             </thead>
             <tbody>
-              @for (c of rows(); track c.id) {
+              @for (c of pager.rows(); track c.id) {
                 <tr tabindex="0" [class.selected]="c.id === selectedId()" [attr.aria-selected]="c.id === selectedId()" (click)="pick(c)" (keydown.enter)="pick(c)">
                   <td><b>{{ c.id }}</b><div class="secondary">{{ KIND[c.kind] | tx }}</div></td>
                   <td>{{ c.insurer }}<div class="secondary">{{ policyNo(c) }}</div></td>
@@ -76,6 +77,7 @@ const STATUS_KEYS = Object.keys(CLAIM_STATUS) as ClaimStatus[];
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (creating()) {
@@ -155,6 +157,8 @@ const STATUS_KEYS = Object.keys(CLAIM_STATUS) as ClaimStatus[];
   host: { class: 'page' },
 })
 export class ClaimsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   private readonly route = inject(ActivatedRoute);

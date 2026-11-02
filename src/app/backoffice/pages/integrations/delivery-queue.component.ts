@@ -11,10 +11,11 @@ import { attemptsOf, ERROR_CLASS, type ErrorClass, errorClassOf, payloadMeta } f
 import type { AccountingExport } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-delivery-queue',
-  imports: [RouterLink, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'คิวส่งข้อมูลบัญชี'" [source]="'INT-ACC-02 · M11 accounting_export_log · record ชุดเดียวกับการเงิน > ส่งข้อมูลบัญชี · สถานะส่งแล้วไม่ใช่ผล e-Tax'" [freshness]="'รอบส่งล่าสุด 06:00'" />
 
@@ -54,7 +55,7 @@ import { Drawer, PageHead } from '../../shared/parts';
               <th scope="col" class="w-kind">{{ 'ประเภทข้อผิดพลาด' | tx }}</th>
             </tr></thead>
             <tbody>
-              @for (x of rows(); track x.id) {
+              @for (x of pager.rows(); track x.id) {
                 <tr [class.selected]="x.id === selectedId()" tabindex="0" (click)="pick(x)" (keydown.enter)="pick(x)" [attr.aria-selected]="x.id === selectedId()" [attr.aria-label]="x.id + ' ' + x.document">
                   <td><b>{{ x.document }}</b><div class="secondary">{{ x.id }} · {{ DOC_TYPE[x.docType] | tx }}</div></td>
                   <td class="num">{{ x.businessDate }}</td>
@@ -72,6 +73,7 @@ import { Drawer, PageHead } from '../../shared/parts';
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
         <p class="secondary foot-note">{{ 'วันทำการเป็นวันของเอกสาร เวลาส่งเป็นเวลาของ adapter' | tx }}</p>
       </div>
 
@@ -119,6 +121,8 @@ import { Drawer, PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class DeliveryQueueComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly baht = baht;

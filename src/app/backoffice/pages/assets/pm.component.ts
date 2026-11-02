@@ -11,13 +11,14 @@ import { daysUntil } from '../../data/home';
 import type { PmTask } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 type View = 'alert' | 'all' | 'done';
 const BLANK: PmInput = { doneAt: TODAY, outcome: 'pass', findings: '', cost: '' };
 
 @Component({
   selector: 'bo-pm',
-  imports: [RouterLink, TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead],
   template: `
     @let c = counts();
     <bo-page-head [heading]="'แผนบำรุงรักษาเชิงป้องกัน'" [source]="'M22 P2 · แจ้งเตือนล่วงหน้า 30 วัน · PM ครั้งถัดไปวางแผนจากวันที่ทำ · PM ไม่ผ่านจะหยุดใช้อุปกรณ์ · ไม่มีใบสั่งงานซ่อมและอะไหล่ในขอบเขต · ต้นแบบก่อนสัญญาหน้าของ M22 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
@@ -50,7 +51,7 @@ const BLANK: PmInput = { doneAt: TODAY, outcome: 'pass', findings: '', cost: '' 
                 </tr>
               </thead>
               <tbody>
-                @for (t of rows(); track t.id) {
+                @for (t of pager.rows(); track t.id) {
                   @let e = eq(t);
                   <tr tabindex="0" [class.selected]="t.id === selectedId()" [attr.aria-selected]="t.id === selectedId()" (click)="pick(t.id)" (keydown.enter)="pick(t.id)">
                     <td><b>{{ t.id }}</b></td>
@@ -72,6 +73,7 @@ const BLANK: PmInput = { doneAt: TODAY, outcome: 'pass', findings: '', cost: '' 
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
       </div>
 
@@ -126,6 +128,8 @@ const BLANK: PmInput = { doneAt: TODAY, outcome: 'pass', findings: '', cost: '' 
   host: { class: 'page' },
 })
 export class PmComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly CRIT = CRITICALITY;

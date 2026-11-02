@@ -8,10 +8,11 @@ import { DOC_TYPE } from '../../data/finance';
 import { accountingHealth, connectors, ERROR_CLASS, errorClassOf, HEALTH } from '../../data/integrations';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-integration-overview',
-  imports: [RouterLink, TxPipe, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, PageHead],
   template: `
     @let a = acc();
     <bo-page-head [heading]="'ภาพรวมการเชื่อมต่อระบบ'" [source]="'INT-OVW-01 · COMPOSED · สถานะจากบันทึกการส่งและผลทดสอบของแต่ละ connector · ไม่มีการแก้ไขที่หน้านี้'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
@@ -36,7 +37,7 @@ import { PageHead } from '../../shared/parts';
             <th scope="col" class="w-owner">{{ 'ความพร้อม' | tx }}</th>
           </tr></thead>
           <tbody>
-            @for (c of rows(); track c.key) {
+            @for (c of pager.rows(); track c.key) {
               <tr class="static">
                 <td><a class="link" [routerLink]="c.link" [attr.aria-label]="('เปิดการเชื่อมต่อ' | tx) + ' ' + c.name">{{ c.name }}</a></td>
                 <td>{{ c.kind | tx }}</td>
@@ -53,6 +54,7 @@ import { PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
       <p class="secondary foot-note">{{ 'การเชื่อมต่อบางประเภทยังไม่อยู่ในขอบเขต' | tx }}</p>
     </div>
 
@@ -87,6 +89,8 @@ import { PageHead } from '../../shared/parts';
   host: { class: 'page' },
 })
 export class IntegrationOverviewComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly HEALTH = HEALTH;
   protected readonly ERROR_CLASS = ERROR_CLASS;

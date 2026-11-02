@@ -9,6 +9,7 @@ import { dispenseHistory, dispenseScopes, wasteReason } from '../../data/invento
 import type { DispenseRow } from '../../data/inventory';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const SOURCE: Record<DispenseRow['source'], { label: string; cls: string }> = {
   pharmacy: { label: 'ห้องยา', cls: 'info' },
@@ -18,7 +19,7 @@ const SOURCE: Record<DispenseRow['source'], { label: string; cls: string }> = {
 
 @Component({
   selector: 'bo-dispenses',
-  imports: [RouterLink, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, RouterLink, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'ประวัติการจ่ายยา'" [source]="'M06 · ค้นได้ตามผู้ป่วยหรือตามรายการยาเท่านั้น ไม่มีมุมมองทั้งหมด · รายการเป็น append-only'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -56,7 +57,7 @@ const SOURCE: Record<DispenseRow['source'], { label: string; cls: string }> = {
                 </tr>
               </thead>
               <tbody>
-                @for (r of rows(); track r.id) {
+                @for (r of pager.rows(); track r.id) {
                   <tr tabindex="0" [class.selected]="r.id === selectedId()" [attr.aria-selected]="r.id === selectedId()" (click)="pick(r)" (keydown.enter)="pick(r)">
                     <td class="num">{{ r.at }}</td>
                     <td><b>{{ scope() === 'patient' ? r.drug : r.patient }}</b><div class="secondary">{{ r.id }}</div></td>
@@ -73,6 +74,7 @@ const SOURCE: Record<DispenseRow['source'], { label: string; cls: string }> = {
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         }
       </div>
 
@@ -102,6 +104,8 @@ const SOURCE: Record<DispenseRow['source'], { label: string; cls: string }> = {
   host: { class: 'page' },
 })
 export class DispensesComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   private readonly route = inject(ActivatedRoute);

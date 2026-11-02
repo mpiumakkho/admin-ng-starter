@@ -8,10 +8,11 @@ import { BackofficeStore } from '../../backoffice.store';
 import { adjustments, REFUND_STATUS } from '../../data/finance';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 @Component({
   selector: 'bo-adjustments',
-  imports: [RouterLink, TxPipe, PageHead],
+  imports: [PagerFoot, RouterLink, TxPipe, PageHead],
   template: `
     <bo-page-head [heading]="'ส่วนลดและคืนเงิน'" [source]="'M11 · ขอได้จากใบแจ้งหนี้ · คืนเงินเกิน ฿500 และส่วนลดเกิน 10% ต้องให้ผู้จัดการการเงินอนุมัติ'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
@@ -45,7 +46,7 @@ import { PageHead } from '../../shared/parts';
             </tr>
           </thead>
           <tbody>
-            @for (r of rows(); track r.id) {
+            @for (r of pager.rows(); track r.id) {
               <tr tabindex="0" (click)="actions.openInvoice(r.invoice)" (keydown.enter)="actions.openInvoice(r.invoice)">
                 <td class="num">{{ r.at }}</td>
                 <td><b>{{ r.id }}</b><div class="secondary">{{ (r.kind === 'refund' ? 'คืนเงิน' : 'ส่วนลด') | tx }}</div></td>
@@ -61,11 +62,14 @@ import { PageHead } from '../../shared/parts';
           </tbody>
         </table>
       </div>
+      <bo-pager [pager]="pager" />
     </div>
   `,
   host: { class: 'page' },
 })
 export class AdjustmentsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   protected readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly baht = baht;

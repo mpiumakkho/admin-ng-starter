@@ -11,12 +11,13 @@ import type { CeCategory, CeRecord } from '../../data/types';
 import { APPROVED_COURSES, catalogCourse, CE_CATEGORY, CE_STATUS, ceProblems, ceReviewBlock, ceSummary, type CeInput, staffOf } from '../../data/workforce';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const CATEGORIES = Object.keys(CE_CATEGORY) as CeCategory[];
 
 @Component({
   selector: 'bo-education',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'การศึกษาต่อเนื่องและการอบรม'" [source]="'M24 P2 · หลักสูตรในรายการที่โรงพยาบาลรับรองนับชั่วโมงทันที · หลักสูตรอื่นรอผู้ตรวจที่ไม่ใช่ผู้เข้าอบรมพร้อมใบรับรอง · ต้นแบบก่อนสัญญาหน้าของ M24 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="openCreate()"><ng-icon [svg]="plus" aria-hidden="true" />{{ 'บันทึก CE' | tx }}</button>
@@ -50,7 +51,7 @@ const CATEGORIES = Object.keys(CE_CATEGORY) as CeCategory[];
               </tr>
             </thead>
             <tbody>
-              @for (c of records(); track c.id) {
+              @for (c of pager.rows(); track c.id) {
                 <tr tabindex="0" [class.selected]="c.id === selectedId()" [attr.aria-selected]="c.id === selectedId()" (click)="pick(c.id)" (keydown.enter)="pick(c.id)">
                   <td class="num">{{ c.date }}</td>
                   <td>{{ name(c) | tx }}</td>
@@ -62,6 +63,7 @@ const CATEGORIES = Object.keys(CE_CATEGORY) as CeCategory[];
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (creating()) {
@@ -125,6 +127,8 @@ const CATEGORIES = Object.keys(CE_CATEGORY) as CeCategory[];
   host: { class: 'page' },
 })
 export class EducationComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.records());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

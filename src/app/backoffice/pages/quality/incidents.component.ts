@@ -15,13 +15,14 @@ import {
 import type { Incident, SafetyCategory } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 type View = 'open' | 'all' | 'closed';
 const BLANK: IncidentInput = { at: `${TODAY}T${NOW}`, category: '', location: '', pet: '', description: '', immediateAction: '', harm: '1', anonymous: false };
 
 @Component({
   selector: 'bo-incidents',
-  imports: [NgIcon, RouterLink, TxPipe, UiButton, PageHead],
+  imports: [PagerFoot, NgIcon, RouterLink, TxPipe, UiButton, PageHead],
   template: `
     <bo-page-head [heading]="'รายงานอุบัติการณ์'" [source]="'M12 P2 · รายงานได้โดยไม่ระบุตัวตน · คัดกรองภายใน 24 ชม. เมื่ออันตรายรุนแรงขึ้นไป 72 ชม. สำหรับระดับอื่น · อันตรายรุนแรงขึ้นไปต้องมี RCA ก่อนปิด · ต้นแบบก่อนสัญญาหน้าของ M12 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="startReport()"><ng-icon [svg]="plus" aria-hidden="true" />{{ 'แจ้งอุบัติการณ์' | tx }}</button>
@@ -52,7 +53,7 @@ const BLANK: IncidentInput = { at: `${TODAY}T${NOW}`, category: '', location: ''
                 </tr>
               </thead>
               <tbody>
-                @for (i of rows(); track i.id) {
+                @for (i of pager.rows(); track i.id) {
                   <tr tabindex="0" [class.selected]="i.id === selectedId()" [attr.aria-selected]="i.id === selectedId()" (click)="pick(i.id)" (keydown.enter)="pick(i.id)">
                     <td><b>{{ i.id }}</b><div class="secondary">{{ i.at }}</div></td>
                     <td>{{ i.description | tx }}<div class="secondary">{{ i.location | tx }}@if (i.pet) { · {{ i.pet }}} · {{ reporter(i) | tx }}</div></td>
@@ -70,6 +71,7 @@ const BLANK: IncidentInput = { at: `${TODAY}T${NOW}`, category: '', location: ''
               </tbody>
             </table>
           </div>
+          <bo-pager [pager]="pager" />
         </div>
       </div>
 
@@ -173,6 +175,8 @@ const BLANK: IncidentInput = { at: `${TODAY}T${NOW}`, category: '', location: ''
   host: { class: 'page' },
 })
 export class IncidentsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

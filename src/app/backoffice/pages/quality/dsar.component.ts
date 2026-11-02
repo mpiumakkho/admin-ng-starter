@@ -12,12 +12,13 @@ import { CHANNEL, CHANNELS } from '../../data/quality';
 import type { DsarRequest, DsarRight } from '../../data/types';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const BLANK: DsarInput = { right: '', requester: '', ownerKey: '', pets: '', hns: '', channel: 'email', scope: '' };
 
 @Component({
   selector: 'bo-dsar',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     <bo-page-head [heading]="'คำขอใช้สิทธิ์เจ้าของข้อมูล'" [source]="'GOV-DSAR-01 · M31 · 8 สิทธิตาม PDPA · ตอบภายใน 30 วัน (เส้นตายจาก backend) · ยืนยันตัวตนก่อนส่งมอบ · สัญญาการออกแบบ (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
       <button uiButton size="sm" type="button" (click)="intake.set(true)"><ng-icon [svg]="plus" aria-hidden="true" />{{ 'รับคำขอใหม่' | tx }}</button>
@@ -56,7 +57,7 @@ const BLANK: DsarInput = { right: '', requester: '', ownerKey: '', pets: '', hns
               </tr>
             </thead>
             <tbody>
-              @for (r of rows(); track r.id) {
+              @for (r of pager.rows(); track r.id) {
                 @let f = flag(r);
                 <tr tabindex="0" (click)="open$(r)" (keydown.enter)="open$(r)">
                   <td><b>{{ r.id }}</b><div class="secondary">{{ r.receivedAt }}</div></td>
@@ -73,6 +74,7 @@ const BLANK: DsarInput = { right: '', requester: '', ownerKey: '', pets: '', hns
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (intake()) {
@@ -113,6 +115,8 @@ const BLANK: DsarInput = { right: '', requester: '', ownerKey: '', pets: '', hns
   host: { class: 'page' },
 })
 export class DsarComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   private readonly actions = inject(BackofficeActions);
   private readonly router = inject(Router);

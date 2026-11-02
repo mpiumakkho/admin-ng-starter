@@ -14,13 +14,14 @@ import {
 } from '../../data/workforce';
 import { TxPipe } from '../../i18n/bo-i18n';
 import { Drawer, PageHead } from '../../shared/parts';
+import { Pager, PagerFoot } from '../../shared/pager';
 
 const STRIP: LicenseState[] = ['expired', 'd30', 'd60', 'd90', 'pending'];
 const KINDS = Object.keys(LICENSE_KIND) as LicenseKind[];
 
 @Component({
   selector: 'bo-credentials',
-  imports: [NgIcon, TxPipe, UiButton, PageHead, Drawer],
+  imports: [PagerFoot, NgIcon, TxPipe, UiButton, PageHead, Drawer],
   template: `
     @let c = counts();
     <bo-page-head [heading]="'ใบอนุญาตและคุณสมบัติวิชาชีพ'" [source]="'M24 P2 · ติดตามการตรวจสอบและวันหมดอายุ 30/60/90 วัน · ไทยไม่มีระบบรับรองพยาบาลสัตว์ โรงพยาบาลกำหนดขอบเขตเอง · ต้นแบบก่อนสัญญาหน้าของ M24 (GATED)'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'">
@@ -57,7 +58,7 @@ const KINDS = Object.keys(LICENSE_KIND) as LicenseKind[];
               </tr>
             </thead>
             <tbody>
-              @for (l of rows(); track l.id) {
+              @for (l of pager.rows(); track l.id) {
                 <tr tabindex="0" [class.selected]="l.id === selectedId()" [attr.aria-selected]="l.id === selectedId()" (click)="pick(l.id)" (keydown.enter)="pick(l.id)">
                   <td><b>{{ holder(l) | tx }}</b><div class="secondary">{{ role(l) | tx }}</div></td>
                   <td>{{ KIND[l.kind].label | tx }}<div class="secondary">{{ l.issuer | tx }}</div></td>
@@ -72,6 +73,7 @@ const KINDS = Object.keys(LICENSE_KIND) as LicenseKind[];
             </tbody>
           </table>
         </div>
+        <bo-pager [pager]="pager" />
       </div>
 
       @if (creating()) {
@@ -129,6 +131,8 @@ const KINDS = Object.keys(LICENSE_KIND) as LicenseKind[];
   host: { class: 'page' },
 })
 export class CredentialsComponent {
+  /** The table's pages */
+  protected readonly pager = new Pager(() => this.rows());
   private readonly store = inject(BackofficeStore);
   protected readonly actions = inject(BackofficeActions);
   protected readonly plus = lucidePlus;

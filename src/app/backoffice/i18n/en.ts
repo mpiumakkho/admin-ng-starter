@@ -3,6 +3,13 @@
 export const EN_BO: Record<string, string> = {
   /* the shell */
   'เส้นทาง': 'Breadcrumb',
+  'แสดง {from}–{to} จาก {n} รายการ': 'Showing {from}–{to} of {n}',
+  'แถวต่อหน้า': 'Rows per page',
+  'หน้าของตาราง': 'Table pages',
+  'หน้าแรก': 'First page',
+  'หน้าก่อน': 'Previous page',
+  'หน้าถัดไป': 'Next page',
+  'หน้าสุดท้าย': 'Last page',
   'ย่อเมนู': 'Collapse menu',
   'ขยายเมนู': 'Expand menu',
   'SLV BackOffice — โรงพยาบาลสวนหลวงสัตวแพทย์': 'SLV BackOffice — Suan Luang Veterinary Hospital',

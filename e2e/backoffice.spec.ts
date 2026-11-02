@@ -30,11 +30,16 @@ test('the work overview gathers the modules\' work, filters it, and opens the so
   await openBackoffice(page);
   // The clinic's unpaid bills and short stock are on it beside the modules' own work
   await expect(page.locator('.kpi-strip')).toContainText('M11');
+  // Ten rows a page: the bill is found by its number
+  await expect(page.locator('.bo-table tbody tr')).toHaveCount(10);
+  await expect(page.locator('.pager-range')).toHaveText('Showing 1–10 of 24');
+  await page.locator('.filter-bar input[type=search]').fill('INV-2609-0112');
   await page.locator('.bo-table tbody tr', { hasText: 'INV-2609-0112' }).click();
   const drawer = page.locator('.drawer');
   await expect(drawer).toContainText('Receivable');
   await expect(drawer).toContainText('This module\'s page is not open in BackOffice yet');
   // A module's figure filters the table to it
+  await page.locator('.filter-bar input[type=search]').fill('');
   await page.locator('button.kpi', { hasText: 'M06' }).click();
   await expect(page.locator('.bo-table tbody tr')).toHaveCount(2);
   await page.locator('.bo-table tbody tr', { hasText: 'B-2312-04' }).click();
