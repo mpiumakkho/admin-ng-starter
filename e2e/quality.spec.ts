@@ -33,7 +33,7 @@ const PAGES: [string, string][] = [
 test('quality: every page opens from the menu under its submenu and passes the accessibility check', async ({ page }) => {
   await openQuality(page);
   const menu = page.getByRole('navigation', { name: 'Main menu' });
-  await expect(menu.locator('.nav-section')).toHaveText(['Quality & Patient Safety', 'Complaint Management', 'PDPA', 'Audit']);
+  await expect(menu.locator('#nav-quality .nav-section')).toHaveText(['Quality & Patient Safety', 'Complaint Management', 'PDPA', 'Audit']);
   for (const [link, heading] of PAGES) {
     await qualityLink(page, link);
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();

@@ -31,6 +31,8 @@ const PAGES: [string, string][] = [
 ];
 
 test('governance: every PDPA and audit page opens from its submenu and passes the accessibility check, the detail pages too', async ({ page }) => {
+  // Eleven pages through the accessibility check take longer than one test's default
+  test.setTimeout(120_000);
   await open(page, 'pdpa');
   for (const [name, heading] of PAGES) {
     await link(page, name);

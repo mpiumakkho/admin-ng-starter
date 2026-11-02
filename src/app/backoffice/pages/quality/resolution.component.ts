@@ -58,7 +58,7 @@ import { PageHead } from '../../shared/parts';
     <div class="split pair">
       <div class="panel">
         <div class="filter-bar"><b>{{ 'ข้อร้องเรียน 6 เดือนตามประเภท' | tx }}</b><span class="secondary grow">{{ 'นับตามเดือนที่รับเรื่อง' | tx }}</span></div>
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" role="region" [attr.aria-label]="'ข้อร้องเรียน 6 เดือนตามประเภท' | tx">
           <table class="bo-table dt-months">
             <thead><tr><th scope="col">{{ 'ประเภท' | tx }}</th>@for (m of trend(); track m.month) {<th scope="col" class="num">{{ m.month.slice(2).replace('-', '/') }}</th>}</tr></thead>
             <tbody>

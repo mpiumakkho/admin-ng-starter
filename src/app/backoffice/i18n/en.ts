@@ -2,6 +2,7 @@
 
 export const EN_BO: Record<string, string> = {
   /* the shell */
+  'เส้นทาง': 'Breadcrumb',
   'SLV BackOffice — โรงพยาบาลสวนหลวงสัตวแพทย์': 'SLV BackOffice — Suan Luang Veterinary Hospital',
   'โรงพยาบาลสวนหลวงสัตวแพทย์': 'Suan Luang Veterinary Hospital',
   'ข้ามไปเนื้อหาหลัก': 'Skip to main content',
