@@ -101,6 +101,8 @@ const PAGES = [
   { path: '/error-pages/500', ready: '.error-code' },
 ];
 
+const PAGES_A_TEST = 12;
+
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`${theme} theme`, () => {
     test('the sign-in pages', async ({ page }) => {
@@ -115,16 +117,20 @@ for (const theme of ['light', 'dark'] as const) {
       await expectAccessible(page);
     });
 
-    test('every page', async ({ page }) => {
-      test.setTimeout(480_000);
-      await start(page, '/login', theme);
-      await signInAs(page, 'Administrator');
-      for (const { path, ready } of PAGES) {
-        await page.goto(path);
-        await expect(page.locator(ready).first()).toBeVisible();
-        await expectAccessible(page, path);
-      }
-    });
+    // A dozen pages a test, each in a fresh browser: one browser through every page in turn grows slow and can stall
+    for (let from = 0; from < PAGES.length; from += PAGES_A_TEST) {
+      const pages = PAGES.slice(from, from + PAGES_A_TEST);
+      test(`every page, ${from + 1}–${from + pages.length}`, async ({ page }) => {
+        test.setTimeout(180_000);
+        await start(page, '/login', theme);
+        await signInAs(page, 'Administrator');
+        for (const { path, ready } of pages) {
+          await page.goto(path);
+          await expect(page.locator(ready).first()).toBeVisible();
+          await expectAccessible(page, path);
+        }
+      });
+    }
 
     test('menus and dialogs', async ({ page }) => {
       await start(page, '/login', theme);
