@@ -19,7 +19,7 @@ import { Pager, PagerFoot } from '../../shared/pager';
     <bo-page-head [heading]="'ภาพรวมงาน'" [source]="'รวมจาก M11 M06 M22 M24 M28 M31 ตามสิทธิ์ · เปิดรายการต้นทางเพื่อแก้ไข'" [freshness]="'ข้อมูล ณ วันนี้ 11:32'" />
 
     <!-- How much waits, by module -->
-    <div class="kpi-strip" role="list">
+    <div class="kpi-strip tight" role="list">
       <div class="kpi" role="listitem"><span class="kpi-value">{{ items().length }}</span><span class="kpi-label">{{ 'รายการทั้งหมด' | tx }}</span></div>
       <div class="kpi danger" role="listitem"><span class="kpi-value">{{ critical() }}</span><span class="kpi-label">{{ 'วิกฤต' | tx }}</span></div>
       @for (w of load(); track w.module) {

@@ -690,16 +690,39 @@
 
 .backoffice .kpi-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+/* Many small counts on one line each: the value beside its label */
+.backoffice .kpi-strip.tight {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .kpi {
+    flex: 0 1 auto;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 14px;
+
+    .kpi-value {
+      font-size: 18px;
+    }
+
+    .kpi-label {
+      order: 0;
+    }
+  }
 }
 
 .backoffice .kpi {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
-  padding: 18px 22px;
+  padding: 10px 16px;
   border: 1px solid var(--ui-border);
   border-radius: var(--bo-r);
   background: var(--ui-surface);
@@ -713,7 +736,7 @@
     align-items: baseline;
     gap: 6px;
     color: var(--ui-heading);
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     letter-spacing: -.02em;
@@ -732,7 +755,7 @@
   .kpi-label {
     order: -1;
     color: var(--ui-muted);
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.4;
   }
 
@@ -2734,6 +2757,19 @@
 
     .ui-pagination {
       margin-inline-start: 0;
+    }
+  }
+
+  /* the many small counts keep to one line and slide sideways */
+  .backoffice .kpi-strip.tight {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -16px;
+    padding: 2px 16px;
+    scrollbar-width: none;
+
+    .kpi {
+      flex: none;
     }
   }
 }
