@@ -35,6 +35,10 @@ export class ContentAnimateDirective {
       || element.ownerDocument.body.classList.contains('ui-aaa')) {
       return;
     }
+    // A workspace inside it fades its own page (the back office's), so its menu and bar stay put
+    if (element.querySelector('[contentAnimate]')) {
+      return;
+    }
     element.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: 'ease-out' });
   }
 }

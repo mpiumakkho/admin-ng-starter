@@ -454,7 +454,8 @@
   .nav-arrow {
     font-size: 14px;
     color: var(--ui-muted);
-    transition: transform .15s ease;
+    // Turns in step with the pages opening, as the admin's chevron does
+    transition: transform var(--ui-duration-slow) var(--ui-ease-standard);
   }
 }
 
@@ -474,13 +475,27 @@
   display: grid;
   grid-template-rows: 0fr;
   visibility: hidden;
-  transition: grid-template-rows .3s cubic-bezier(.4, 0, .2, 1), visibility 0s .3s;
+  transition: grid-template-rows var(--ui-duration-slow) var(--ui-ease-standard), visibility 0s var(--ui-duration-slow);
+
+  // Closing, the pages fade quickly, before the height has gone
+  > .nav-links {
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity var(--ui-duration-fast) var(--ui-ease-in), transform var(--ui-duration-slow) var(--ui-ease-standard);
+  }
 }
 
+// Opening, they fade in once the height has started to make room
 .backoffice .nav-group.open > .nav-links-wrap {
   grid-template-rows: 1fr;
   visibility: visible;
-  transition: grid-template-rows .3s cubic-bezier(.4, 0, .2, 1), visibility 0s;
+  transition: grid-template-rows var(--ui-duration-slow) var(--ui-ease-standard), visibility 0s;
+
+  > .nav-links {
+    opacity: 1;
+    transform: none;
+    transition: opacity var(--ui-duration) ease .06s, transform var(--ui-duration-slow) var(--ui-ease-standard);
+  }
 }
 
 .backoffice .nav-links {
@@ -2645,6 +2660,9 @@
 
       .nav-links {
         min-width: 240px;
+        opacity: 1;
+        transform: none;
+        transition: none;
         max-height: 70vh;
         margin: 0;
         padding: 4px;
@@ -2713,10 +2731,12 @@
   .backoffice .body,
   .backoffice .navbar-brand-wrapper,
   .backoffice .nav-links-wrap,
+  .backoffice .nav-links-wrap > .nav-links,
+  .backoffice .nav-arrow,
   .backoffice .sidebar-collapser,
   .backoffice .sidebar-collapser ng-icon,
   .backoffice .sidebar-collapser svg {
-    transition: none;
+    transition: none !important;
   }
 }
 

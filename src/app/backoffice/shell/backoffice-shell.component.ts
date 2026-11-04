@@ -10,6 +10,7 @@ import {
 } from '@ng-icons/lucide';
 import { filter } from 'rxjs';
 
+import { ContentAnimateDirective } from '../../layout/content-animate.directive';
 import { LanguageCode, LANGUAGES, LanguageService } from '../../layout/language.service';
 import { accountText, fullName, Session } from '../../user-management';
 import { RoleBadges } from '../../user-management/shared/badges';
@@ -41,7 +42,7 @@ const SWITCH_TO: Record<LanguageCode, string> = { th: 'เปลี่ยนเ�
   selector: 'app-backoffice-shell',
   imports: [
     RouterOutlet, RouterLink, RouterLinkActive, NgIcon, TxPipe, UiAvatar, UiMenu, UiMenuItem, UiMenuItemCheckbox, UiMenuDivider, UiMenuTrigger, UiTooltip,
-    RoleBadges, DialogHost,
+    RoleBadges, DialogHost, ContentAnimateDirective,
   ],
   templateUrl: './backoffice-shell.component.html',
   styleUrl: './backoffice.scss',
@@ -102,7 +103,14 @@ export class BackofficeShellComponent {
   private refocusing = false;
 
   constructor() {
+    let path = this.router.url.split(/[?#]/)[0];
     this.router.events.pipe(filter(event => event instanceof NavigationEnd), takeUntilDestroyed()).subscribe(event => {
+      // Another page starts at its top, as the admin's do; the query string alone keeps the place
+      const next = event.urlAfterRedirects.split(/[?#]/)[0];
+      if (next !== path) {
+        path = next;
+        this.main().nativeElement.scrollTop = 0;
+      }
       this.menuOpen.set(false);
       this.flyoutKey.set(null);
       const group = BACKOFFICE_NAV.find(g => g.links.some(l => event.urlAfterRedirects.startsWith(l.path)));
