@@ -102,7 +102,7 @@ test('alerts: an exception is acknowledged with a note and moves to the acknowle
   await expect(page).toHaveURL(/\/clinic\/ward$/);
 });
 
-test('the menu folds to its icons from the button on its edge: a group shows its pages beside it, and the fold is remembered', async ({ page }) => {
+test('the menu narrows to its icons from the panel button in the navbar, as in the admin: a group shows its pages beside it, and the fold is remembered', async ({ page }) => {
   await openBackoffice(page);
   const menu = page.getByRole('navigation', { name: 'Main menu' });
   // One group open at a time, as the admin's menu

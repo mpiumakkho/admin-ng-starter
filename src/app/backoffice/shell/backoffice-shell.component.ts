@@ -5,8 +5,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import {
-  lucideAArrowDown, lucideAArrowUp, lucideAccessibility, lucideArrowLeft, lucideBell, lucideChevronLeft, lucideChevronRight, lucideDatabaseBackup, lucideLogOut, lucideMenu,
-  lucideMoon, lucideStethoscope, lucideSun,
+  lucideAArrowDown, lucideAArrowUp, lucideAccessibility, lucideArrowLeft, lucideBell, lucideChevronRight, lucideDatabaseBackup, lucideLogOut, lucideMenu,
+  lucideMoon, lucidePanelLeft, lucideStethoscope, lucideSun,
 } from '@ng-icons/lucide';
 import { filter } from 'rxjs';
 
@@ -67,7 +67,7 @@ export class BackofficeShellComponent {
   protected readonly fullName = fullName;
   protected readonly accountText = accountText;
   protected readonly icons = {
-    brand: BRAND_ICON, menu: lucideMenu, bell: lucideBell, chevron: lucideChevronRight, collapse: lucideChevronLeft, back: lucideArrowLeft, clinic: lucideStethoscope,
+    brand: BRAND_ICON, menu: lucideMenu, bell: lucideBell, chevron: lucideChevronRight, collapse: lucidePanelLeft, back: lucideArrowLeft, clinic: lucideStethoscope,
     reset: lucideDatabaseBackup, signOut: lucideLogOut, moon: lucideMoon, sun: lucideSun, accessible: lucideAccessibility, larger: lucideAArrowUp, smaller: lucideAArrowDown,
   };
   /** The groups with a page; the reserved ones never are here (nav.ts) */

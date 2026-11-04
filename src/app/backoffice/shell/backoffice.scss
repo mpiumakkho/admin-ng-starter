@@ -4,13 +4,13 @@
 // above them, an inspector beside them for the record picked.
 
 .backoffice {
-  --bo-shell: 64px;
-  --bo-sidebar: 280px;
-  // Folded to its icons (seph1-fe's rail)
+  // The admin's sizes and motion: its navbar's height, its sidebar wide (256px) and narrowed to its icons (72px), and
+  // the width easing as its sidebar's does (--ui-duration, --ui-ease-standard)
+  --bo-shell: var(--app-navbar-height, 64px);
+  --bo-sidebar: 256px;
   --bo-rail: 72px;
   --bo-sidebar-now: var(--bo-sidebar);
-  // How the menu folds and unfolds: a gentle start and end
-  --bo-fold: .4s cubic-bezier(.65, 0, .35, 1);
+  --bo-fold: var(--ui-duration) var(--ui-ease-standard);
   --bo-gap: 16px;
   // The current page in the menu, as the admin's sidebar marks it: navy on a blue-grey tint
   --bo-menu-active-text: #000572;
@@ -173,16 +173,23 @@
   align-items: center;
   gap: 4px;
   width: var(--bo-sidebar-now);
-  padding: 0 1rem 0 .75rem;
+  padding: 0 .75rem 0 1.5rem;
   overflow: hidden;
-  transition: width var(--bo-fold), padding var(--bo-fold);
+  transition: width var(--bo-fold), background-color var(--ui-duration) ease;
   border-inline-end: 1px solid var(--ui-border);
   background: var(--ui-surface);
 }
 
-// Only below 992px, where the menu slides in; wider, the round button on its edge folds it
+// Only below 992px, where the menu slides in; wider, the panel button narrows it to its icons
 .backoffice .icon-button.menu-button {
   display: none;
+}
+
+// Narrows the menu to its icons, at the end of the brand, as the admin navbar's
+.backoffice .icon-button.navbar-toggler {
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--ui-muted);
 }
 
 .backoffice .brand {
@@ -2557,44 +2564,10 @@
   }
 }
 
-/* ---------- folding the menu (seph1-fe): a round button on its edge; folded, one icon per group, its pages beside it ---------- */
-.backoffice .sidebar-collapser {
-  position: absolute;
-  top: 18px;
-  left: var(--bo-sidebar-now);
-  z-index: 35;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 2px solid var(--ui-surface);
-  border-radius: 50%;
-  background: var(--ui-primary);
-  color: var(--ui-on-primary);
-  font-size: 14px;
-  box-shadow: 1px 1px 4px rgb(26 22 37 / .35);
-  transform: translateX(-50%);
-  transition: left var(--bo-fold), filter .15s ease;
-
-  ng-icon,
-  svg {
-    transition: transform .45s cubic-bezier(.65, 0, .35, 1);
-  }
-
-  &:hover {
-    filter: brightness(1.1);
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--ui-ring);
-  }
-}
-
+/* ---------- the menu narrowed to its icons, as the admin's: one icon per group, its pages beside it ---------- */
 // Folding is for wide screens; below 992px the menu slides in whole from the menu button
 @container backoffice (max-width: 991px) {
-  .backoffice .sidebar-collapser {
+  .backoffice .icon-button.navbar-toggler {
     display: none;
   }
 
@@ -2613,11 +2586,6 @@
     .sidebar {
       padding: 12px 10px;
       overflow-x: hidden;
-    }
-
-    .sidebar-collapser ng-icon,
-    .sidebar-collapser svg {
-      transform: rotate(180deg);
     }
 
     .nav-group-button {
@@ -2704,18 +2672,31 @@
     }
   }
 
+  // The small logo at the top of the narrowed menu, as the admin's
+  .backoffice .brand-mini {
+    display: flex;
+    justify-content: center;
+    margin: 0 0 8px;
+    padding: 8px 0;
+    border-radius: var(--ui-radius);
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--ui-ring);
+    }
+  }
+
+  // Narrowed, only the button to widen it again, as the admin's navbar
   .backoffice.collapsed .navbar-brand-wrapper {
     justify-content: center;
     padding: 0;
 
-    // Out of sight, still the link's name
-    .brand-name {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0 0 0 0);
-      white-space: nowrap;
+    .brand {
+      display: none;
+    }
+
+    .navbar-toggler {
+      margin: 0;
     }
   }
 }
@@ -2732,10 +2713,7 @@
   .backoffice .navbar-brand-wrapper,
   .backoffice .nav-links-wrap,
   .backoffice .nav-links-wrap > .nav-links,
-  .backoffice .nav-arrow,
-  .backoffice .sidebar-collapser,
-  .backoffice .sidebar-collapser ng-icon,
-  .backoffice .sidebar-collapser svg {
+  .backoffice .nav-arrow {
     transition: none !important;
   }
 }
