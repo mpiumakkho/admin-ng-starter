@@ -4,22 +4,12 @@
 // above them, an inspector beside them for the record picked.
 
 .backoffice {
-  // The admin's sizes and motion: its navbar's height, its sidebar wide (256px) and narrowed to its icons (72px), and
-  // the width easing as its sidebar's does (--ui-duration, --ui-ease-standard)
-  --bo-shell: var(--app-navbar-height, 64px);
-  --bo-sidebar: 256px;
-  --bo-rail: 72px;
-  --bo-sidebar-now: var(--bo-sidebar);
+  // The frame is the admin's (--ui-navbar-*, --ui-sidebar-*, --ui-menu-* in ui.scss); the menu's width now, wide or
+  // narrowed to its icons, and how it eases between them, as the admin's sidebar does
+  --bo-sidebar-now: var(--ui-sidebar-width);
   --bo-fold: var(--ui-duration) var(--ui-ease-standard);
   --bo-gap: 16px;
-  // The current page in the menu, as the admin's sidebar marks it: navy on a blue-grey tint
-  --bo-menu-active-text: #000572;
-  --bo-menu-active-bg: #e7e8f6;
-  --bo-menu-accent: #000572;
   --bo-search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
-  --bo-r: var(--ui-radius-lg);
-  --navbar-surface: var(--ui-surface);
-  --navbar-control: var(--ui-hover);
 
   container: backoffice / inline-size;
   display: grid;
@@ -138,15 +128,6 @@
   }
 }
 
-.theme-dark .backoffice,
-[data-theme="dark"] .backoffice {
-  --navbar-surface: var(--ui-bg);
-  --navbar-control: var(--ui-surface);
-  --bo-menu-active-text: var(--ui-heading);
-  --bo-menu-active-bg: #334155;
-  --bo-menu-accent: #818cf8;
-}
-
 :where(.backoffice) :where(button, input, select, textarea) {
   font: inherit;
   color: inherit;
@@ -162,9 +143,9 @@
   display: flex;
   align-items: stretch;
   min-width: 0;
-  height: var(--bo-shell);
+  height: var(--ui-navbar-height);
   border-bottom: 1px solid var(--ui-border);
-  background: var(--navbar-surface);
+  background: var(--ui-navbar-surface);
 }
 
 .backoffice .navbar-brand-wrapper {
@@ -287,7 +268,7 @@
 
   &:hover,
   &[aria-expanded="true"] {
-    background: var(--navbar-control);
+    background: var(--ui-navbar-control);
     color: var(--ui-heading);
   }
 
@@ -311,7 +292,7 @@
   min-width: 0;
   height: 8px;
   padding: 0;
-  border: 2px solid var(--navbar-surface);
+  border: 2px solid var(--ui-navbar-surface);
   border-radius: 50%;
   background: var(--ui-danger);
 }
@@ -353,7 +334,7 @@
 
   &:hover,
   &[aria-expanded="true"] {
-    background: var(--navbar-control);
+    background: var(--ui-navbar-control);
   }
 
   &:focus-visible {
@@ -553,7 +534,7 @@
 
     // The current page, marked on the guide line
     &.active {
-      color: var(--bo-menu-active-text);
+      color: var(--ui-menu-active-text);
       font-weight: 600;
 
       &::before {
@@ -564,7 +545,7 @@
         inset-inline-start: -10px;
         width: 2px;
         border-radius: 2px;
-        background: var(--bo-menu-accent);
+        background: var(--ui-menu-accent);
       }
     }
 
@@ -746,7 +727,7 @@
   min-width: 0;
   padding: 10px 16px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--bo-r);
+  border-radius: var(--ui-radius-lg);
   background: var(--ui-surface);
   box-shadow: var(--ui-shadow-xs);
   color: var(--ui-text);
@@ -833,7 +814,7 @@
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--ui-border);
-  border-radius: var(--bo-r);
+  border-radius: var(--ui-radius-lg);
   background: var(--ui-surface);
   box-shadow: var(--ui-shadow-xs);
 }
@@ -1124,7 +1105,7 @@
   min-width: 0;
   min-height: 0;
   border: 1px solid var(--ui-border);
-  border-radius: var(--bo-r);
+  border-radius: var(--ui-radius-lg);
   background: var(--ui-surface);
   box-shadow: var(--ui-shadow-xs);
 
@@ -1172,7 +1153,7 @@
     gap: 8px;
     padding: 12px 20px;
     border-top: 1px solid var(--ui-border);
-    border-radius: 0 0 var(--bo-r) var(--bo-r);
+    border-radius: 0 0 var(--ui-radius-lg) var(--ui-radius-lg);
     background: var(--ui-surface-muted);
 
     &:empty {
@@ -1284,7 +1265,7 @@
   .backoffice .navbar-brand-wrapper {
     width: auto;
     border-inline-end: 0;
-    background: var(--navbar-surface);
+    background: var(--ui-navbar-surface);
   }
 
   .backoffice .icon-button.menu-button {
@@ -1299,7 +1280,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     z-index: 30;
-    width: var(--bo-sidebar);
+    width: var(--ui-sidebar-width);
     box-shadow: var(--ui-shadow-lg);
     transform: translateX(-100%);
     transition: transform .2s ease;
@@ -2579,7 +2560,7 @@
 @container backoffice (min-width: 992px) {
   .backoffice.collapsed .navbar-brand-wrapper,
   .backoffice .body.collapsed {
-    --bo-sidebar-now: var(--bo-rail);
+    --bo-sidebar-now: var(--ui-sidebar-rail);
   }
 
   .backoffice .body.collapsed {
@@ -2601,11 +2582,11 @@
 
     // The group with the current page, marked on its icon
     .nav-group.current > .nav-group-button {
-      background: var(--bo-menu-active-bg);
-      color: var(--bo-menu-active-text);
+      background: var(--ui-menu-active-bg);
+      color: var(--ui-menu-active-text);
 
       .nav-icon {
-        color: var(--bo-menu-accent);
+        color: var(--ui-menu-accent);
       }
     }
 
@@ -2616,7 +2597,7 @@
     // A group's pages, beside its icon
     .nav-links-wrap.flyout {
       position: fixed;
-      left: calc(var(--bo-rail) + 6px);
+      left: calc(var(--ui-sidebar-rail) + 6px);
       z-index: 60;
       display: none;
       visibility: visible;
@@ -2662,7 +2643,7 @@
         margin: 0;
 
         &.active {
-          background: var(--bo-menu-active-bg);
+          background: var(--ui-menu-active-bg);
 
           &::before {
             display: none;

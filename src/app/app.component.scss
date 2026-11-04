@@ -3,8 +3,8 @@
 
 :host {
   // Shared with the navbar, sidebar and spinner, which line up with the page area
-  --app-navbar-height: 64px;
-  --app-sidebar-width: 256px;
+  --app-navbar-height: var(--ui-navbar-height);
+  --app-sidebar-width: var(--ui-sidebar-width);
 
   display: block;
 }
@@ -12,7 +12,7 @@
 // The sidebar narrowed to its icons, from the button in the navbar
 @media (min-width: 992px) {
   :host-context(.sidebar-icon-only) {
-    --app-sidebar-width: 72px;
+    --app-sidebar-width: var(--ui-sidebar-rail);
   }
 }
 

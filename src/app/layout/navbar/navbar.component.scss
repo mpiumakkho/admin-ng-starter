@@ -3,14 +3,9 @@
 :host {
   // The bar is see-through, so the page shows softly as it scrolls under. In light mode it is white and its
   // fields sink into it; in dark mode it takes the page color and its fields stand out.
-  --navbar-surface: var(--ui-surface);
+  --navbar-surface: var(--ui-navbar-surface);
   --navbar-bg: color-mix(in srgb, var(--navbar-surface) 80%, transparent);
-  --navbar-control: var(--ui-hover);
-}
-
-:host-context(.theme-dark) {
-  --navbar-surface: var(--ui-bg);
-  --navbar-control: var(--ui-surface);
+  --navbar-control: var(--ui-navbar-control);
 }
 
 .navbar {

@@ -79,6 +79,17 @@
   --ui-duration-fast: 150ms;
   --ui-duration: 250ms;
   --ui-duration-slow: 300ms;
+  // The dashboard's frame, one for the admin and its workspaces (the back office): the bar along the top, the menu
+  // beside the page (wide, and narrowed to its icons), the bar's surface and controls, and the current page in the menu
+  --ui-navbar-height: 64px;
+  --ui-sidebar-width: 256px;
+  --ui-sidebar-rail: 72px;
+  --ui-navbar-surface: var(--ui-surface);
+  --ui-navbar-control: var(--ui-hover);
+  // The current page: navy on a blue-grey tint
+  --ui-menu-active-bg: #e7e8f6;
+  --ui-menu-active-text: #000572;
+  --ui-menu-accent: #000572;
   // The size of the whole UI (UiScaleService sets --ui-zoom on <html>: 1, 1.1 or 1.25). Zoom enlarges 100vh and 100vw
   // with everything else, past the window's edges; what fills the window or keeps clear of its edges uses these.
   --ui-zoom: 1;
@@ -134,6 +145,12 @@ body > ui-prompt-dialog {
   --ui-shadow-lg: 0 20px 40px -12px rgba(0, 0, 0, .7);
   --ui-focus: #818cf8;
   --ui-ring: 0 0 0 2px var(--ui-surface), 0 0 0 4px var(--ui-focus);
+  // The bar takes the page color and its fields stand out; the current page: white on a lighter slate, an indigo icon
+  --ui-navbar-surface: var(--ui-bg);
+  --ui-navbar-control: var(--ui-surface);
+  --ui-menu-active-bg: #334155;
+  --ui-menu-active-text: var(--ui-heading);
+  --ui-menu-accent: #818cf8;
 }
 
 /* Text fields: add the uiInput directive to <input>, <select> or <textarea> */

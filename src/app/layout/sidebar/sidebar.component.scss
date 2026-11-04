@@ -9,22 +9,17 @@ $icon-size: 1.125rem;
 // pages and the chevron, so the chevron turns in step with the pages instead of jumping most of the way at once
 $menu-motion: var(--ui-duration-slow) var(--ui-ease-standard);
 
-// The menu's colors come from the --ui variables, except the current page's own navy
+// The menu's colors come from the --ui variables, the current page's too (--ui-menu-*, shared with the back office)
 :host {
   --menu-text: var(--ui-neutral-text);
   --menu-icon: var(--ui-subtle);
-  // The current page: navy on a blue-grey tint
-  --menu-active-bg: #e7e8f6;
-  --menu-active-text: #000572;
-  --menu-accent: #000572;
+  --menu-active-bg: var(--ui-menu-active-bg);
+  --menu-active-text: var(--ui-menu-active-text);
+  --menu-accent: var(--ui-menu-accent);
 }
 
 :host-context(.theme-dark) {
   --menu-icon: var(--ui-muted);
-  // The current page: white on a lighter slate, with an indigo icon
-  --menu-active-bg: #334155;
-  --menu-active-text: var(--ui-heading);
-  --menu-accent: #818cf8;
 }
 
 .sidebar {
