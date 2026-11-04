@@ -22,6 +22,7 @@ import { BackofficeUi } from '../backoffice-ui';
 import { BackofficeStore } from '../backoffice.store';
 import { BoI18n, TxPipe } from '../i18n/bo-i18n';
 import { DialogHost } from './dialog-host';
+import { BackofficeSearch } from './search';
 import { BACKOFFICE_NAV, BRAND_ICON } from './nav';
 
 const percent = (scale: number) => `${Math.round(scale * 100)}%`;
@@ -42,7 +43,7 @@ const SWITCH_TO: Record<LanguageCode, string> = { th: 'เปลี่ยนเ�
   selector: 'app-backoffice-shell',
   imports: [
     RouterOutlet, RouterLink, RouterLinkActive, NgIcon, TxPipe, UiAvatar, UiMenu, UiMenuItem, UiMenuItemCheckbox, UiMenuDivider, UiMenuTrigger, UiTooltip,
-    RoleBadges, DialogHost, ContentAnimateDirective,
+    RoleBadges, DialogHost, ContentAnimateDirective, BackofficeSearch,
   ],
   templateUrl: './backoffice-shell.component.html',
   styleUrl: './backoffice.scss',

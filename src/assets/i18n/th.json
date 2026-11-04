@@ -46,6 +46,8 @@
     "Hide password":                "ซ่อนรหัสผ่าน",
     "Show password":                "แสดงรหัสผ่าน",
     "Language":                     "ภาษา",
+    "Switch to English":            "เปลี่ยนเป็นภาษาอังกฤษ",
+    "Switch to Thai":               "เปลี่ยนเป็นภาษาไทย",
     "Recent activity, new items":   "กิจกรรมล่าสุด มีรายการใหม่",
     "accountMenu":                  "เมนูบัญชีของ {{name}}",
     "Wrong email or password.":     "อีเมลหรือรหัสผ่านไม่ถูกต้อง",

@@ -12,7 +12,7 @@ test('emails come in the language someone last used the app in', async ({ page }
   await expect(language).toContainText('English');
 
   // Switching changes it too
-  await page.locator('.language-switch').getByText('TH', { exact: true }).click();
+  await page.getByRole('button', { name: 'EN · Switch to Thai' }).click();
   await expect(page.locator('ui-detail-item', { hasText: 'ภาษาของอีเมล' })).toContainText('ไทย');
 });
 

@@ -202,9 +202,8 @@
     }
   }
 
-  // On phones the language switch moves into the account menu
-  > .navbar-divider,
-  > .language-item {
+  // On phones the rule goes, the buttons closer together
+  > .navbar-divider {
     @media (max-width: 575px) {
       display: none;
     }
@@ -427,18 +426,23 @@
   }
 }
 
-/* Account button: photo, name and role; just the photo below 1200px */
+// The language in use, its code on the button that switches to the other (as the back office's)
+.language-code {
+  font: 600 .8125rem/1 var(--ui-font);
+  letter-spacing: .04em;
+}
+
+/* Account button: the photo alone; the name and role are in its menu's card */
 .user-button {
   display: inline-flex;
   align-items: center;
-  gap: .5rem;
+  justify-content: center;
+  width: 38px;
   height: 38px;
-  padding: 0 .625rem 0 .25rem;
+  padding: 0;
   border: 0;
-  border-radius: var(--ui-radius);
+  border-radius: 50%;
   background: transparent;
-  color: var(--ui-text);
-  font-weight: 500;
   transition: background-color .15s ease;
 
   &:hover,
@@ -450,46 +454,6 @@
     outline: none;
     box-shadow: var(--ui-ring);
   }
-
-  @media (max-width: 1199px) {
-    padding-inline-end: .25rem;
-  }
-}
-
-.user-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  max-width: 180px;
-  line-height: 1.25;
-  text-align: start;
-
-  @media (max-width: 1199px) {
-    display: none;
-  }
-}
-
-.user-name,
-.user-role {
-  max-width: 100%;
-  // Taller clipping box, same height: a role named in Thai keeps the marks above its letters
-  margin-block: -.25em;
-  padding-block: .25em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.user-name {
-  color: var(--ui-heading);
-  font-size: .8125rem;
-  font-weight: 600;
-}
-
-.user-role {
-  color: var(--ui-muted);
-  font-size: .6875rem;
-  font-weight: 500;
 }
 
 /* Menus. They open in an overlay outside the bar, so they use the --ui colors, which follow the theme. */

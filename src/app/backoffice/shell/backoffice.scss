@@ -331,17 +331,17 @@
   background: var(--ui-border);
 }
 
+// The account: the photo alone, as the admin's; the name and role are in its menu's card
 .backoffice .user-button {
   display: inline-flex;
   align-items: center;
-  gap: .5rem;
+  justify-content: center;
+  width: 38px;
   height: 38px;
-  padding: 0 .625rem 0 .25rem;
+  padding: 0;
   border: 0;
-  border-radius: var(--ui-radius);
+  border-radius: 50%;
   background: transparent;
-  color: var(--ui-text);
-  font-weight: 500;
   transition: background-color .15s ease;
 
   &:hover,
@@ -355,21 +355,198 @@
   }
 }
 
-.backoffice .user-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  max-width: 180px;
-  line-height: 1.25;
+/* ---------- the bar's search, as the admin's: on the left with its shortcut; on phones it opens over the bar ---------- */
+.backoffice .search-button {
+  display: none;
+}
 
-  .user-name {
-    font-size: 13px;
-    font-weight: 600;
+.backoffice .search-form {
+  position: relative;
+  display: flex;
+  flex: 0 1 420px;
+  align-items: center;
+  min-width: 0;
+  margin-inline-end: auto;
+}
+
+.backoffice .search-icon {
+  position: absolute;
+  inset-inline-start: .75rem;
+  color: var(--ui-subtle);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.backoffice .search-input {
+  display: block;
+  width: 100%;
+  height: 38px;
+  padding: 0 3.75rem 0 2.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius);
+  background: var(--ui-navbar-control);
+  color: var(--ui-heading);
+  font: inherit;
+  font-size: .8125rem;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+
+  &::placeholder {
+    color: var(--ui-subtle);
   }
 
-  .user-role {
-    color: var(--ui-muted);
-    font-size: 11px;
+  &:hover {
+    border-color: var(--ui-border);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--ui-focus);
+    background: var(--ui-navbar-surface);
+    box-shadow: 0 0 0 1px var(--ui-focus);
+  }
+
+  &::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.backoffice .search-shortcut {
+  position: absolute;
+  inset-inline-end: .5rem;
+  padding: .125rem .375rem;
+  border: 1px solid var(--ui-border);
+  border-radius: .3125rem;
+  background: var(--ui-navbar-surface);
+  color: var(--ui-muted);
+  font-family: var(--ui-font);
+  font-size: .6875rem;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.backoffice .search-close {
+  display: none;
+}
+
+// The pages and work the text matches, under the field
+.backoffice .search-results {
+  position: absolute;
+  inset: calc(100% + .375rem) 0 auto;
+  z-index: 40;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-lg);
+}
+
+.backoffice .search-result {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem .875rem;
+  color: var(--ui-text);
+  text-decoration: none;
+
+  &:hover,
+  &.active {
+    background: var(--ui-hover);
+  }
+
+  // The one picked with the arrow keys, as clear as a focus ring (WCAG 2.4.13)
+  &.active {
+    box-shadow: inset 3px 0 0 var(--ui-focus);
+  }
+}
+
+.backoffice .search-result-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface-muted);
+  color: var(--ui-muted);
+  font-size: 15px;
+}
+
+.backoffice .search-result-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.backoffice .search-result-name {
+  overflow: hidden;
+  color: var(--ui-heading);
+  font-size: .8125rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backoffice .search-result-detail {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: .75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backoffice .search-empty {
+  margin: 0;
+  padding: 1rem;
+  color: var(--ui-muted);
+  font-size: .8125rem;
+  text-align: center;
+}
+
+@container backoffice (max-width: 767px) {
+  .backoffice .search-button {
+    display: inline-flex;
+  }
+
+  // Opened, the field covers the whole bar, the logo too
+  .backoffice .navbar {
+    position: relative;
+  }
+
+  .backoffice .navbar-menu-wrapper {
+    position: static;
+  }
+
+  .backoffice .search-form {
+    display: none;
+
+    &.search-open {
+      position: absolute;
+      inset: 0 .75rem;
+      z-index: 2;
+      display: flex;
+      gap: .25rem;
+      // Solid, so the buttons it covers do not show through
+      background: var(--ui-navbar-surface);
+
+      .search-input {
+        padding-inline-end: .75rem;
+      }
+
+      .search-shortcut {
+        display: none;
+      }
+
+      .search-close {
+        display: inline-flex;
+        flex-shrink: 0;
+      }
+    }
+  }
+
+  .backoffice .search-results {
+    inset-inline: -.75rem;
+    border-radius: 0 0 var(--ui-radius-lg) var(--ui-radius-lg);
   }
 }
 
@@ -1255,14 +1432,6 @@
 
 /* ---------- narrower ---------- */
 @container backoffice (max-width: 1199px) {
-  .backoffice .user-text {
-    display: none;
-  }
-
-  .backoffice .user-button {
-    padding-inline-end: .25rem;
-  }
-
   .backoffice .split.with-drawer {
     grid-template-columns: minmax(0, 1fr) 320px;
   }

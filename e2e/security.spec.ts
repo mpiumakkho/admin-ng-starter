@@ -2,11 +2,12 @@ import { expect, test } from '@playwright/test';
 
 import { signInAs, signOut, start, totp } from './helpers';
 
-test('the header shows who is signed in and their role', async ({ page }) => {
+test('the header shows who is signed in as their photo; the name and role are in the name of its button and in its menu', async ({ page }) => {
   await start(page);
   await signInAs(page, 'Manager');
 
-  await expect(page.locator('.user-button .user-role')).toHaveText('Manager');
+  await expect(page.locator('.user-button ui-avatar')).toBeVisible();
+  await expect(page.locator('.user-button')).toHaveAttribute('aria-label', /Manager/);
   await expect(page.locator('#sidebar .nav-profile')).toHaveCount(0);
   await page.locator('.user-button').click();
   await expect(page.locator('.account-card')).toContainText('Manager');

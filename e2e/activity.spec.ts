@@ -10,9 +10,8 @@ async function rows(page: Page) {
 test('the account menu opens your own activity, and the cross on "About" shows everyone\'s again', async ({ page }) => {
   await start(page);
   await signInAs(page, 'Manager');
-  const name = (await page.locator('.user-button .user-name').textContent())!.trim();
-
   await page.locator('.user-button').click();
+  const name = (await page.locator('.account-menu .account-name').textContent())!.trim();
   await page.getByRole('menuitem', { name: 'My activity' }).click();
   await expect(page).toHaveURL(/\/activity\?user=u-/);
   await expect(page.getByRole('button', { name: `About: ${name}` })).toBeVisible();

@@ -1,8 +1,6 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
-import { BreakpointObserver } from '@angular/cdk/layout';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 import { afterNextRender, Component, computed, DestroyRef, DOCUMENT, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -26,7 +24,6 @@ import {
   lucideX,
 } from '@ng-icons/lucide';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { map } from 'rxjs';
 
 import { ActivityDialog } from '../../user-management/activity/activity-dialog.component';
 import {
@@ -37,11 +34,8 @@ import {
   UiMenuItem,
   UiAccessibleViewService,
   UiMenuItemCheckbox,
-  UiMenuItemRadio,
   UiMenuTrigger,
-  UiOption,
   UiScaleService,
-  UiSegmented,
   UiThemeService,
   UiTooltip,
 } from '../../user-management/ui';
@@ -50,7 +44,7 @@ import { ActivityText } from '../../user-management/shared/activity-text';
 import { RoleBadges } from '../../user-management/shared/badges';
 import { idleTimeoutLabel, TimeAgoPipe } from '../../user-management/shared/formatting';
 import { translationsChanged } from '../../user-management/shared/i18n';
-import { LanguageCode, LANGUAGES, LanguageService } from '../language.service';
+import { LANGUAGES, LanguageService } from '../language.service';
 import { SidebarState } from '../sidebar/sidebar-state';
 
 /** The most people the search shows as you type; the rest are a click away on the users list */
@@ -71,9 +65,7 @@ const ACTIVITY_SEEN_KEY = 'activity-seen';
     UiMenuHeading,
     UiMenuItem,
     UiMenuItemCheckbox,
-    UiMenuItemRadio,
     UiMenuTrigger,
-    UiSegmented,
     UiTooltip,
     ActivityDialog,
     ActivityText,
@@ -148,26 +140,20 @@ export class NavbarComponent {
     this.announcer.announce(this.scaleNow());
   }
 
-  /** Phones: the language switch moves from the bar into the account menu */
-  protected readonly isPhone = toSignal(
-    inject(BreakpointObserver).observe('(max-width: 575.98px)').pipe(map(state => state.matches)),
-    { initialValue: false },
-  );
-
   /* Language */
 
-  /** TH | EN on screen; each language's own name for screen readers, said in that language */
-  protected readonly languageOptions: UiOption<LanguageCode>[] = LANGUAGES.map(lang => ({
-    value: lang.code,
-    label: lang.code.toUpperCase(),
-    ariaLabel: lang.label,
-    lang: lang.code,
-  }));
+  /** The language in use, and what a press does: "TH · Switch to English" */
+  protected readonly languageLabel = computed(() => {
+    this.i18n();
+    return `${this.language.current().toUpperCase()} · ${this.translate.instant(this.otherLanguage() === 'en' ? 'Switch to English' : 'Switch to Thai')}`;
+  });
 
-  protected setLanguage(code: LanguageCode | null) {
-    if (code) {
-      this.language.use(code);
-    }
+  private otherLanguage() {
+    return LANGUAGES[(LANGUAGES.findIndex(lang => lang.code === this.language.current()) + 1) % LANGUAGES.length].code;
+  }
+
+  protected switchLanguage() {
+    this.language.use(this.otherLanguage());
   }
 
   /* Recent activity */

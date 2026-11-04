@@ -131,3 +131,29 @@ test('the menu narrows to its icons from the panel button in the navbar, as in t
   await expect(page.locator('.body.collapsed')).toHaveCount(0);
   await expect(menu.getByRole('button', { name: 'Inventory' })).toHaveAttribute('aria-expanded', 'true');
 });
+
+test('the search in the bar, as in the admin: Ctrl+K, a page picked with the arrow keys, and a piece of work by its number', async ({ page }) => {
+  await openBackoffice(page);
+  const search = page.getByRole('combobox', { name: 'Search BackOffice' });
+  const hits = page.getByRole('listbox', { name: 'Search BackOffice' }).getByRole('option');
+  await page.keyboard.press('Control+k');
+  await expect(search).toBeFocused();
+  await search.fill('invoices');
+  await expect(hits.first()).toContainText('Invoices');
+  await expectAccessible(page, 'the search');
+  await search.press('ArrowDown');
+  await expect(search).toHaveAttribute('aria-activedescendant', 'bo-search-0');
+  await search.press('Enter');
+  await expect(page).toHaveURL('/backoffice/finance/invoices');
+  await expect(search).toHaveValue('');
+
+  await search.fill('PAY-2609-0391');
+  const work = hits;
+  await expect(work).toHaveCount(1);
+  const href = await work.getAttribute('href');
+  await work.click();
+  await expect(page).toHaveURL(href!);
+
+  await search.fill('zzzz');
+  await expect(page.locator('.search-empty')).toHaveText('No pages or work match');
+});
