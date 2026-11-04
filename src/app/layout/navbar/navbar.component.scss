@@ -32,6 +32,21 @@
   // In step with the sidebar's width
   transition: width var(--ui-duration) var(--ui-ease-standard), background-color var(--ui-duration) ease;
 
+  // Narrowing, the logo stays put and its lettering slides under the edge: the mark (24px from the left) is centered
+  // in the narrowed menu's 72px, so it never moves
+  @media (min-width: 992px) {
+    overflow: hidden;
+
+    .brand-logo {
+      flex-shrink: 0;
+      transition: clip-path var(--ui-duration) var(--ui-ease-standard);
+
+      img {
+        max-width: none;
+      }
+    }
+  }
+
   // Below 992px the bar is one strip: menu button and logo on the left, see-through like the rest
   @media (max-width: 991px) {
     width: auto;
@@ -40,6 +55,13 @@
     border-inline-end: 0;
     background: var(--navbar-bg);
     backdrop-filter: saturate(180%) blur(12px);
+  }
+}
+
+// Narrowed, the mark alone: the lettering is cut away as the edge passes over it
+@media (min-width: 992px) {
+  :host-context(.sidebar-icon-only) .brand-logo {
+    clip-path: inset(0 calc(100% - 24px) 0 0);
   }
 }
 
@@ -140,9 +162,10 @@
   }
 }
 
-// Narrows the pinned sidebar to its icons
+// Narrows the pinned sidebar to its icons: first in the bar, by the menu's edge
 .navbar-toggler {
-  margin-inline-start: auto;
+  flex-shrink: 0;
+  margin-inline-start: -.75rem;
 
   @media (max-width: 991px) {
     display: none;
@@ -551,25 +574,6 @@
   color: var(--ui-muted);
   font-size: .75rem;
   line-height: 1.4;
-}
-
-/* Sidebar narrowed to its icons: only the button to widen it again */
-@media (min-width: 992px) {
-  :host-context(.sidebar-icon-only) {
-    .navbar-brand-wrapper {
-      justify-content: center;
-      padding: 0;
-    }
-
-    .brand-logo,
-    .brand-logo-mini {
-      display: none;
-    }
-
-    .navbar-toggler {
-      margin: 0;
-    }
-  }
 }
 
 /* Dark theme: the colors follow the --ui variables; only the logo changes */

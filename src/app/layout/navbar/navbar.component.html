@@ -10,11 +10,12 @@
       <img src="assets/images/logo-light.svg" alt="logo" class="logo-light">
     </a>
     <a class="navbar-brand brand-logo-mini" routerLink="/"><img src="assets/images/logo-mini.svg" alt="logo" /></a>
+  </div>
+  <div class="navbar-menu-wrapper">
+    <!-- Narrows the menu to its icons and back: first in the bar, by the menu's edge, so the logo never has to move -->
     <button class="navbar-toggler icon-button" type="button" (click)="toggleSidebar()" [title]="'Toggle menu' | translate" [attr.aria-label]="'Toggle menu' | translate">
       <ng-icon name="lucidePanelLeft" />
     </button>
-  </div>
-  <div class="navbar-menu-wrapper">
     <!-- Search on the left, where it is found first. On phones the search button opens it over the bar. -->
     @if (session.canSomewhere('users.view')) {
       <!-- People show as you type (an ARIA combobox): arrow keys pick one, Enter opens it, or the whole list when none is picked -->

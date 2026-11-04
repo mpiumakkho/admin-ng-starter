@@ -78,7 +78,7 @@ $menu-motion: var(--ui-duration-slow) var(--ui-ease-standard);
       }
     }
 
-    &.active:not(.navbar-brand-mini-wrapper) > .nav-link {
+    &.active > .nav-link {
       background: var(--menu-active-bg);
       color: var(--menu-active-text);
       font-weight: 600;
@@ -161,23 +161,6 @@ $menu-motion: var(--ui-duration-slow) var(--ui-ease-standard);
   letter-spacing: .04em;
   text-transform: uppercase;
   cursor: default;
-}
-
-/* Small logo, shown at the top of the icon-only sidebar */
-.menu > .navbar-brand-mini-wrapper {
-  display: none;
-
-  > .nav-link {
-    justify-content: center;
-    width: 100%;
-    margin: 0 0 .5rem;
-    padding: .5rem 0;
-
-    img {
-      width: 28px;
-      height: 28px;
-    }
-  }
 }
 
 /* A group's pages: the height eases open (grid rows from 0fr to 1fr, no measuring in script) while
@@ -371,10 +354,6 @@ $menu-motion: var(--ui-duration-slow) var(--ui-ease-standard);
 
       > .nav-category {
         display: none;
-      }
-
-      > .navbar-brand-mini-wrapper {
-        display: block;
       }
     }
   }

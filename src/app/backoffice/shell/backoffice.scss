@@ -154,7 +154,9 @@
   align-items: center;
   gap: 4px;
   width: var(--bo-sidebar-now);
-  padding: 0 .75rem 0 1.5rem;
+  // The logo (28px) 22px from the left, centered in the narrowed menu's 72px: narrowing, it stays put and the name
+  // slides under the edge
+  padding: 0 .75rem 0 22px;
   overflow: hidden;
   transition: width var(--bo-fold), background-color var(--ui-duration) ease;
   border-inline-end: 1px solid var(--ui-border);
@@ -166,18 +168,19 @@
   display: none;
 }
 
-// Narrows the menu to its icons, at the end of the brand, as the admin navbar's
+// Narrows the menu to its icons: first in the bar, by the menu's edge, as the admin's
 .backoffice .icon-button.navbar-toggler {
   flex: none;
-  margin-inline-start: auto;
+  align-self: center;
+  margin-inline-start: 12px;
   color: var(--ui-muted);
 }
 
 .backoffice .brand {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 10px;
-  min-width: 0;
   color: var(--ui-heading);
   font-size: 18px;
   font-weight: 800;
@@ -190,6 +193,15 @@
     outline: none;
     box-shadow: var(--ui-ring);
   }
+}
+
+.backoffice .brand-name {
+  transition: opacity var(--ui-duration-fast) ease;
+}
+
+// Narrowed, the logo alone; the name fades as the edge passes over it, still the link's name
+.backoffice.collapsed .brand-name {
+  opacity: 0;
 }
 
 .backoffice .brand-sub {
@@ -2653,33 +2665,6 @@
     }
   }
 
-  // The small logo at the top of the narrowed menu, as the admin's
-  .backoffice .brand-mini {
-    display: flex;
-    justify-content: center;
-    margin: 0 0 8px;
-    padding: 8px 0;
-    border-radius: var(--ui-radius);
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--ui-ring);
-    }
-  }
-
-  // Narrowed, only the button to widen it again, as the admin's navbar
-  .backoffice.collapsed .navbar-brand-wrapper {
-    justify-content: center;
-    padding: 0;
-
-    .brand {
-      display: none;
-    }
-
-    .navbar-toggler {
-      margin: 0;
-    }
-  }
 }
 
 @keyframes bo-flyout-in {

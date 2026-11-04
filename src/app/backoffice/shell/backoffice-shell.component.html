@@ -10,12 +10,12 @@
       <span class="logo" aria-hidden="true"><ng-icon [svg]="icons.brand" /></span>
       <span class="brand-name">SLV <span class="brand-sub">BackOffice</span></span>
     </a>
-    <!-- Narrows the menu to its icons and back, as the admin navbar's button does -->
-    <button type="button" class="icon-button navbar-toggler" [attr.aria-label]="(collapsed() ? 'ขยายเมนู' : 'ย่อเมนู') | tx" [attr.title]="(collapsed() ? 'ขยายเมนู' : 'ย่อเมนู') | tx"
-      aria-controls="backoffice-sidebar" (click)="toggleCollapsed()">
-      <ng-icon [svg]="icons.collapse" aria-hidden="true" />
-    </button>
   </div>
+  <!-- Narrows the menu to its icons and back: first in the bar, by the menu's edge, as the admin's -->
+  <button type="button" class="icon-button navbar-toggler" [attr.aria-label]="(collapsed() ? 'ขยายเมนู' : 'ย่อเมนู') | tx" [attr.title]="(collapsed() ? 'ขยายเมนู' : 'ย่อเมนู') | tx"
+    aria-controls="backoffice-sidebar" (click)="toggleCollapsed()">
+    <ng-icon [svg]="icons.collapse" aria-hidden="true" />
+  </button>
 
   <!-- The tenant and hospital the work is in -->
   <div class="context" [attr.title]="'บริบท: tenant และโรงพยาบาลตาม M14' | tx">
@@ -93,10 +93,6 @@
   <!-- The spec's menu groups, those with a page: one open at a time, the current page's; folded to its icons, each
        group shows its pages beside it on hover or focus (as the admin's) -->
   <nav class="sidebar" id="backoffice-sidebar" [class.open]="menuOpen()" [attr.aria-label]="'เมนูหลัก' | tx">
-    <!-- Narrowed, the small logo heads the menu, as the admin's -->
-    @if (folded()) {
-      <a class="brand-mini" routerLink="/backoffice" aria-label="SLV BackOffice"><span class="logo" aria-hidden="true"><ng-icon [svg]="icons.brand" /></span></a>
-    }
     @for (group of groups; track group.key) {
       <div class="nav-group" [class.open]="!folded() && openKey() === group.key" [class.current]="activeKey() === group.key"
         (mouseenter)="folded() && showFlyout(group.key, $event)" (mouseleave)="folded() && hideFlyout()">
